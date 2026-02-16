@@ -34,7 +34,7 @@ export class ContextMenu {
         }
 
         this.container = this.scene.add.container(worldX + offsetX, worldY + offsetY);
-        this.container.setDepth(100);
+        this.container.setDepth(195);
         this.isOpen = true;
 
         options.forEach((opt, index) => {
@@ -58,11 +58,18 @@ export class ContextMenu {
             bg.on('pointerout', () => bg.setFillStyle(0x222222, 0.9));
 
             bg.on('pointerdown', (pointer) => {
-                if (pointer.leftButtonDown()) {
-                    const action = opt.action;
-                    this.hide();
-                    if (onSelect) onSelect(action);
+                const isPrimaryInput = pointer.leftButtonDown() ||
+                    pointer.button === 0 ||
+                    pointer.wasTouch === true ||
+                    pointer.pointerType === 'touch';
+                if (!isPrimaryInput) return;
+
+                const action = opt.action;
+                this.hide();
+                if (this.scene.inputHandler) {
+                    this.scene.inputHandler.consumeMenuClick();
                 }
+                if (onSelect) onSelect(action);
             });
 
             this.container.add([bg, label]);

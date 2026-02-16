@@ -12,17 +12,30 @@ export class BulletPool extends Phaser.Physics.Arcade.Group {
             visible: false,
             key: 'bullet'
         });
-
-        this.lastFiredTime = 0;
     }
 
-    fire(x, y, angle, time) {
-        if (time - this.lastFiredTime < CONFIG.FIRE_RATE) return;
-
+    fire(x, y, angle, time, weaponDef) {
         const bullet = this.getFirstDead(false);
         if (bullet) {
-            bullet.fire(x, y, angle, time);
-            this.lastFiredTime = time;
+            bullet.fire(x, y, angle, time, weaponDef);
+            return true;
         }
+        return false;
+    }
+
+    fireSpread(x, y, centerAngle, time, weaponDef) {
+        const count = weaponDef.bulletsPerShot;
+        const totalSpread = weaponDef.spreadAngle;
+        const startAngle = centerAngle - totalSpread / 2;
+        const step = count > 1 ? totalSpread / (count - 1) : 0;
+        let firedCount = 0;
+
+        for (let i = 0; i < count; i++) {
+            const angle = startAngle + step * i;
+            if (this.fire(x, y, angle, time, weaponDef)) {
+                firedCount++;
+            }
+        }
+        return firedCount;
     }
 }

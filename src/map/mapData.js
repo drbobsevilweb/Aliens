@@ -8,58 +8,37 @@ export const FLOOR_DATA = Array.from({ length: H }, () => Array(W).fill(CONFIG.T
 
 // Wall layer: -1 = no tile (open), 1 = wall tile
 function generateWalls() {
-    const d = Array.from({ length: H }, () => Array(W).fill(-1));
+    const d = Array.from({ length: H }, () => Array(W).fill(CONFIG.TILE_WALL));
 
-    // Helper: draw horizontal wall
-    function hWall(y, x1, x2) {
-        for (let x = x1; x <= x2; x++) d[y][x] = CONFIG.TILE_WALL;
+    function carveRect(x1, y1, x2, y2) {
+        for (let y = y1; y <= y2; y++) {
+            for (let x = x1; x <= x2; x++) {
+                d[y][x] = -1;
+            }
+        }
     }
-    // Helper: draw vertical wall
-    function vWall(x, y1, y2) {
-        for (let y = y1; y <= y2; y++) d[y][x] = CONFIG.TILE_WALL;
-    }
 
-    // Border walls
-    hWall(0, 0, W - 1);        // top
-    hWall(H - 1, 0, W - 1);    // bottom
-    vWall(0, 0, H - 1);        // left
-    vWall(W - 1, 0, H - 1);    // right
+    // 6-room layout (3 top, 3 bottom), larger rooms for testing
+    carveRect(2, 2, 10, 9);    // Room 1
+    carveRect(16, 2, 24, 9);   // Room 2
+    carveRect(30, 2, 38, 9);   // Room 3
+    carveRect(2, 15, 10, 23);  // Room 4
+    carveRect(16, 15, 24, 23); // Room 5
+    carveRect(30, 15, 38, 23); // Room 6
 
-    // Room 1 divider (vertical wall with gap at rows 8-9)
-    vWall(13, 1, 7);    // upper section
-    // gap at y=8,9 (corridor)
-    // no lower section — opens to central area
-
-    // Room 2 enclosure (bottom-right area)
-    vWall(20, 5, 8);     // left wall of room 2 upper
-    hWall(5, 20, 28);    // top wall of room 2
-    vWall(20, 5, 14);    // left wall full
-    // gap at y=9,10 on x=20 for corridor
-    hWall(14, 13, 21);   // bottom wall of inner section
-
-    // Interior pillar in central area
-    hWall(11, 10, 15);
-    vWall(10, 11, 13);
-    vWall(16, 11, 13);
-    hWall(13, 10, 13);
-
-    // Clear the corridors (ensure gaps)
-    // Gap in room 1 divider
-    d[8][13] = -1;
-    d[9][13] = -1;
-
-    // Gap in room 2 left wall
-    d[9][20] = -1;
-    d[10][20] = -1;
-
-    // Gap in bottom inner wall
-    d[14][15] = -1;
-    d[14][16] = -1;
+    // 6 corridors (width = 2 tiles), with longer runs between room doors
+    carveRect(12, 5, 14, 6);   // C1: Room 1 <-> Room 2
+    carveRect(26, 5, 28, 6);   // C2: Room 2 <-> Room 3
+    carveRect(12, 18, 14, 19); // C3: Room 4 <-> Room 5
+    carveRect(26, 18, 28, 19); // C4: Room 5 <-> Room 6
+    carveRect(20, 11, 21, 13); // C5: Room 2 <-> Room 5
+    carveRect(5, 11, 6, 13);   // C6: Room 1 <-> Room 4
 
     return d;
 }
 
 export const WALL_DATA = generateWalls();
 
-// Spawn point (inside room 1)
-export const SPAWN_TILE = { x: 4, y: 3 };
+// Spawn in Room 1, extraction in Room 6
+export const SPAWN_TILE = { x: 5, y: 5 };
+export const EXTRACTION_TILE = { x: 34, y: 19 };

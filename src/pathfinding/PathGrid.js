@@ -5,6 +5,7 @@ export class PathGrid {
         this.width = mapWidth;
         this.height = mapHeight;
         this.grid = [];
+        this.revision = 0;
 
         for (let y = 0; y < mapHeight; y++) {
             this.grid[y] = [];
@@ -17,7 +18,10 @@ export class PathGrid {
 
     setWalkable(x, y, walkable) {
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-            this.grid[y][x] = walkable;
+            if (this.grid[y][x] !== walkable) {
+                this.grid[y][x] = walkable;
+                this.revision++;
+            }
         }
     }
 
@@ -38,5 +42,9 @@ export class PathGrid {
             x: tileX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
             y: tileY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2
         };
+    }
+
+    getRevision() {
+        return this.revision;
     }
 }

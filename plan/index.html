@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS Plan + Editors</title>
+    <style>
+        :root {
+            --bg: #0b1014;
+            --panel: #121b23;
+            --line: #253545;
+            --text: #e8f1fa;
+            --muted: #8ea5bc;
+            --accent: #7dd3fc;
+            --ok: #6ee7b7;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(1200px 600px at 20% -20%, #18314a66, transparent 65%), var(--bg);
+            color: var(--text);
+            font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        }
+        .wrap { max-width: 1260px; margin: 0 auto; padding: 20px 16px 56px; }
+        h1 { margin: 0; font-size: 30px; }
+        .sub { color: var(--muted); margin-top: 8px; }
+        .toolbar {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .tabs {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: 1px solid var(--line);
+            background: #1a2734;
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover { background: #213244; }
+        button.active { border-color: var(--accent); color: var(--accent); }
+        .status { color: var(--ok); font-size: 13px; }
+        .tab-panel { display: none; margin-top: 14px; }
+        .tab-panel.active { display: block; }
+
+        .grid {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 12px;
+        }
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px;
+            min-height: 220px;
+        }
+        .section h2 {
+            margin: 0 0 8px;
+            color: var(--accent);
+            font-size: 18px;
+        }
+        .editable {
+            width: 100%;
+            min-height: 150px;
+            resize: vertical;
+            border-radius: 8px;
+            border: 1px solid #2a3f52;
+            background: #0f161e;
+            color: var(--text);
+            padding: 10px;
+            font: 14px/1.45 "IBM Plex Mono", "Cascadia Code", monospace;
+        }
+        .footer {
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .editor-shell {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: hidden;
+            min-height: 76vh;
+            background: #0d141b;
+        }
+        .editor-frame {
+            width: 100%;
+            min-height: 76vh;
+            border: 0;
+            background: #0d141b;
+        }
+        .ref-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+        .ref-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .ref-card h3 { margin: 0 0 8px; color: var(--accent); }
+        .ref-card p { margin: 0 0 8px; color: var(--muted); }
+        .ref-card a { color: #a8e0ff; text-decoration: none; }
+        a { color: #9edfff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>ALIENS Plan + Editors</h1>
+        <div class="sub">Routes: <a href="/game">/game</a> | <a href="/plan">/plan</a> | <a href="/editors">/editors</a> | <a href="/settings">/settings</a>. Plan and editors save locally in browser storage.</div>
+
+        <div class="tabs">
+            <button class="active" data-tab="gameplay">Gameplay Plan</button>
+            <button data-tab="editors">Dev Editors</button>
+            <button data-tab="references">Reference Models</button>
+        </div>
+
+        <section id="tab-gameplay" class="tab-panel active">
+            <div class="toolbar">
+                <button id="saveBtn">Save Now</button>
+                <button id="resetBtn">Reset To Template</button>
+                <span class="status" id="status">Not saved yet</span>
+            </div>
+            <div class="grid" id="sections"></div>
+            <div class="footer">Editable per browser/device. Use export in Dev Editors tab for JSON snapshots.</div>
+        </section>
+
+        <section id="tab-editors" class="tab-panel">
+            <div class="editor-shell">
+                <iframe id="editorFrame" class="editor-frame" title="ALIENS Dev Editors" loading="lazy" src="/editors"></iframe>
+            </div>
+        </section>
+
+        <section id="tab-references" class="tab-panel">
+            <div class="ref-grid">
+                <article class="ref-card">
+                    <h3>GameMaker Sprite Workflow</h3>
+                    <p>Frame-based sprite timeline, per-sprite origin, and preview-speed controls map directly to tactical sprite pipeline tasks.</p>
+                    <a href="https://gamemaker.io/en/tutorials/sprite-editor" target="_blank" rel="noreferrer">Sprite Editor Tutorial</a><br>
+                    <a href="https://manual.gamemaker.io/monthly/en/The_Asset_Editors/Sprites.htm" target="_blank" rel="noreferrer">Sprite Editor Manual</a>
+                </article>
+                <article class="ref-card">
+                    <h3>Aseprite Animation Model</h3>
+                    <p>Onion skin + timeline operations are strong defaults for hand-tuned combat animation readability.</p>
+                    <a href="https://www.aseprite.org/docs/animation/" target="_blank" rel="noreferrer">Animation Docs</a><br>
+                    <a href="https://www.aseprite.org/docs/onion-skinning/" target="_blank" rel="noreferrer">Onion Skin Docs</a>
+                </article>
+                <article class="ref-card">
+                    <h3>Tiled Map Editing Model</h3>
+                    <p>Brush/erase/fill shortcuts and layered map painting are proven for level production speed.</p>
+                    <a href="https://doc.mapeditor.org/manual/editing-tile-layers/" target="_blank" rel="noreferrer">Tile Layer Editing Manual</a>
+                </article>
+                <article class="ref-card">
+                    <h3>Piskel Browser Editor Model</h3>
+                    <p>Good benchmark for lightweight web sprite editing and timeline-first animation UX.</p>
+                    <a href="https://www.piskelapp.com/" target="_blank" rel="noreferrer">Piskel Web Editor</a><br>
+                    <a href="https://github.com/piskelapp/piskel" target="_blank" rel="noreferrer">Piskel Source (Apache-2.0)</a>
+                </article>
+                <article class="ref-card">
+                    <h3>Phaser Scene-Tool Model</h3>
+                    <p>Useful reference for visual scene workflows that still export Phaser-centric project structure.</p>
+                    <a href="https://phaser.io/editor" target="_blank" rel="noreferrer">Phaser Editor Overview</a>
+                </article>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'aliens_gameplay_plan_v2';
+        const TEMPLATE = {
+            overview: `XENO-PROTO: Corridor Ops\n- Top-down squad tactical shooter (Aliens-inspired action horror).\n- Player wins by controlling space and information.\n- CRT retro sci-fi presentation and rising tension.`,
+            movement_pathing: `Core Controls\n- Right-click floor: move leader.\n- Left-click hold: shoot.\n- Leader rotates to mouse.\n- Followers react to leader movement only.`,
+            squad_ai: `Squad\n- Staggered follow delay: ~0.24s.\n- Diamond formation when stopped.\n- Leader ~10% faster than followers.\n- Overlap allowed if space is constrained.`,
+            weapons_combat: `Combat & Acid\n- Dead marines stay dead. Leader death = game over.\n- Acid persists ~5s, damages marines, forces reposition.\n- UI/audio emphasize threat escalation.`,
+            enemies: `Enemy Gameplay Elements\nWarrior\n- Aggro patrol, swarm/flank behavior.\n- Door pressure behavior.\n\nDrone\n- Assassin role, vent repositioning, unlocked-door opening.\n\nFacehugger\n- Randomized attack vectors, leap + latch pattern.\n\nEggs\n- Cluster spawners, max 2 open at once, proximity trigger.\n\nQueens\n- Lesser Queen: larger elite hunter.\n- Full Queen: can breach all door states including locked/welded.`,
+            doors: `Doors\n- RMB once on door: hint popup.\n- RMB twice: full menu.\n- Actions: Open, Close, Hack, Weld, Unweld.\n- Timed specialist tasks are interruptible.\n- Leader side priority regroup before close/weld.`,
+            map_flow: `Lighting, Visibility, Tracker\n- Base darkness: 50%.\n- Flashlights always on with hard shadows.\n- Aliens: partial reveal -> full reveal (2s) -> fade out.\n- Tracker: exponential beeps by on-screen hostiles.\n- Scan model: 2s reveal, 6s risk lock, 30s cooldown.`,
+            telemetry: `Morale / Healing / Safe Rooms\n- Morale per marine starts at 0, drifts toward baseline over time.\n- Kills +5, damage -10, influences accuracy/panic/heat.\n- Medic heals to 80%, others to 50%, channel interrupted on hit.\n- Med Labs heal squad to 80%, 5 min cooldown, aliens blocked.`,
+            audio_atmosphere: `Audio & Atmosphere Roadmap\nSFX Layers\n- Marine VO callouts (spotting, panic, confirmations, orders).\n- Xeno movement stingers (vents, skitter, hiss, pounce).\n- Door pressure/breach impacts by direction and distance.\n- Gun + ricochet + acid impact hierarchy with indoor reverb profile.\n\nMusic / Dynamic Score\n- Low ambient drone at baseline pressure.\n- Percussive tension layer ramps during combat peaks.\n- Stinger triggers: first sighting, queen reveal, breach, objective complete.\n- Mission-end resolve cue (victory/defeat variants).\n\nScripting Hooks\n- Event-based audio triggers via combat director telemetry.\n- Mission-specific cue sets and intensity curves.\n- Accessibility/comfort presets (quiet, tactical, cinematic).`,
+            editors_cms: `Editors / CMS Roadmap (Post-Gameplay Lock)\nGoal\n- Build a cohesive game-CMS so missions/content can be built with minimal coding.\n\nCore Editors\n1. Mission/Map Editor (Tiled-style workflow)\n- Paint floor/walls/markers/doors on grid.\n- Multi-layer editing, brush/fill/erase, snap and collision previews.\n- 5 mission templates wired to current runtime format.\n\n2. Sprite & Animation Editor\n- Import PNG sheets and sequence frames.\n- Per-frame timing, tags, hitbox/anchor, onion-skin preview.\n- Export directly into game spriteAnimation/runtime settings.\n\n3. Director Editor\n- Timeline + trigger graph for spawns/events/objectives.\n- Conditions: timer, wave state, zone entry, kill count, pressure thresholds.\n- Actions: spawn packs, door state changes, VO cues, lighting changes, music states.\n\n4. Sound + Music Editor\n- SFX library with category tagging and trigger binding.\n- Music layering by threat state (idle/build/peak/release).\n- Integrate with Director events for atmospheric incidents.\n\nUX / CMS Shell\n- Modern cohesive UI with dark/light themes.\n- Shared navigation, searchable assets, drag/drop panels.\n- Save/load/export mission packs and presets.\n- Media preview for images/animations/sound in-place.`,
+            backlog: `Progression / Audio / Dev Practices\n1. 5-6 story missions across five base levels.\n2. Auto-save between missions.\n3. Ambient music ramps with danger.\n4. External events + modular logic + debug toggles.`,
+        };
+
+        const SECTION_ORDER = [
+            ['overview', 'Overview'],
+            ['movement_pathing', 'Movement & Pathing'],
+            ['squad_ai', 'Squad AI'],
+            ['weapons_combat', 'Weapons & Combat'],
+            ['enemies', 'Enemy Roster'],
+            ['doors', 'Door Systems'],
+            ['map_flow', 'Map Flow'],
+            ['telemetry', 'Telemetry'],
+            ['audio_atmosphere', 'Audio & Atmosphere'],
+            ['editors_cms', 'Editors & CMS'],
+            ['backlog', 'Backlog'],
+        ];
+
+        const status = document.getElementById('status');
+        const root = document.getElementById('sections');
+
+        function load() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return { ...TEMPLATE };
+                const parsed = JSON.parse(raw);
+                return { ...TEMPLATE, ...parsed };
+            } catch (_) {
+                return { ...TEMPLATE };
+            }
+        }
+
+        function save(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            status.textContent = `Saved ${new Date().toLocaleTimeString()}`;
+        }
+
+        function collect() {
+            const data = {};
+            for (const [key] of SECTION_ORDER) {
+                const el = document.getElementById(`field_${key}`);
+                data[key] = el ? el.value : '';
+            }
+            return data;
+        }
+
+        function render(data) {
+            root.innerHTML = '';
+            for (const [key, label] of SECTION_ORDER) {
+                const section = document.createElement('section');
+                section.className = 'section';
+                section.innerHTML = `
+                    <h2>${label}</h2>
+                    <textarea class="editable" id="field_${key}">${data[key] || ''}</textarea>
+                `;
+                root.appendChild(section);
+            }
+            for (const [key] of SECTION_ORDER) {
+                const el = document.getElementById(`field_${key}`);
+                el.addEventListener('input', () => {
+                    save(collect());
+                });
+            }
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', () => save(collect()));
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (!confirm('Reset all sections to template?')) return;
+            render({ ...TEMPLATE });
+            save({ ...TEMPLATE });
+        });
+
+        document.querySelectorAll('[data-tab]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-tab]').forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.remove('active'));
+                document.getElementById(`tab-${tab}`).classList.add('active');
+            });
+        });
+
+        render(load());
+        status.textContent = 'Loaded and ready';
+    </script>
+</body>
+</html>

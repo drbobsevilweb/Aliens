@@ -6,14 +6,16 @@ export class InputHandler {
         this.isFiring = false;
         this.suppressFiring = false;
 
-        scene.input.on('pointerdown', (pointer) => {
+        this.pointerDownHandler = (pointer) => {
             if (pointer.rightButtonDown()) {
                 this.rightClickTarget = {
                     worldX: pointer.worldX,
                     worldY: pointer.worldY
                 };
             }
-        });
+        };
+
+        scene.input.on('pointerdown', this.pointerDownHandler);
     }
 
     update() {
@@ -36,5 +38,12 @@ export class InputHandler {
             worldX: this.pointer.worldX,
             worldY: this.pointer.worldY
         };
+    }
+
+    destroy() {
+        if (this.pointerDownHandler) {
+            this.scene.input.off('pointerdown', this.pointerDownHandler);
+            this.pointerDownHandler = null;
+        }
     }
 }

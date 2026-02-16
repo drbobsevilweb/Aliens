@@ -20,23 +20,27 @@ export class Door extends Phaser.Physics.Arcade.Sprite {
     open() {
         this.setTexture('door_open');
         this.body.enable = false;
+        this.body.checkCollision.none = true;
     }
 
     close() {
         this.setTexture('door_closed');
         this.body.enable = true;
+        this.body.checkCollision.none = false;
         this.body.updateFromGameObject();
     }
 
     showLocked() {
         this.setTexture('door_locked');
         this.body.enable = true;
+        this.body.checkCollision.none = false;
         this.body.updateFromGameObject();
     }
 
     showWelded() {
         this.setTexture('door_welded');
         this.body.enable = true;
+        this.body.checkCollision.none = false;
         this.body.updateFromGameObject();
     }
 }

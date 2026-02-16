@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS Dev Editors</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <h1>ALIENS Tools</h1>
+            <p class="sub">Sprite, Animation, Tilemaps, Missions</p>
+            <nav id="tabs" class="tabs">
+                <button data-tab="sprite" class="active">Sprite Editor</button>
+                <button data-tab="animation">Animation Editor</button>
+                <button data-tab="tilemap">Tilemap Editor</button>
+                <button data-tab="missions">Mission Planner</button>
+            </nav>
+            <div class="global-actions">
+                <button id="saveAllBtn">Save All</button>
+                <button id="exportBtn">Export JSON</button>
+                <label class="import-label">
+                    Import JSON
+                    <input id="importFile" type="file" accept="application/json">
+                </label>
+            </div>
+            <div id="status" class="status">Ready</div>
+            <div class="links">
+                <a href="/game">/game</a>
+                <a href="/plan">/plan</a>
+                <a href="/editors">/editors</a>
+                <a href="/settings">/settings</a>
+                <a href="https://gamemaker.io/en/tutorials/sprite-editor" target="_blank" rel="noreferrer">GameMaker Sprite Model</a>
+                <a href="https://doc.mapeditor.org/en/stable/manual/editing-tile-layers/" target="_blank" rel="noreferrer">Tiled Tilemap Model</a>
+                <a href="https://www.piskelapp.com/" target="_blank" rel="noreferrer">Piskel Model</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <section id="tab-sprite" class="panel active"></section>
+            <section id="tab-animation" class="panel"></section>
+            <section id="tab-tilemap" class="panel"></section>
+            <section id="tab-missions" class="panel"></section>
+        </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

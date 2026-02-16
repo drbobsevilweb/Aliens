@@ -1,28 +1,25 @@
-export class Bullet extends Phaser.Physics.Arcade.Sprite {
+export class AcidProjectile extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y) {
-        super(scene, x, y, 'bullet');
+        super(scene, x, y, 'acid_projectile');
         this.spawnTime = 0;
-        this.lifespan = 2000;
+        this.lifespan = 1200;
         this.damage = 0;
+        this.setDepth(12);
     }
 
-    fire(x, y, angle, time, weaponDef) {
+    fire(x, y, angle, time, speed, damage, lifespan) {
         this.body.reset(x, y);
         this.body.enable = true;
         this.body.checkCollision.none = false;
         this.setActive(true);
         this.setVisible(true);
-        this.setAlpha(0.92);
-        this.setTexture(weaponDef.bulletTexture);
-        this.body.setCircle(weaponDef.bulletSize);
-        this.setDepth(14);
         this.spawnTime = time;
-        this.lifespan = weaponDef.bulletLifespan;
-        this.damage = weaponDef.damage;
+        this.lifespan = lifespan;
+        this.damage = damage;
         this.setRotation(angle);
         this.body.setVelocity(
-            Math.cos(angle) * weaponDef.bulletSpeed,
-            Math.sin(angle) * weaponDef.bulletSpeed
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed
         );
     }
 

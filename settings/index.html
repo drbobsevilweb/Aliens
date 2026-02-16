@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ALIENS Settings Workbench</title>
+    <style>
+        :root {
+            --bg: #0b1116;
+            --panel: #101a22;
+            --panel-2: #0f171f;
+            --line: #274055;
+            --text: #e8f1fa;
+            --muted: #8ea6ba;
+            --accent: #7dd3fc;
+            --ok: #73e2b5;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(1000px 520px at 5% -25%, #20415f66, transparent 64%), var(--bg);
+            color: var(--text);
+            font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        }
+        .shell {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+        .sidebar {
+            border-right: 1px solid var(--line);
+            background: #0c151d;
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow: auto;
+        }
+        .sidebar h1 {
+            margin: 0;
+            font-size: 22px;
+            letter-spacing: 0.02em;
+        }
+        .sub {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.35;
+        }
+        .tabs {
+            margin-top: 14px;
+            display: grid;
+            gap: 6px;
+        }
+        .tab-btn {
+            text-align: left;
+            border: 1px solid #2a4153;
+            background: #142330;
+            color: var(--text);
+            border-radius: 8px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .tab-btn.active {
+            border-color: var(--accent);
+            color: #a7e5ff;
+            background: #173145;
+        }
+        .links {
+            margin-top: 14px;
+            display: grid;
+            gap: 4px;
+        }
+        .links a {
+            color: #a4dbf6;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .main {
+            padding: 16px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        button, .import-wrap {
+            border: 1px solid var(--line);
+            background: #172734;
+            color: var(--text);
+            border-radius: 8px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .import-wrap input { margin-left: 7px; }
+        .status { color: var(--ok); font-size: 13px; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .panel-title {
+            margin: 2px 0 10px;
+            font-size: 24px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 10px;
+        }
+        .card {
+            border: 1px solid var(--line);
+            background: var(--panel);
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .card h2 {
+            margin: 0 0 8px;
+            color: #98e0ff;
+            font-size: 16px;
+        }
+        .field {
+            border: 1px solid #1f3445;
+            border-radius: 8px;
+            padding: 7px;
+            margin-bottom: 7px;
+            background: var(--panel-2);
+        }
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .inputs {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 96px;
+            gap: 8px;
+            align-items: center;
+        }
+        input[type="range"] { width: 100%; }
+        input[type="number"] {
+            width: 100%;
+            background: #0d1720;
+            border: 1px solid #314d62;
+            color: var(--text);
+            border-radius: 6px;
+            padding: 6px;
+            font: 13px "IBM Plex Mono", monospace;
+        }
+        .footer {
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        @media (max-width: 920px) {
+            .shell { grid-template-columns: 1fr; }
+            .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <aside class="sidebar">
+            <h1>Settings Workbench</h1>
+            <div class="sub">GameMaker-style balancing workflow. Sliders + numbers, no code edits required.</div>
+            <nav id="tabs" class="tabs"></nav>
+            <div class="links">
+                <a href="/game">/game</a>
+                <a href="/plan">/plan</a>
+                <a href="/editors">/editors</a>
+                <a href="/settings">/settings</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="toolbar">
+                <button id="saveBtn">Save</button>
+                <button id="resetBtn">Reset Defaults</button>
+                <button id="exportBtn">Export JSON</button>
+                <label class="import-wrap">Import JSON <input id="importFile" type="file" accept="application/json" /></label>
+                <span id="status" class="status">Ready</span>
+            </div>
+            <div id="panels"></div>
+            <div class="footer">Sprite/animation deep workflow remains in <a href="/editors" style="color:#9edfff;text-decoration:none;">/editors</a>. This page centralizes gameplay tuning and content-control variables.</div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { loadRuntimeSettings, saveRuntimeSettings, resetRuntimeSettings } from '../src/settings/runtimeSettings.js';
+
+        const TABS = [
+            {
+                id: 'marines',
+                label: 'Marines',
+                sections: [
+                    {
+                        title: 'Leader & Squad',
+                        fields: [
+                            ['player.leaderSpeed', 'Leader Speed', 40, 600, 1],
+                            ['player.leaderTurnSpeed', 'Leader Turn Speed', 1, 40, 0.1],
+                            ['player.maxHealth', 'Leader Max HP', 1, 9999, 1],
+                            ['player.startHealth', 'Leader Start HP', 1, 9999, 1],
+                            ['squad.snakeStaggerMs', 'Stagger Follow (ms)', 0, 2000, 10],
+                            ['squad.formupSpeed', 'Form-up Speed', 80, 500, 1],
+                            ['squad.minSpacing', 'Follower Min Spacing', 4, 120, 1],
+                        ],
+                    },
+                    {
+                        title: 'Marine Combat Roles',
+                        fields: [
+                            ['marines.heavyAccuracyMul', 'Heavy Accuracy', 0.2, 3, 0.01],
+                            ['marines.techAccuracyMul', 'Tech Accuracy', 0.2, 3, 0.01],
+                            ['marines.medicAccuracyMul', 'Medic Accuracy', 0.2, 3, 0.01],
+                            ['marines.heavyReactionMs', 'Heavy Reaction (ms)', 50, 2000, 1],
+                            ['marines.techReactionMs', 'Tech Reaction (ms)', 50, 3000, 1],
+                            ['marines.medicReactionMs', 'Medic Reaction (ms)', 50, 4000, 1],
+                            ['marines.heavyJamSensitivity', 'Heavy Jam Sensitivity', 0.1, 3, 0.01],
+                            ['marines.techJamSensitivity', 'Tech Jam Sensitivity', 0.1, 3, 0.01],
+                            ['marines.medicJamSensitivity', 'Medic Jam Sensitivity', 0.1, 3, 0.01],
+                        ],
+                    },
+                    {
+                        title: 'Morale',
+                        fields: [
+                            ['marines.moraleKillGain', 'Morale Gain On Kill', 0, 30, 1],
+                            ['marines.moraleDamageLoss', 'Morale Loss On Damage', 0, 50, 1],
+                            ['marines.moraleRecoverMinMs', 'Recover Min (ms)', 1000, 120000, 100],
+                            ['marines.moraleRecoverMaxMs', 'Recover Max (ms)', 1000, 180000, 100],
+                            ['marines.panicKillGain', 'Panic Kill Gain', 0, 50, 0.5],
+                            ['marines.panicObjectiveGain', 'Panic Objective Gain', 0, 50, 0.5],
+                            ['marines.panicCalmPerSec', 'Panic Calm / Sec', 0.5, 40, 0.1],
+                            ['marines.panicSelfHitLoss', 'Panic Loss On Self Hit', 0, 80, 0.5],
+                            ['marines.panicAllyHitLoss', 'Panic Loss On Ally Hit', 0, 40, 0.5],
+                            ['marines.panicLowHealthPerSec', 'Panic Low HP / Sec', 0, 50, 0.1],
+                            ['marines.panicSwarmPerSec', 'Panic Swarm / Sec', 0, 50, 0.1],
+                            ['marines.incomingDamageMul', 'Marine Incoming Damage Mul', 0.2, 2, 0.01],
+                            ['marines.leaderIncomingDamageMul', 'Leader Incoming Damage Mul', 0.2, 2, 0.01],
+                            ['marines.heavyIncomingDamageMul', 'Heavy Incoming Damage Mul', 0.2, 2, 0.01],
+                            ['marines.techIncomingDamageMul', 'Tech Incoming Damage Mul', 0.2, 2, 0.01],
+                            ['marines.medicIncomingDamageMul', 'Medic Incoming Damage Mul', 0.2, 2, 0.01],
+                            ['marines.focusFireGraceMs', 'Focus Fire Grace (ms)', 100, 4000, 10],
+                            ['marines.focusFireGraceMul', 'Focus Fire Grace Mul', 0.1, 1, 0.01],
+                            ['marines.maxHitPctOfMaxHp', 'Max Hit % Of Max HP', 0.04, 0.5, 0.01],
+                            ['marines.lowHpMitigationStartPct', 'Low HP Mitigation Start %', 0.1, 0.8, 0.01],
+                            ['marines.lowHpMitigationMulMin', 'Low HP Mitigation Min Mul', 0.2, 1, 0.01],
+                            ['marines.radioUnderAttackMinMs', 'Radio Attack Cooldown (ms)', 200, 12000, 10],
+                            ['marines.radioAmbientMinMs', 'Radio Ambient Min (ms)', 400, 15000, 10],
+                            ['marines.radioAmbientMaxMs', 'Radio Ambient Max (ms)', 400, 24000, 10],
+                            ['marines.radioUnderAttackChance', 'Radio Attack Chance', 0, 1, 0.01],
+                            ['marines.radioAmbientChance', 'Radio Ambient Chance', 0, 1, 0.01],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'enemies',
+                label: 'Enemies',
+                sections: [
+                    {
+                        title: 'Global Enemy Tuning',
+                        fields: [
+                            ['enemies.globalHealthScale', 'Global Health Scale', 0.1, 3, 0.01],
+                            ['enemies.globalSpeedScale', 'Global Speed Scale', 0.2, 3, 0.01],
+                            ['enemies.globalDamageScale', 'Global Damage Scale', 0.1, 3, 0.01],
+                            ['enemies.types.warrior.healthMultiplier', 'Warrior HP Mult', 0.1, 5, 0.01],
+                            ['enemies.types.warrior.speedMultiplier', 'Warrior Speed Mult', 0.1, 5, 0.01],
+                            ['enemies.types.warrior.damageMultiplier', 'Warrior Damage Mult', 0.1, 5, 0.01],
+                        ],
+                    },
+                    {
+                        title: 'Hit Slow & Combat Feel',
+                        fields: [
+                            ['enemies.hitSlowMinPct', 'Hit Slow Min %', 0, 95, 1],
+                            ['enemies.hitSlowMaxPct', 'Hit Slow Max %', 0, 99, 1],
+                            ['enemies.hitSlowDurationMinMs', 'Slow Min Duration (ms)', 40, 3000, 1],
+                            ['enemies.hitSlowDurationMaxMs', 'Slow Max Duration (ms)', 40, 5000, 1],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'objects',
+                label: 'Objects',
+                sections: [
+                    {
+                        title: 'Doors & Interactions',
+                        fields: [
+                            ['doors.integrityHits', 'Door Integrity Hits', 1, 20, 1],
+                            ['doors.hackDurationMs', 'Hack Duration (ms)', 100, 20000, 1],
+                            ['doors.weldDurationMs', 'Weld Duration (ms)', 100, 20000, 1],
+                            ['doors.unweldDurationMs', 'Unweld Duration (ms)', 100, 20000, 1],
+                        ],
+                    },
+                    {
+                        title: 'Pickups & Acid',
+                        fields: [
+                            ['objects.acidDurationMs', 'Acid Duration (ms)', 100, 30000, 10],
+                            ['objects.acidDamagePerSec', 'Acid Damage / Sec', 0, 100, 0.5],
+                            ['objects.pickupRespawnMs', 'Pickup Respawn (ms)', 0, 120000, 100],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'walls',
+                label: 'Walls',
+                sections: [
+                    {
+                        title: 'Wall/Blocker Behavior',
+                        fields: [
+                            ['walls.doorLightBlockStrength', 'Door Light Block Strength', 0, 3, 0.01],
+                            ['walls.lightPenetrationPct', 'Wall Contact Light Penetration', 0, 0.8, 0.01],
+                            ['walls.wallCollisionHardness', 'Wall Collision Hardness', 0, 3, 0.01],
+                            ['walls.ricochetSparkIntensity', 'Ricochet Spark Intensity', 0, 3, 0.01],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'other',
+                label: 'Other',
+                sections: [
+                    {
+                        title: 'UI & Quality of Life',
+                        fields: [
+                            ['other.uiScale', 'UI Scale', 0.5, 2, 0.01],
+                            ['other.audioBeepVolume', 'Tracker Beep Volume', 0, 2, 0.01],
+                            ['other.pauseOnFocusLoss', 'Pause On Focus Loss (0/1)', 0, 1, 1],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'game',
+                label: 'Game',
+                sections: [
+                    {
+                        title: 'Global Gameplay',
+                        fields: [
+                            ['game.globalTimeScale', 'Global Time Scale', 0.25, 3, 0.01],
+                            ['game.gameSpeedMultiplier', 'Game Speed Multiplier', 0.25, 3, 0.01],
+                            ['game.cameraLerp', 'Camera Lerp', 0.01, 1, 0.01],
+                            ['game.fogEnabled', 'Fog Enabled (0/1)', 0, 1, 1],
+                        ],
+                    },
+                    {
+                        title: 'Lighting & Visibility',
+                        fields: [
+                            ['lighting.ambientDarkness', 'Ambient Darkness', 0, 1, 0.01],
+                            ['lighting.torchRange', 'Torch Range', 80, 1200, 1],
+                            ['lighting.torchConeHalfAngle', 'Torch Cone Half Angle', 0.1, 1.57, 0.01],
+                            ['lighting.softRadius', 'Torch Soft Radius', 10, 600, 1],
+                            ['visibility.spottedMemoryMs', 'Spotted Memory (ms)', 250, 10000, 10],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'map_tiles',
+                label: 'Map Tile',
+                sections: [
+                    {
+                        title: 'Tilemap Controls',
+                        fields: [
+                            ['mapTiles.roomVisibilityMul', 'Room Visibility Mult', 0.2, 3, 0.01],
+                            ['mapTiles.corridorVisibilityMul', 'Corridor Visibility Mult', 0.2, 3, 0.01],
+                            ['mapTiles.doorWidthTiles', 'Door Width Tiles', 1, 6, 1],
+                            ['mapTiles.tileEdgePadding', 'Tile Edge Padding', 0, 8, 1],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'scripting',
+                label: 'Scripting',
+                sections: [
+                    {
+                        title: 'Director & Runtime Ticks',
+                        fields: [
+                            ['scripting.directorEnabled', 'Director Enabled (0/1)', 0, 1, 1],
+                            ['scripting.eventTickMs', 'Event Tick (ms)', 10, 1000, 1],
+                            ['scripting.aiThinkIntervalMs', 'AI Think Interval (ms)', 20, 2000, 1],
+                            ['scripting.autoSaveBetweenMissions', 'Auto Save Between Missions (0/1)', 0, 1, 1],
+                            ['scripting.idlePressureBaseMs', 'Idle Pressure Base (ms)', 2000, 30000, 10],
+                            ['scripting.idlePressureMinMs', 'Idle Pressure Min (ms)', 1000, 30000, 10],
+                            ['scripting.gunfireReinforceBaseMs', 'Gunfire Reinforce Base (ms)', 1200, 20000, 10],
+                            ['scripting.gunfireReinforceMinMs', 'Gunfire Reinforce Min (ms)', 600, 20000, 10],
+                            ['scripting.reinforceCap', 'Reinforcement Cap', 0, 80, 1],
+                            ['scripting.reinforceCapIdle', 'Idle Reinforce Cap', 0, 80, 1],
+                            ['scripting.reinforceCapGunfire', 'Gunfire Reinforce Cap', 0, 80, 1],
+                            ['scripting.doorNoiseMemoryMs', 'Door Noise Memory (ms)', 1000, 60000, 10],
+                            ['scripting.waveTransitionGraceMs', 'Wave Transition Grace (ms)', 0, 15000, 10],
+                        ],
+                    },
+                    {
+                        title: 'Combat Director Curves',
+                        fields: [
+                            ['director.enabled', 'Director Logic Enabled (0/1)', 0, 1, 1],
+                            ['director.pressureRiseRate', 'Pressure Rise Rate', 0.1, 5, 0.01],
+                            ['director.pressureFallRate', 'Pressure Fall Rate', 0.05, 5, 0.01],
+                            ['director.peakEnterPressure', 'Peak Enter Pressure', 0.1, 0.99, 0.01],
+                            ['director.releaseEnterPressure', 'Release Enter Pressure', 0.05, 0.95, 0.01],
+                            ['director.peakMaxMs', 'Peak Max Duration (ms)', 500, 60000, 10],
+                            ['director.buildMinMs', 'Build Min Duration (ms)', 100, 60000, 10],
+                            ['director.releaseMinMs', 'Release Min Duration (ms)', 100, 60000, 10],
+                        ],
+                    },
+                    {
+                        title: 'Motion Tracker',
+                        fields: [
+                            ['visibility.trackerScanMs', 'Tracker Scan (ms)', 1000, 12000, 10],
+                            ['visibility.trackerRiskMs', 'Tracker Risk Lock (ms)', 1000, 20000, 10],
+                            ['visibility.trackerCooldownMs', 'Tracker Cooldown (ms)', 1000, 120000, 10],
+                            ['visibility.trackerRange', 'Tracker Range', 120, 1600, 1],
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'sprite_animate',
+                label: 'Sprite & Animate',
+                sections: [
+                    {
+                        title: 'Presentation Multipliers',
+                        fields: [
+                            ['spriteAnimation.marineSpriteScale', 'Marine Sprite Scale', 0.2, 4, 0.01],
+                            ['spriteAnimation.alienSpriteScale', 'Alien Sprite Scale', 0.2, 4, 0.01],
+                            ['spriteAnimation.muzzleFlashScale', 'Muzzle Flash Scale', 0.2, 4, 0.01],
+                            ['spriteAnimation.animationRateMul', 'Animation Rate Mult', 0.1, 4, 0.01],
+                        ],
+                    },
+                    {
+                        title: 'Weapon Tuning (Quick Access)',
+                        fields: [
+                            ['weapons.globalDamageMultiplier', 'Global Damage', 0.1, 5, 0.01],
+                            ['weapons.globalSpeedMultiplier', 'Global Bullet Speed', 0.1, 5, 0.01],
+                            ['weapons.globalFireRateMultiplier', 'Global Fire Rate', 0.2, 4, 0.01],
+                            ['weapons.pulseRifle.damageMultiplier', 'Pulse Rifle Damage', 0.1, 5, 0.01],
+                        ],
+                    },
+                ],
+            },
+        ];
+
+        const tabsRoot = document.getElementById('tabs');
+        const panelsRoot = document.getElementById('panels');
+        const status = document.getElementById('status');
+
+        function getByPath(obj, path) {
+            return path.split('.').reduce((acc, key) => (acc ? acc[key] : undefined), obj);
+        }
+
+        function setByPath(obj, path, value) {
+            const parts = path.split('.');
+            let cur = obj;
+            for (let i = 0; i < parts.length - 1; i++) {
+                const p = parts[i];
+                if (!cur[p] || typeof cur[p] !== 'object') cur[p] = {};
+                cur = cur[p];
+            }
+            cur[parts[parts.length - 1]] = value;
+        }
+
+        let state = saveRuntimeSettings(loadRuntimeSettings());
+        let activeTab = TABS[0].id;
+
+        function makeField(path, label, min, max, step) {
+            const id = `f_${path.replaceAll('.', '_')}`;
+            const value = Number(getByPath(state, path));
+            return `
+                <div class="field">
+                    <label for="${id}_range">${label}</label>
+                    <div class="inputs">
+                        <input id="${id}_range" data-kind="range" data-path="${path}" type="range" min="${min}" max="${max}" step="${step}" value="${value}">
+                        <input id="${id}_number" data-kind="number" data-path="${path}" type="number" min="${min}" max="${max}" step="${step}" value="${value}">
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTabs() {
+            tabsRoot.innerHTML = TABS.map((t) => `
+                <button class="tab-btn ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>
+            `).join('');
+        }
+
+        function renderPanels() {
+            panelsRoot.innerHTML = TABS.map((tab) => {
+                const sections = tab.sections.map((section) => {
+                    const fields = section.fields.map((f) => makeField(...f)).join('');
+                    return `<section class="card"><h2>${section.title}</h2>${fields}</section>`;
+                }).join('');
+                return `
+                    <section class="panel ${tab.id === activeTab ? 'active' : ''}" id="panel_${tab.id}">
+                        <h2 class="panel-title">${tab.label}</h2>
+                        <div class="grid">${sections}</div>
+                    </section>
+                `;
+            }).join('');
+
+            const inputs = panelsRoot.querySelectorAll('input[data-path]');
+            for (const input of inputs) {
+                input.addEventListener('input', () => {
+                    const path = input.dataset.path;
+                    const val = Number(input.value);
+                    setByPath(state, path, val);
+
+                    const pairKind = input.dataset.kind === 'range' ? 'number' : 'range';
+                    const peer = panelsRoot.querySelector(`input[data-path="${path}"][data-kind="${pairKind}"]`);
+                    if (peer) peer.value = String(val);
+
+                    state = saveRuntimeSettings(state);
+                    status.textContent = `Saved ${new Date().toLocaleTimeString()}`;
+                });
+            }
+        }
+
+        function renderAll() {
+            renderTabs();
+            renderPanels();
+        }
+
+        tabsRoot.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('button[data-tab]');
+            if (!btn) return;
+            activeTab = btn.dataset.tab;
+            renderAll();
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            state = saveRuntimeSettings(state);
+            status.textContent = `Saved ${new Date().toLocaleTimeString()}`;
+            renderAll();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            state = resetRuntimeSettings();
+            status.textContent = 'Reset to defaults';
+            renderAll();
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'aliens-runtime-settings.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            status.textContent = 'Exported JSON';
+        });
+
+        document.getElementById('importFile').addEventListener('change', async (ev) => {
+            const file = ev.target.files && ev.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                state = saveRuntimeSettings(JSON.parse(text));
+                status.textContent = 'Imported settings';
+                renderAll();
+            } catch {
+                status.textContent = 'Import failed';
+            }
+        });
+
+        renderAll();
+        status.textContent = 'Loaded';
+    </script>
+</body>
+</html>

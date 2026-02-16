@@ -1,0 +1,42 @@
+export const MISSION_SET = Object.freeze([
+    {
+        id: 'm1',
+        name: 'Mission 1: Sweep & Secure',
+        tilemapId: 'lv1_colony_hub',
+        objective: 'Clear hostiles and extract',
+        difficulty: 'normal',
+        enemyBudget: 26,
+    },
+    {
+        id: 'm2',
+        name: 'Mission 2: Data Retrieval',
+        tilemapId: 'lv1_colony_hub',
+        objective: 'Reach terminal room and hold',
+        difficulty: 'normal',
+        enemyBudget: 32,
+    },
+    {
+        id: 'm3',
+        name: 'Mission 3: Reactor Access',
+        tilemapId: 'lv2_reactor_spine',
+        objective: 'Secure two reactor valves',
+        difficulty: 'hard',
+        enemyBudget: 40,
+    },
+    {
+        id: 'm4',
+        name: 'Mission 4: Purge Nest',
+        tilemapId: 'lv3_hive_core',
+        objective: 'Destroy egg clusters',
+        difficulty: 'hard',
+        enemyBudget: 48,
+    },
+    {
+        id: 'm5',
+        name: 'Mission 5: Queen Hunt',
+        tilemapId: 'lv3_hive_core',
+        objective: 'Kill queen and survive extraction',
+        difficulty: 'extreme',
+        enemyBudget: 58,
+    },
+]);
