@@ -111,6 +111,10 @@ export class EnemyManager {
         enemy.feintPhase = Math.random() * Math.PI * 2;
         enemy.feintDir = Math.random() < 0.5 ? -1 : 1;
         enemy.nextFeintFlipAt = this.scene.time.now + Phaser.Math.Between(180, 520);
+        enemy.nextDodgeAt = this.scene.time.now + Phaser.Math.Between(280, 1200);
+        enemy.dodgeUntil = 0;
+        enemy.dodgeAngle = 0;
+        enemy.dodgeForwardMul = 0.5;
         enemy.setAlpha(0);
         return enemy;
     }
@@ -226,6 +230,9 @@ export class EnemyManager {
                 const spacing = this.applyMeleeSpacing(enemy, target, desired, time);
                 desired = spacing.desired;
             }
+            if (isAggro) {
+                desired = this.applyAggroBurstMovement(enemy, target, desired, time, combatMods);
+            }
 
             const doorGroup = this.findNearbyBlockingDoor(enemy, 48);
             if (doorGroup) {
@@ -294,6 +301,50 @@ export class EnemyManager {
         }
 
         this.updateLabels();
+    }
+
+    applyAggroBurstMovement(enemy, target, desired, time, combatMods = null) {
+        if (!enemy || !target || !desired) return desired;
+        if (enemy.enemyType !== 'warrior' && enemy.enemyType !== 'drone') return desired;
+
+        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
+        const nearMin = CONFIG.TILE_SIZE * 1.25;
+        const farMax = CONFIG.TILE_SIZE * 6.2;
+        const pressure = Phaser.Math.Clamp(Number(combatMods?.pressure) || 0.3, 0, 1);
+        const burstSpeedMul = enemy.enemyType === 'drone' ? 1.26 : 1.16;
+        const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+
+        if (time < (enemy.dodgeUntil || 0)) {
+            const lat = enemy.dodgeAngle || (toTarget + Math.PI * 0.5 * (enemy.swarmSide || 1));
+            const fwd = Number(enemy.dodgeForwardMul) || 0.5;
+            return {
+                vx: desired.vx * 0.18 + Math.cos(lat) * enemy.stats.speed * burstSpeedMul + Math.cos(toTarget) * enemy.stats.speed * fwd,
+                vy: desired.vy * 0.18 + Math.sin(lat) * enemy.stats.speed * burstSpeedMul + Math.sin(toTarget) * enemy.stats.speed * fwd,
+            };
+        }
+
+        if (dist < nearMin || dist > farMax || time < (enemy.nextDodgeAt || 0)) return desired;
+
+        const burstChance = Phaser.Math.Clamp(0.06 + pressure * 0.22, 0.05, 0.34);
+        if (Math.random() > burstChance) {
+            enemy.nextDodgeAt = time + Phaser.Math.Between(380, 880);
+            return desired;
+        }
+
+        const side = Math.random() < 0.5 ? -1 : 1;
+        enemy.dodgeAngle = toTarget + side * Math.PI * 0.5 + Phaser.Math.FloatBetween(-0.18, 0.18);
+        enemy.dodgeForwardMul = enemy.enemyType === 'drone'
+            ? Phaser.Math.FloatBetween(0.42, 0.58)
+            : Phaser.Math.FloatBetween(0.5, 0.7);
+        const burstMs = enemy.enemyType === 'drone'
+            ? Phaser.Math.Between(120, 240)
+            : Phaser.Math.Between(140, 260);
+        enemy.dodgeUntil = time + burstMs;
+        enemy.nextDodgeAt = time + Phaser.Math.Between(
+            Math.max(320, Math.floor(980 - pressure * 520)),
+            Math.max(620, Math.floor(1500 - pressure * 420))
+        );
+        return desired;
     }
 
     pickTargetMarine(enemy, marines, targetPressure = null) {

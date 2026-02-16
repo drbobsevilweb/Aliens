@@ -51,6 +51,12 @@ const MARINE_SPOT_CALLOUTS = Object.freeze([
     'I see one!',
     'Incoming!',
 ]);
+const ROLE_SPOT_CALLOUTS = Object.freeze({
+    leader: Object.freeze(['Movement ahead!', 'Eyes on target!', 'Contact front!', 'Keep the line tight!']),
+    heavy: Object.freeze(['Target locked!', 'Suppressing!', 'On my mark, burn them down!']),
+    tech: Object.freeze(['Movement on sensors!', 'Contact by the hatch!', 'I have visual!']),
+    medic: Object.freeze(['Hostile in the light!', 'Contact confirmed!', "I see it, don't stop!"]),
+});
 const MARINE_ATTACK_CALLOUTS = Object.freeze([
     'Contact! Contact!',
     "I'm hit!",
@@ -64,6 +70,19 @@ const MARINE_ATTACK_CALLOUTS = Object.freeze([
     'Fall back a step!',
     'Keep firing!',
     'They are swarming us!',
+]);
+const ROLE_ATTACK_CALLOUTS = Object.freeze({
+    leader: Object.freeze(["I'm taking hits!", 'Hold formation!', 'Push them back now!']),
+    heavy: Object.freeze(['Taking fire!', 'Need backup on me!', 'They are rushing my lane!']),
+    tech: Object.freeze(["I'm pinned here!", 'Contact too close!', "They're breaching through!"]),
+    medic: Object.freeze(["I'm hit!", 'Need cover while I patch us up!', 'They are on top of us!']),
+});
+const LOW_AMMO_CALLOUTS = Object.freeze([
+    'Low ammo!',
+    'Magazine nearly dry!',
+    'Running low here!',
+    'Need ammo soon!',
+    'Rounds almost gone!',
 ]);
 const MARINE_AMBIENT_CHATTER = Object.freeze([
     'Check your corners.',
@@ -325,6 +344,9 @@ export class GameScene extends Phaser.Scene {
         this.nextMarineAttackCalloutAt = 0;
         this.nextMarineAmbientRadioAt = 0;
         this.nextAtmosphereIncidentAt = 0;
+        this.nextLowAmmoCalloutAt = 0;
+        this.lastLowAmmoWeaponKey = '';
+        this.lastLowAmmoAmount = -1;
         this.lastDamageCalloutByMarine = new Map();
         this.teamDamageSampleWindowMs = 2400;
         this.lastTeamDamageSampleAt = -10000;
@@ -666,6 +688,7 @@ export class GameScene extends Phaser.Scene {
         this.updateFollowerCombat(time, delta, marines);
         this.updateMarineRadioChatter(time, marines);
         this.updateAtmosphereIncidents(time, marines);
+        this.updateLowAmmoCallouts(time);
         if (this.hud && typeof this.hud.updateSquad === 'function') {
             this.hud.updateSquad(marines, time);
         }
@@ -1534,9 +1557,12 @@ export class GameScene extends Phaser.Scene {
         if (time < perMarineNext) return;
         if (Math.random() > 0.68) return;
 
+        const roleKey = marine.roleKey || 'leader';
+        const rolePool = ROLE_SPOT_CALLOUTS[roleKey] || [];
+        const sourcePool = rolePool.length > 0 ? rolePool.concat(MARINE_SPOT_CALLOUTS) : MARINE_SPOT_CALLOUTS;
         const prev = marine.lastSpotCallout || '';
-        const pool = MARINE_SPOT_CALLOUTS.filter((line) => line !== prev);
-        const line = Phaser.Utils.Array.GetRandom(pool.length > 0 ? pool : MARINE_SPOT_CALLOUTS);
+        const pool = sourcePool.filter((line) => line !== prev);
+        const line = Phaser.Utils.Array.GetRandom(pool.length > 0 ? pool : sourcePool);
         marine.lastSpotCallout = line;
         marine.nextSpotCalloutAt = time + Phaser.Math.Between(2600, 4200);
         this.nextMarineSpotCalloutAt = time + Phaser.Math.Between(1000, 1700);
@@ -1553,10 +1579,37 @@ export class GameScene extends Phaser.Scene {
         if (time < nextAt) return;
         if (time < (this.nextMarineAttackCalloutAt || 0)) return;
         if (Math.random() > attackChance) return;
-        const line = Phaser.Utils.Array.GetRandom(MARINE_ATTACK_CALLOUTS);
+        const rolePool = ROLE_ATTACK_CALLOUTS[key] || [];
+        const sourcePool = rolePool.length > 0 ? rolePool.concat(MARINE_ATTACK_CALLOUTS) : MARINE_ATTACK_CALLOUTS;
+        const line = Phaser.Utils.Array.GetRandom(sourcePool);
         this.showFloatingText(marine.x, marine.y - 26, line, '#ffb9a0');
         this.lastDamageCalloutByMarine.set(key, time + attackCooldown);
         this.nextMarineAttackCalloutAt = time + Phaser.Math.Between(1200, 2100);
+    }
+
+    updateLowAmmoCallouts(time = this.time.now) {
+        if (!this.weaponManager) return;
+        if (time < (this.nextLowAmmoCalloutAt || 0)) return;
+        const key = this.weaponManager.currentWeaponKey || 'pulseRifle';
+        const def = this.weaponManager.getRuntimeWeaponDef(key);
+        if (!def || def.ammoType !== 'limited') return;
+        const ammo = Math.max(0, Number(this.weaponManager.ammo[key]) || 0);
+        const threshold = key === 'shotgun' ? 3 : 6;
+        if (ammo > threshold) return;
+
+        const shouldSpeak = this.lastLowAmmoWeaponKey !== key
+            || ammo !== this.lastLowAmmoAmount
+            || Math.random() < 0.35;
+        if (!shouldSpeak) {
+            this.nextLowAmmoCalloutAt = time + Phaser.Math.Between(900, 1700);
+            return;
+        }
+
+        const line = Phaser.Utils.Array.GetRandom(LOW_AMMO_CALLOUTS);
+        this.showFloatingText(this.leader.x, this.leader.y - 28, line, '#ffd2a4');
+        this.lastLowAmmoWeaponKey = key;
+        this.lastLowAmmoAmount = ammo;
+        this.nextLowAmmoCalloutAt = time + Phaser.Math.Between(2200, 3600);
     }
 
     updateMarineRadioChatter(time, marines) {
@@ -2498,19 +2551,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     getMissionSpawnPressureScale(missionId = '') {
-        if (missionId === 'm5') return 0.68;
-        if (missionId === 'm4') return 0.76;
-        if (missionId === 'm3') return 0.84;
-        if (missionId === 'm2') return 0.92;
-        return 1;
+        if (missionId === 'm5') return 0.64;
+        if (missionId === 'm4') return 0.72;
+        if (missionId === 'm3') return 0.8;
+        if (missionId === 'm2') return 0.88;
+        return 0.95;
     }
 
     getMissionReinforcementCapScale(missionId = '') {
-        if (missionId === 'm5') return 1.3;
-        if (missionId === 'm4') return 1.15;
-        if (missionId === 'm3') return 1.0;
-        if (missionId === 'm2') return 0.88;
-        return 0.75;
+        if (missionId === 'm5') return 1.36;
+        if (missionId === 'm4') return 1.24;
+        if (missionId === 'm3') return 1.12;
+        if (missionId === 'm2') return 1.0;
+        return 0.9;
     }
 
     applyMissionReinforcementCaps(missionId = '') {
