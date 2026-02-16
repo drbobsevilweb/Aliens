@@ -2236,7 +2236,12 @@ export class GameScene extends Phaser.Scene {
                 // Marine-to-marine support: idle marines assist after ~1 second.
                 if (!best && sharedContact && !selfRecentlyAttacked) {
                     if (!state.assistNoticedAt) state.assistNoticedAt = now;
-                    const assistDelayMs = 1000;
+                    let assistDelayMs = 1000;
+                    if (follower.roleKey === 'heavy') assistDelayMs -= 140;
+                    else if (follower.roleKey === 'tech') assistDelayMs -= 80;
+                    else if (follower.roleKey === 'medic') assistDelayMs += 60;
+                    assistDelayMs = Math.floor(assistDelayMs * Phaser.Math.Linear(1.08, 0.78, combatMods.pressure));
+                    assistDelayMs = Phaser.Math.Clamp(assistDelayMs, 620, 1300);
                     if ((now - state.assistNoticedAt) >= assistDelayMs) {
                         const assistEnemy = sharedContact.enemy;
                         if (assistEnemy && assistEnemy.active && canSee(follower, assistEnemy)) {
@@ -2416,6 +2421,21 @@ export class GameScene extends Phaser.Scene {
         return Math.max(minFloor, Math.floor(this.idlePressureIntervalMs * pressureScale * stateMul));
     }
 
+    getDynamicAliveSoftCap(marines = null) {
+        const difficulty = this.activeMission?.difficulty || 'normal';
+        let base = difficulty === 'extreme' ? 30 : (difficulty === 'hard' ? 24 : 18);
+        const pressure = this.getCombatPressure();
+        const wave = Math.max(1, Number(this.stageFlow?.currentWave) || 1);
+        base += Math.round((wave - 1) * 1.5);
+        base += Math.round(pressure * 8);
+        const missionId = this.activeMission?.id || 'm1';
+        if (missionId === 'm5') base += 4;
+        else if (missionId === 'm4') base += 2;
+        else if (missionId === 'm1') base -= 2;
+        if (this.shouldApplySurvivalRelief(marines || this.squadSystem.getAllMarines())) base -= 4;
+        return Phaser.Math.Clamp(base, 10, 48);
+    }
+
     markCombatAction(time = this.time.now) {
         this.lastActionAt = time;
         this.nextIdlePressureAt = Math.max(this.nextIdlePressureAt, time + this.getAdaptiveIdleIntervalMs());
@@ -2451,6 +2471,12 @@ export class GameScene extends Phaser.Scene {
         if (time < this.nextGunfireReinforceAt) return;
         if (time < this.pressureGraceUntil) return;
         if (this.stageFlow.state === 'intermission') return;
+        const aliveNow = this.enemyManager.getAliveCount();
+        const softCap = this.getDynamicAliveSoftCap(marines);
+        if (aliveNow >= softCap) {
+            this.nextGunfireReinforceAt = time + Phaser.Math.Between(900, 1500);
+            return;
+        }
         if (this.shouldApplySurvivalRelief(marines)) {
             this.nextGunfireReinforceAt = time + Math.max(900, Math.floor(this.gunfireReinforceCooldownMs * 1.5));
             return;
@@ -2473,6 +2499,10 @@ export class GameScene extends Phaser.Scene {
     spawnGunfireDoorPack(time, _sourceX, _sourceY, marines) {
         const slots = this.getAvailableReinforcementSlots('gunfire');
         if (slots <= 0) return 0;
+        const aliveNow = this.enemyManager?.getAliveCount?.() || 0;
+        const softCap = this.getDynamicAliveSoftCap(marines);
+        const capRoom = Math.max(0, softCap - aliveNow);
+        if (capRoom <= 0) return 0;
         const basePack = this.activeMission?.difficulty === 'extreme' ? 5 : (this.activeMission?.difficulty === 'hard' ? 4 : 3);
         const pressure = this.getCombatPressure();
         const state = this.getDirectorState();
@@ -2482,7 +2512,7 @@ export class GameScene extends Phaser.Scene {
             + pressureBonus
             + stateBonus
             + (this.isGunfireBurstActive(time) ? this.gunfireBurstBonusPack : 0);
-        const packSize = Math.min(desiredPack, slots);
+        const packSize = Math.min(desiredPack, slots, capRoom);
         const marList = Array.isArray(marines) && marines.length > 0 ? marines : [this.leader];
         const view = this.cameras.main ? this.cameras.main.worldView : null;
         this.pruneDoorNoiseHistory(time);
@@ -2790,6 +2820,12 @@ export class GameScene extends Phaser.Scene {
         if (this.getAvailableReinforcementSlots('idle') <= 0) return;
         if (time < this.nextIdlePressureAt) return;
         if (time < this.pressureGraceUntil) return;
+        const aliveNow = this.enemyManager.getAliveCount();
+        const softCap = this.getDynamicAliveSoftCap(marines);
+        if (aliveNow >= softCap) {
+            this.nextIdlePressureAt = time + Phaser.Math.Between(900, 1700);
+            return;
+        }
         const adaptiveIdleMs = this.getAdaptiveIdleIntervalMs();
         if ((time - this.lastActionAt) < adaptiveIdleMs) return;
         if (this.stageFlow.state === 'intermission') return;
@@ -2812,6 +2848,10 @@ export class GameScene extends Phaser.Scene {
         if (!leader || !this.pathGrid) return 0;
         const slots = this.getAvailableReinforcementSlots('idle');
         if (slots <= 0) return 0;
+        const aliveNow = this.enemyManager?.getAliveCount?.() || 0;
+        const softCap = this.getDynamicAliveSoftCap(marines);
+        const capRoom = Math.max(0, softCap - aliveNow);
+        if (capRoom <= 0) return 0;
         const view = this.cameras.main ? this.cameras.main.worldView : null;
         const difficulty = this.activeMission?.difficulty || 'normal';
         const desiredPack = difficulty === 'extreme' ? 5 : (difficulty === 'hard' ? 4 : 3);
@@ -2819,7 +2859,7 @@ export class GameScene extends Phaser.Scene {
         const state = this.getDirectorState();
         const pressureBonus = pressure > 0.75 ? 2 : (pressure > 0.52 ? 1 : 0);
         const stateBonus = state === 'release' ? -1 : 0;
-        const packSize = Math.min(slots, Math.max(1, desiredPack + pressureBonus + stateBonus));
+        const packSize = Math.min(slots, capRoom, Math.max(1, desiredPack + pressureBonus + stateBonus));
         let spawned = 0;
         for (let i = 0; i < packSize; i++) {
             const world = this.pickIdlePressureSpawnWorld(view, marines, _time);

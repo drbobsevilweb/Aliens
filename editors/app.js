@@ -1,3 +1,6 @@
+import { buildPackageFromEditorState } from './backend/js/buildPackageFromEditorState.js';
+import { normalizeMissionPackage, validateMissionPackageShape } from './backend/js/normalizeMissionPackage.js';
+
 const STORAGE_KEY = 'aliens_dev_editors_v1';
 
 const TILE_VALUES = {
@@ -187,6 +190,68 @@ function mergeWithDefaults(loaded) {
         tilemaps: Array.isArray(loaded.tilemaps) && loaded.tilemaps.length === 3 ? loaded.tilemaps : d.tilemaps,
         missions: Array.isArray(loaded.missions) && loaded.missions.length === 5 ? loaded.missions : d.missions,
     };
+}
+
+function applyMissionPackageToState(pkg) {
+    const d = defaultState();
+    const normalized = normalizeMissionPackage(pkg);
+    const shapeErrors = validateMissionPackageShape(normalized);
+    if (shapeErrors.length) {
+        throw new Error(shapeErrors[0]);
+    }
+
+    const maps = normalized.maps.slice(0, 3).map(normalizeTilemapShape);
+    while (maps.length < 3) {
+        maps.push(clone(d.tilemaps[maps.length]));
+    }
+
+    const missions = normalized.missions.slice(0, 5).map((m, idx) => ({
+        id: m.id || d.missions[idx]?.id || `m${idx + 1}`,
+        name: m.name || d.missions[idx]?.name || `Mission ${idx + 1}`,
+        mapId: maps.some((tm) => tm.id === m.mapId) ? m.mapId : maps[0].id,
+        objective: m.objective || '',
+        difficulty: ['normal', 'hard', 'extreme'].includes(m.difficulty) ? m.difficulty : 'normal',
+        enemyBudget: clamp(Number(m.enemyBudget) || 0, 0, 999),
+        notes: m.notes || '',
+    }));
+    while (missions.length < 5) {
+        const fallback = clone(d.missions[missions.length]);
+        fallback.mapId = maps[Math.min(missions.length % maps.length, maps.length - 1)].id;
+        missions.push(fallback);
+    }
+
+    state.tilemaps = maps;
+    state.missions = missions;
+}
+
+function normalizeTilemapShape(mapLike) {
+    const width = clamp(Math.round(Number(mapLike.width) || 40), 8, 256);
+    const height = clamp(Math.round(Number(mapLike.height) || 26), 8, 256);
+    const terrainFill = 1;
+    const doorsFill = 0;
+    const markersFill = 0;
+    return {
+        id: String(mapLike.id || `map_${Date.now()}`),
+        name: String(mapLike.name || mapLike.id || 'Map'),
+        width,
+        height,
+        terrain: coerceLayerGrid(mapLike.terrain, width, height, terrainFill),
+        doors: coerceLayerGrid(mapLike.doors, width, height, doorsFill),
+        markers: coerceLayerGrid(mapLike.markers, width, height, markersFill),
+    };
+}
+
+function coerceLayerGrid(layer, width, height, fill = 0) {
+    const out = createGrid(width, height, fill);
+    if (!Array.isArray(layer)) return out;
+    for (let y = 0; y < Math.min(height, layer.length); y++) {
+        if (!Array.isArray(layer[y])) continue;
+        for (let x = 0; x < Math.min(width, layer[y].length); x++) {
+            const n = Number(layer[y][x]);
+            out[y][x] = Number.isFinite(n) ? Math.round(n) : fill;
+        }
+    }
+    return out;
 }
 
 const state = loadState();
@@ -971,6 +1036,24 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     setStatus('Exported JSON snapshot');
 });
 
+document.getElementById('exportPackageBtn').addEventListener('click', () => {
+    const missionPkg = buildPackageFromEditorState(state);
+    const errors = validateMissionPackageShape(missionPkg);
+    if (errors.length) {
+        setStatus(`Package export blocked: ${errors[0]}`);
+        return;
+    }
+    const data = JSON.stringify(missionPkg, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aliens-mission-package-v1.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Exported mission package');
+});
+
 document.getElementById('importFile').addEventListener('change', async (ev) => {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -984,6 +1067,22 @@ document.getElementById('importFile').addEventListener('change', async (ev) => {
         renderAll();
     } catch {
         setStatus('Import failed: invalid JSON');
+    }
+});
+
+document.getElementById('importPackageFile').addEventListener('change', async (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        applyMissionPackageToState(parsed);
+        saveState('Imported mission package');
+        renderAll();
+    } catch (err) {
+        const detail = err && err.message ? err.message : 'invalid package';
+        setStatus(`Mission package import failed: ${detail}`);
     }
 });
 
