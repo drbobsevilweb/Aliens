@@ -361,6 +361,9 @@ export class GameScene extends Phaser.Scene {
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
         const script = missionDirectorOverrides ? { ...scriptBase, ...missionDirectorOverrides } : scriptBase;
+        this.directorSourceLabel = missionDirectorOverrides
+            ? 'MISSION PACKAGE'
+            : (useMissionPackageDirector ? 'SETTINGS (PACKAGE MISSING)' : 'SETTINGS');
         const missionPressureScale = this.getMissionSpawnPressureScale(this.activeMission?.id);
         const idleBaseMs = Number(script.idlePressureBaseMs) || 7000;
         const idleMinMs = Number(script.idlePressureMinMs) || 3500;
@@ -407,6 +410,9 @@ export class GameScene extends Phaser.Scene {
         });
         this.stageText.setDepth(240);
         this.stageText.setScrollFactor(0);
+        if (useMissionPackageDirector && !missionDirectorOverrides) {
+            this.showFloatingText(this.leader.x, this.leader.y - 32, 'MISSION PACKAGE NOT FOUND', '#ffb8a8');
+        }
 
         this.endHintText = this.add.text(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 32, '', {
             fontSize: '18px',
@@ -1508,7 +1514,7 @@ export class GameScene extends Phaser.Scene {
             ? ` | ${this.lastMissionState.phaseLabel}`
             : '';
         this.debugOverlay.update(time, {
-            stage: `${this.stageFlow.state} (wave ${this.stageFlow.getWaveLabel()})${phase}`,
+            stage: `${this.stageFlow.state} (wave ${this.stageFlow.getWaveLabel()})${phase} | Director: ${this.directorSourceLabel || 'SETTINGS'}`,
             hostiles: this.enemyManager.getAliveCount(),
             health: this.leader.health,
             inputMode: 'mouse',
