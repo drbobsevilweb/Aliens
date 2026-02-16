@@ -68,6 +68,17 @@ export class AlienEnemy extends Phaser.Physics.Arcade.Sprite {
         this.setDepth(11);
         this.setAlpha(CONFIG.DETECTION_FADE_ALPHA);
         this.setScale(def.sizeScale || 1);
+        this.baseTint = this.getBaseTint(this.enemyType);
+        this.currentDisplayTint = this.baseTint;
+        this.setTint(this.baseTint);
+    }
+
+    getBaseTint(enemyType) {
+        if (enemyType === 'drone') return 0xa3d2bf;
+        if (enemyType === 'facehugger') return 0xc8e7d2;
+        if (enemyType === 'queenLesser') return 0x8fc5b5;
+        if (enemyType === 'queen') return 0x84b5a8;
+        return 0x9dcbb9;
     }
 
     takeDamage(amount) {
@@ -76,7 +87,7 @@ export class AlienEnemy extends Phaser.Physics.Arcade.Sprite {
         this.applyHitSlow();
         this.setTint(0xff6666);
         this.scene.time.delayedCall(60, () => {
-            if (this.active) this.clearTint();
+            if (this.active) this.setTint(this.currentDisplayTint || this.baseTint || 0xffffff);
         });
         if (this.health <= 0) {
             this.die();

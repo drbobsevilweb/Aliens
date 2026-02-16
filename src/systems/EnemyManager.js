@@ -816,26 +816,21 @@ export class EnemyManager {
                 const inRate = dt / Math.max(70, memoryMs * 0.22);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge + inRate, 0, 1);
             } else {
-                const outRate = dt / Math.max(220, memoryMs * 0.72);
+                const outRate = dt / Math.max(260, memoryMs);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge - outRate, 0, 1);
             }
 
             const visible = enemy.revealCharge > 0.03;
-            const ghostMin = 0.2;
+            const ghostMin = 0.24;
             const ghostMax = 1;
             const alpha = visible
                 ? Phaser.Math.Clamp(ghostMin + enemy.revealCharge * (ghostMax - ghostMin), ghostMin, ghostMax)
                 : CONFIG.DETECTION_FADE_ALPHA;
             enemy.detected = visible;
             enemy.setAlpha(alpha);
-            if (visible) {
-                const tintA = Phaser.Display.Color.ValueToColor(0xa9c9bf);
-                const tintB = Phaser.Display.Color.ValueToColor(0xf2fff9);
-                const c = Phaser.Display.Color.Interpolate.ColorWithColor(tintA, tintB, 100, Math.round(enemy.revealCharge * 100));
-                enemy.setTint(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
-            } else {
-                enemy.clearTint();
-            }
+            const tintColor = this.getVisibilityTintColor(enemy, enemy.revealCharge, visible);
+            enemy.currentDisplayTint = tintColor;
+            enemy.setTint(tintColor);
 
             const label = this.labels.get(enemy);
             if (label) {
@@ -866,6 +861,18 @@ export class EnemyManager {
             }
             label.setPosition(enemy.x - label.width / 2, enemy.y - 28);
         }
+    }
+
+    getVisibilityTintColor(enemy, revealCharge = 0, visible = false) {
+        const base = Phaser.Display.Color.ValueToColor(enemy.baseTint || 0x9dcbb9);
+        if (!visible) return Phaser.Display.Color.GetColor(base.r, base.g, base.b);
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+            base,
+            Phaser.Display.Color.ValueToColor(0xf3fff9),
+            100,
+            Math.round(Phaser.Math.Clamp(revealCharge, 0, 1) * 100)
+        );
+        return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
     }
 
     isInLightCone(source, enemy) {

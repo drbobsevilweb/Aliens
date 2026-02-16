@@ -359,6 +359,8 @@ export class GameScene extends Phaser.Scene {
         this.gunfireEvents = [];
         this.gunfireBurstUntil = 0;
         this.nextBurstEligibleAt = this.time.now + 2000;
+        this.recentIdleSpawnPoints = [];
+        this.idleSpawnMemoryMs = Math.max(2000, Number(script.idleSpawnMemoryMs) || 9000);
         this.nextDoorThumpCueAt = 0;
         this.fxQualityScale = 1;
         this.nextFxQualityEvalAt = 0;
@@ -2344,9 +2346,26 @@ export class GameScene extends Phaser.Scene {
         return time >= this.trackerChannelUntil && time < this.trackerScanUntil;
     }
 
+    getCombatPressure() {
+        return Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0.3, 0, 1);
+    }
+
+    getDirectorState() {
+        return this.combatMods?.state || 'manual';
+    }
+
+    getAdaptiveIdleIntervalMs() {
+        const pressure = this.getCombatPressure();
+        const state = this.getDirectorState();
+        const minFloor = Math.max(1000, Math.floor(this.idlePressureIntervalMs * 0.45));
+        const pressureScale = Phaser.Math.Linear(1.22, 0.72, pressure);
+        const stateMul = state === 'release' ? 1.2 : (state === 'peak' ? 0.82 : 1);
+        return Math.max(minFloor, Math.floor(this.idlePressureIntervalMs * pressureScale * stateMul));
+    }
+
     markCombatAction(time = this.time.now) {
         this.lastActionAt = time;
-        this.nextIdlePressureAt = Math.max(this.nextIdlePressureAt, time + this.idlePressureIntervalMs);
+        this.nextIdlePressureAt = Math.max(this.nextIdlePressureAt, time + this.getAdaptiveIdleIntervalMs());
     }
 
     noteGunfireEvent(time = this.time.now) {
@@ -2385,7 +2404,11 @@ export class GameScene extends Phaser.Scene {
         }
         const spawned = this.spawnGunfireDoorPack(time, sourceX, sourceY, marines);
         const burstMul = this.isGunfireBurstActive(time) ? this.gunfireBurstCooldownMul : 1;
-        const effectiveCd = Math.max(380, Math.floor(this.gunfireReinforceCooldownMs * burstMul));
+        const pressure = this.getCombatPressure();
+        const state = this.getDirectorState();
+        const pressureMul = Phaser.Math.Linear(1.2, 0.68, pressure);
+        const stateMul = state === 'release' ? 1.15 : (state === 'peak' ? 0.82 : 1);
+        const effectiveCd = Math.max(380, Math.floor(this.gunfireReinforceCooldownMs * burstMul * pressureMul * stateMul));
         this.nextGunfireReinforceAt = spawned > 0
             ? (time + effectiveCd)
             : (time + Math.min(1200, Math.max(450, Math.floor(effectiveCd * 0.35))));
@@ -2398,7 +2421,14 @@ export class GameScene extends Phaser.Scene {
         const slots = this.getAvailableReinforcementSlots('gunfire');
         if (slots <= 0) return 0;
         const basePack = this.activeMission?.difficulty === 'extreme' ? 5 : (this.activeMission?.difficulty === 'hard' ? 4 : 3);
-        const desiredPack = basePack + (this.isGunfireBurstActive(time) ? this.gunfireBurstBonusPack : 0);
+        const pressure = this.getCombatPressure();
+        const state = this.getDirectorState();
+        const pressureBonus = pressure > 0.78 ? 2 : (pressure > 0.56 ? 1 : 0);
+        const stateBonus = state === 'release' ? -1 : 0;
+        const desiredPack = basePack
+            + pressureBonus
+            + stateBonus
+            + (this.isGunfireBurstActive(time) ? this.gunfireBurstBonusPack : 0);
         const packSize = Math.min(desiredPack, slots);
         const marList = Array.isArray(marines) && marines.length > 0 ? marines : [this.leader];
         const view = this.cameras.main ? this.cameras.main.worldView : null;
@@ -2536,6 +2566,33 @@ export class GameScene extends Phaser.Scene {
         const age = Math.max(0, time - newest.time);
         const t = Phaser.Math.Clamp(age / memory, 0, 1);
         return Phaser.Math.Linear(3200, 0, t);
+    }
+
+    pruneIdleSpawnHistory(time = this.time.now) {
+        const memory = Math.max(2000, this.idleSpawnMemoryMs || 9000);
+        this.recentIdleSpawnPoints = (this.recentIdleSpawnPoints || []).filter((p) => (time - p.time) <= memory);
+    }
+
+    noteIdleSpawnPoint(world, time = this.time.now) {
+        if (!world) return;
+        if (!this.recentIdleSpawnPoints) this.recentIdleSpawnPoints = [];
+        this.recentIdleSpawnPoints.push({ x: world.x, y: world.y, time });
+        this.pruneIdleSpawnHistory(time);
+    }
+
+    getIdleSpawnRepeatPenalty(world, time = this.time.now) {
+        if (!world) return 0;
+        this.pruneIdleSpawnHistory(time);
+        const memory = Math.max(2000, this.idleSpawnMemoryMs || 9000);
+        let penalty = 0;
+        for (const p of this.recentIdleSpawnPoints || []) {
+            const dist = Phaser.Math.Distance.Between(world.x, world.y, p.x, p.y);
+            if (dist > CONFIG.TILE_SIZE * 7) continue;
+            const age = Math.max(0, time - p.time);
+            const t = Phaser.Math.Clamp(age / memory, 0, 1);
+            penalty += Phaser.Math.Linear(1100, 0, t);
+        }
+        return penalty;
     }
 
     countActiveReinforcements(source = null) {
@@ -2680,16 +2737,17 @@ export class GameScene extends Phaser.Scene {
         if (this.getAvailableReinforcementSlots('idle') <= 0) return;
         if (time < this.nextIdlePressureAt) return;
         if (time < this.pressureGraceUntil) return;
-        if ((time - this.lastActionAt) < this.idlePressureIntervalMs) return;
+        const adaptiveIdleMs = this.getAdaptiveIdleIntervalMs();
+        if ((time - this.lastActionAt) < adaptiveIdleMs) return;
         if (this.stageFlow.state === 'intermission') return;
         if (this.shouldApplySurvivalRelief(marines)) {
-            this.nextIdlePressureAt = time + Math.max(1200, Math.floor(this.idlePressureIntervalMs * 1.4));
+            this.nextIdlePressureAt = time + Math.max(1200, Math.floor(adaptiveIdleMs * 1.4));
             return;
         }
         const onScreen = this.enemyManager.getOnScreenHostileCount(this.cameras.main);
         if (onScreen >= 3) return;
         const spawned = this.spawnIdlePressureWave(time, marines);
-        this.nextIdlePressureAt = time + this.idlePressureIntervalMs;
+        this.nextIdlePressureAt = time + adaptiveIdleMs;
         if (spawned > 0) {
             this.markCombatAction(time);
             this.showFloatingText(this.leader.x, this.leader.y - 28, 'CONTACT: NEW HOSTILES', '#99ddff');
@@ -2704,10 +2762,14 @@ export class GameScene extends Phaser.Scene {
         const view = this.cameras.main ? this.cameras.main.worldView : null;
         const difficulty = this.activeMission?.difficulty || 'normal';
         const desiredPack = difficulty === 'extreme' ? 5 : (difficulty === 'hard' ? 4 : 3);
-        const packSize = Math.min(desiredPack, slots);
+        const pressure = this.getCombatPressure();
+        const state = this.getDirectorState();
+        const pressureBonus = pressure > 0.75 ? 2 : (pressure > 0.52 ? 1 : 0);
+        const stateBonus = state === 'release' ? -1 : 0;
+        const packSize = Math.min(slots, Math.max(1, desiredPack + pressureBonus + stateBonus));
         let spawned = 0;
         for (let i = 0; i < packSize; i++) {
-            const world = this.pickIdlePressureSpawnWorld(view);
+            const world = this.pickIdlePressureSpawnWorld(view, marines, _time);
             if (!world) continue;
             const type = this.pickIdlePressureType(i);
             const enemy = this.enemyManager.spawnEnemyAtWorld(type, world.x, world.y, this.stageFlow.currentWave || 1);
@@ -2719,27 +2781,41 @@ export class GameScene extends Phaser.Scene {
                 enemy.alertUntil = Math.max(enemy.alertUntil, this.time.now + 3800);
                 enemy.investigatePoint = { x: target.x, y: target.y, power: 1 };
                 enemy.investigateUntil = this.time.now + 3200;
+                this.noteIdleSpawnPoint(world, _time);
                 spawned++;
             }
         }
         return spawned;
     }
 
-    pickIdlePressureSpawnWorld(view) {
+    pickIdlePressureSpawnWorld(view, marines, time = this.time.now) {
         const leader = this.leader;
         const minDist = CONFIG.TILE_SIZE * 8;
         const maxAttempts = 120;
+        const marList = Array.isArray(marines) && marines.length > 0 ? marines : [leader];
+        let best = null;
+        let bestScore = -Infinity;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             const tx = Phaser.Math.Between(0, this.pathGrid.width - 1);
             const ty = Phaser.Math.Between(0, this.pathGrid.height - 1);
             if (!this.pathGrid.isWalkable(tx, ty)) continue;
             const world = this.pathGrid.tileToWorld(tx, ty);
-            const dist = Phaser.Math.Distance.Between(leader.x, leader.y, world.x, world.y);
-            if (dist < minDist) continue;
-            if (view && Phaser.Geom.Rectangle.Contains(view, world.x, world.y)) continue;
-            return world;
+            let nearest = Infinity;
+            for (const m of marList) {
+                const d = Phaser.Math.Distance.Between(m.x, m.y, world.x, world.y);
+                if (d < nearest) nearest = d;
+            }
+            if (nearest < minDist) continue;
+            const onScreen = view && Phaser.Geom.Rectangle.Contains(view, world.x, world.y);
+            const offscreenBonus = onScreen ? -2200 : 1800;
+            const repeatPenalty = this.getIdleSpawnRepeatPenalty(world, time);
+            const score = nearest + offscreenBonus - repeatPenalty + Phaser.Math.Between(0, 140);
+            if (score > bestScore) {
+                best = world;
+                bestScore = score;
+            }
         }
-        return null;
+        return best;
     }
 
     pickIdlePressureType(index = 0) {

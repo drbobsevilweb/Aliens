@@ -142,6 +142,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         reinforceCapIdle: 6,
         reinforceCapGunfire: 10,
         doorNoiseMemoryMs: 16000,
+        idleSpawnMemoryMs: 9000,
         waveTransitionGraceMs: 2600,
     }),
     spriteAnimation: Object.freeze({
@@ -351,6 +352,7 @@ function sanitize(settings) {
     s.scripting.reinforceCapIdle = clampNumber(s.scripting.reinforceCapIdle, 0, 80, 6);
     s.scripting.reinforceCapGunfire = clampNumber(s.scripting.reinforceCapGunfire, 0, 80, 10);
     s.scripting.doorNoiseMemoryMs = clampNumber(s.scripting.doorNoiseMemoryMs, 1000, 60000, 16000);
+    s.scripting.idleSpawnMemoryMs = clampNumber(s.scripting.idleSpawnMemoryMs, 1000, 60000, 9000);
     s.scripting.waveTransitionGraceMs = clampNumber(s.scripting.waveTransitionGraceMs, 0, 15000, 2600);
 
     s.spriteAnimation.marineSpriteScale = clampNumber(s.spriteAnimation.marineSpriteScale, 0.2, 4, 1);
