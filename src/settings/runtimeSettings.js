@@ -84,6 +84,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         panicAllyHitLoss: 3,
         panicLowHealthPerSec: 9,
         panicSwarmPerSec: 6,
+        supportSuppressWindowMs: 900,
         incomingDamageMul: 0.84,
         leaderIncomingDamageMul: 0.9,
         heavyIncomingDamageMul: 0.82,
@@ -286,6 +287,7 @@ function sanitize(settings) {
     s.marines.panicAllyHitLoss = clampNumber(s.marines.panicAllyHitLoss, 0, 40, 3);
     s.marines.panicLowHealthPerSec = clampNumber(s.marines.panicLowHealthPerSec, 0, 50, 9);
     s.marines.panicSwarmPerSec = clampNumber(s.marines.panicSwarmPerSec, 0, 50, 6);
+    s.marines.supportSuppressWindowMs = clampNumber(s.marines.supportSuppressWindowMs, 200, 3000, 900);
     s.marines.incomingDamageMul = clampNumber(s.marines.incomingDamageMul, 0.2, 2, 0.84);
     s.marines.leaderIncomingDamageMul = clampNumber(s.marines.leaderIncomingDamageMul, 0.2, 2, 0.9);
     s.marines.heavyIncomingDamageMul = clampNumber(s.marines.heavyIncomingDamageMul, 0.2, 2, 0.82);

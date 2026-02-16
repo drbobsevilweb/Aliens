@@ -2102,6 +2102,9 @@ export class GameScene extends Phaser.Scene {
             jamUntil: 0,
             heat: 0,
             targetRef: null,
+            lastKnownX: null,
+            lastKnownY: null,
+            lastKnownAt: -10000,
             readyAt: 0,
             nextThinkAt: 0,
             moraleRecoverMs: Phaser.Math.Between(
@@ -2129,6 +2132,7 @@ export class GameScene extends Phaser.Scene {
         const swarmPerSec = Phaser.Math.Clamp(Number(marineTuning.panicSwarmPerSec) || 6, 0, 40);
         const selfHitLoss = Phaser.Math.Clamp(Number(marineTuning.panicSelfHitLoss) || 10, 0, 60);
         const allyHitLoss = Phaser.Math.Clamp(Number(marineTuning.panicAllyHitLoss) || 3, 0, 30);
+        const suppressWindowMs = Phaser.Math.Clamp(Number(marineTuning.supportSuppressWindowMs) || 900, 200, 3000);
         const combatMods = this.combatMods || {
             marineAccuracyMul: 1,
             marineJamMul: 1,
@@ -2292,12 +2296,49 @@ export class GameScene extends Phaser.Scene {
                 }
                 state.targetRef = best;
             } else if (best && !canSee(follower, best)) {
+                state.lastKnownX = best.x;
+                state.lastKnownY = best.y;
+                state.lastKnownAt = time;
                 best = null;
                 bestDist = Infinity;
                 state.targetRef = null;
             }
 
             if (!best) {
+                const hasLastKnown = Number.isFinite(state.lastKnownAt) && (time - state.lastKnownAt) <= suppressWindowMs;
+                if (hasLastKnown && Number.isFinite(state.lastKnownX) && Number.isFinite(state.lastKnownY)) {
+                    const aimLast = Phaser.Math.Angle.Between(follower.x, follower.y, state.lastKnownX, state.lastKnownY);
+                    const dLast = Phaser.Math.Distance.Between(follower.x, follower.y, state.lastKnownX, state.lastKnownY);
+                    if (dLast <= range * 0.96) {
+                        follower.setDesiredRotation(aimLast);
+                        follower.updateRotation(delta, time, { patrol: false });
+                        if (time >= state.readyAt && time >= state.nextFireAt && time >= state.jamUntil && Math.random() < 0.46) {
+                            const def = this.weaponManager.getRuntimeWeaponDef('pulseRifle');
+                            if (def) {
+                                const suppressSpread = profile.baseSpread * 2.2;
+                                const shotAngle = aimLast + Phaser.Math.FloatBetween(-suppressSpread, suppressSpread);
+                                const shotDef = {
+                                    ...def,
+                                    ownerRoleKey: follower.roleKey || 'follower',
+                                    fireRate: Math.max(90, Math.floor(def.fireRate * 1.22)),
+                                    damage: Math.max(1, def.damage * profile.damageMul * 0.74),
+                                };
+                                const fired = this.bulletPool.fire(follower.x, follower.y, shotAngle, time, shotDef);
+                                if (fired) {
+                                    this.noteGunfireEvent(time);
+                                    this.markCombatAction(time);
+                                    this.tryGunfireReinforcement(time, follower.x, follower.y, marines);
+                                    this.emitWeaponFlashAndStimulus(follower.x, follower.y, shotAngle, time, 'pulseRifle', {
+                                        stimulusMul: 0.72,
+                                    });
+                                    state.nextFireAt = time + shotDef.fireRate;
+                                    state.heat = Math.min(160, state.heat + Math.max(3, profile.heatPerShot * 0.66));
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                }
                 state.targetRef = null;
                 // Sector sweep when no current target.
                 const sweepSpeed = 0.0024;
@@ -2312,6 +2353,9 @@ export class GameScene extends Phaser.Scene {
             follower.setDesiredRotation(aim);
             follower.updateRotation(delta, time, { patrol: false });
             this.sharedMarineContact = { enemy: best, at: now, byRole: follower.roleKey || 'unknown' };
+            state.lastKnownX = best.x;
+            state.lastKnownY = best.y;
+            state.lastKnownAt = now;
 
             const canShoot = bestDist < Infinity;
             if (!canShoot) continue;
