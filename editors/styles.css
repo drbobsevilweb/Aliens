@@ -82,6 +82,28 @@ button.active { border-color: var(--accent); color: var(--accent); }
     min-height: 16px;
 }
 
+.validation-box {
+    margin-top: 10px;
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0f202b;
+    padding: 8px;
+    font: 12px "IBM Plex Mono", monospace;
+    color: var(--muted);
+    white-space: pre-wrap;
+}
+
+.validation-box.ok {
+    border-color: #3b7a60;
+    color: #9ee2bd;
+}
+
+.validation-box.err {
+    border-color: #8c544f;
+    color: #ffd0c8;
+}
+
 .links { margin-top: 16px; }
 .links a { color: #a4d8f8; text-decoration: none; }
 

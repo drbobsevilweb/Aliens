@@ -257,6 +257,7 @@ function coerceLayerGrid(layer, width, height, fill = 0) {
 const state = loadState();
 
 const statusEl = document.getElementById('status');
+const validationEl = document.getElementById('packageValidation');
 const tabRoot = document.getElementById('tabs');
 const panels = {
     sprite: document.getElementById('tab-sprite'),
@@ -284,6 +285,7 @@ function setStatus(text) {
 function saveState(reason = 'Saved') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setStatus(`${reason} @ ${new Date().toLocaleTimeString()}`);
+    refreshPackageValidationSummary();
 }
 
 function switchTab(name) {
@@ -1022,7 +1024,30 @@ function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
 }
 
+function refreshPackageValidationSummary() {
+    if (!validationEl) return;
+    const missionPkg = buildPackageFromEditorState(state);
+    const errors = validateMissionPackageShape(missionPkg);
+    if (!errors.length) {
+        validationEl.classList.remove('err');
+        validationEl.classList.add('ok');
+        validationEl.textContent = `Mission Package: OK\nMaps: ${missionPkg.maps.length} | Missions: ${missionPkg.missions.length}`;
+        return;
+    }
+    validationEl.classList.remove('ok');
+    validationEl.classList.add('err');
+    validationEl.textContent = `Mission Package: ${errors.length} issue(s)\n- ${errors.join('\n- ')}`;
+}
+
 document.getElementById('saveAllBtn').addEventListener('click', () => saveState('Saved all sections'));
+document.getElementById('validatePackageBtn').addEventListener('click', () => {
+    refreshPackageValidationSummary();
+    if (validationEl?.classList.contains('ok')) {
+        setStatus('Mission package validation passed');
+    } else {
+        setStatus('Mission package validation failed');
+    }
+});
 
 document.getElementById('exportBtn').addEventListener('click', () => {
     const data = JSON.stringify(state, null, 2);
@@ -1091,6 +1116,7 @@ function renderAll() {
     renderAnimationTab();
     renderTilemapTab();
     renderMissionsTab();
+    refreshPackageValidationSummary();
 }
 
 window.addEventListener('keydown', (ev) => {

@@ -2163,11 +2163,16 @@ export class GameScene extends Phaser.Scene {
         if (!sharedContact) this.sharedMarineContact = null;
 
         let teammateRecentlyAttacked = false;
+        let threatenedAlly = null;
+        let threatenedAt = -100000;
         for (const m of marines) {
             if (!Number.isFinite(m.lastDamagedAt)) continue;
             if ((time - m.lastDamagedAt) <= 1400) {
                 teammateRecentlyAttacked = true;
-                break;
+            }
+            if ((time - m.lastDamagedAt) <= 1800 && m.lastDamagedAt > threatenedAt) {
+                threatenedAt = m.lastDamagedAt;
+                threatenedAlly = m;
             }
         }
 
@@ -2237,6 +2242,25 @@ export class GameScene extends Phaser.Scene {
                     const shared = this.enemyManager.getPriorityThreat(follower.x, follower.y, true);
                     if (shared && canSee(follower, shared)) {
                         best = shared;
+                        bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
+                    }
+                }
+
+                if (!best && threatenedAlly && threatenedAlly !== follower) {
+                    let bestThreat = null;
+                    let bestThreatDist = Infinity;
+                    for (const enemy of enemies) {
+                        if (!enemy || !enemy.active) continue;
+                        if (!canSee(follower, enemy)) continue;
+                        const dAlly = Phaser.Math.Distance.Between(enemy.x, enemy.y, threatenedAlly.x, threatenedAlly.y);
+                        if (dAlly < bestThreatDist) {
+                            bestThreatDist = dAlly;
+                            bestThreat = enemy;
+                        }
+                    }
+                    const supportDist = CONFIG.TILE_SIZE * 2.35;
+                    if (bestThreat && bestThreatDist <= supportDist) {
+                        best = bestThreat;
                         bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
                     }
                 }
