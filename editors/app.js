@@ -158,11 +158,31 @@ function defaultState() {
         ],
         tilemaps: createDefaultTilemaps(),
         missions: [
-            { id: 'm1', name: 'Mission 1: Sweep & Secure', mapId: 'lv1_colony_hub', objective: 'Clear hostiles and extract', difficulty: 'normal', enemyBudget: 20, notes: 'Intro mission with basic doors' },
-            { id: 'm2', name: 'Mission 2: Data Retrieval', mapId: 'lv1_colony_hub', objective: 'Reach terminal room and hold', difficulty: 'normal', enemyBudget: 24, notes: 'Adds pressure events' },
-            { id: 'm3', name: 'Mission 3: Reactor Access', mapId: 'lv2_reactor_spine', objective: 'Secure 2 reactor valves', difficulty: 'hard', enemyBudget: 30, notes: 'Long corridors and flanks' },
-            { id: 'm4', name: 'Mission 4: Purge Nest', mapId: 'lv3_hive_core', objective: 'Destroy egg clusters', difficulty: 'hard', enemyBudget: 36, notes: 'Vertical ambush pressure' },
-            { id: 'm5', name: 'Mission 5: Queen Hunt', mapId: 'lv3_hive_core', objective: 'Kill queen and survive extraction', difficulty: 'extreme', enemyBudget: 44, notes: 'Finale with breach threats' },
+            {
+                id: 'm1', name: 'Mission 1: Sweep & Secure', mapId: 'lv1_colony_hub', objective: 'Clear hostiles and extract',
+                difficulty: 'normal', enemyBudget: 20, notes: 'Intro mission with basic doors',
+                director: { idlePressureBaseMs: 7600, gunfireReinforceBaseMs: 5000, reinforceCap: 14 },
+            },
+            {
+                id: 'm2', name: 'Mission 2: Data Retrieval', mapId: 'lv1_colony_hub', objective: 'Reach terminal room and hold',
+                difficulty: 'normal', enemyBudget: 24, notes: 'Adds pressure events',
+                director: { idlePressureBaseMs: 6900, gunfireReinforceBaseMs: 4600, reinforceCap: 16 },
+            },
+            {
+                id: 'm3', name: 'Mission 3: Reactor Access', mapId: 'lv2_reactor_spine', objective: 'Secure 2 reactor valves',
+                difficulty: 'hard', enemyBudget: 30, notes: 'Long corridors and flanks',
+                director: { idlePressureBaseMs: 6200, gunfireReinforceBaseMs: 4200, reinforceCap: 20 },
+            },
+            {
+                id: 'm4', name: 'Mission 4: Purge Nest', mapId: 'lv3_hive_core', objective: 'Destroy egg clusters',
+                difficulty: 'hard', enemyBudget: 36, notes: 'Vertical ambush pressure',
+                director: { idlePressureBaseMs: 5600, gunfireReinforceBaseMs: 3800, reinforceCap: 24 },
+            },
+            {
+                id: 'm5', name: 'Mission 5: Queen Hunt', mapId: 'lv3_hive_core', objective: 'Kill queen and survive extraction',
+                difficulty: 'extreme', enemyBudget: 44, notes: 'Finale with breach threats',
+                director: { idlePressureBaseMs: 5200, gunfireReinforceBaseMs: 3400, reinforceCap: 28 },
+            },
         ],
     };
 }
@@ -213,6 +233,10 @@ function applyMissionPackageToState(pkg) {
         difficulty: ['normal', 'hard', 'extreme'].includes(m.difficulty) ? m.difficulty : 'normal',
         enemyBudget: clamp(Number(m.enemyBudget) || 0, 0, 999),
         notes: m.notes || '',
+        director: {
+            ...(d.missions[idx]?.director || {}),
+            ...(m.director && typeof m.director === 'object' ? m.director : {}),
+        },
     }));
     while (missions.length < 5) {
         const fallback = clone(d.missions[missions.length]);
@@ -964,6 +988,9 @@ function renderMissionsTab() {
                 </select>
             </td>
             <td><input data-mission="enemyBudget" data-i="${i}" type="number" min="1" value="${m.enemyBudget}"></td>
+            <td><input data-missiondir="idlePressureBaseMs" data-i="${i}" type="number" min="500" value="${m.director?.idlePressureBaseMs ?? ''}"></td>
+            <td><input data-missiondir="gunfireReinforceBaseMs" data-i="${i}" type="number" min="500" value="${m.director?.gunfireReinforceBaseMs ?? ''}"></td>
+            <td><input data-missiondir="reinforceCap" data-i="${i}" type="number" min="0" value="${m.director?.reinforceCap ?? ''}"></td>
             <td><input data-mission="notes" data-i="${i}" value="${escapeHtml(m.notes)}"></td>
         </tr>
     `).join('');
@@ -986,6 +1013,9 @@ function renderMissionsTab() {
                         <th>Objective</th>
                         <th>Difficulty</th>
                         <th>Enemy Budget</th>
+                        <th>Idle Ms</th>
+                        <th>Gunfire Ms</th>
+                        <th>Reinforce Cap</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
@@ -1000,6 +1030,14 @@ function renderMissionsTab() {
             const key = input.dataset.mission;
             const value = key === 'enemyBudget' ? Number(input.value) : input.value;
             state.missions[idx][key] = value;
+        });
+        document.querySelectorAll('[data-missiondir]').forEach((input) => {
+            const idx = Number(input.dataset.i);
+            const key = input.dataset.missiondir;
+            if (!state.missions[idx].director || typeof state.missions[idx].director !== 'object') {
+                state.missions[idx].director = {};
+            }
+            state.missions[idx].director[key] = Number(input.value);
         });
         saveState('Mission table updated');
         renderMissionsTab();

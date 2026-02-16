@@ -23,7 +23,7 @@ export function buildPackageFromEditorState(editorState) {
             enemyBudget: Number(m.enemyBudget) || 0,
             objective: String(m.objective || ''),
             notes: String(m.notes || ''),
-            director: {},
+            director: m.director && typeof m.director === 'object' ? { ...m.director } : {},
         }))
         : [];
 
