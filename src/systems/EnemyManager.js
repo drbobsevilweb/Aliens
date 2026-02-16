@@ -286,7 +286,9 @@ export class EnemyManager {
             const meleeMin = CONFIG.TILE_SIZE * 0.82;
             const meleeMax = CONFIG.TILE_SIZE * 1.18;
             if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
-                this.applyMarineDamage(target, enemy.stats.contactDamage);
+                if (this.rollMeleeHit(enemy, target, contactDist)) {
+                    this.applyMarineDamage(target, enemy.stats.contactDamage);
+                }
                 enemy.nextAttackAt = time + enemy.stats.attackCooldownMs;
             }
         }
@@ -366,6 +368,28 @@ export class EnemyManager {
                 this.scene.onMarineDamaged(leader, dmg, now);
             }
         }
+    }
+
+    rollMeleeHit(enemy, target, contactDist) {
+        const maxHp = Math.max(1, Number(target?.maxHealth) || 100);
+        const hpPct = Phaser.Math.Clamp((Number(target?.health) || 0) / maxHp, 0, 1);
+        let hitChance = 0.82;
+        if (enemy?.enemyType === 'drone') hitChance = 0.78;
+        if (enemy?.enemyType === 'facehugger') hitChance = 0.86;
+        if (enemy?.enemyType === 'queen' || enemy?.enemyType === 'queenLesser') hitChance = 0.9;
+
+        const rangeSpan = Math.max(1, CONFIG.TILE_SIZE * 0.36);
+        const edgePenalty = Phaser.Math.Clamp((contactDist - CONFIG.TILE_SIZE * 0.94) / rangeSpan, 0, 1) * 0.14;
+        hitChance -= edgePenalty;
+
+        // Slight mercy when target is already critical.
+        if (hpPct < 0.32) hitChance -= (0.32 - hpPct) * 0.35;
+
+        const slowed = (this.scene?.time?.now || 0) <= (enemy?.hitSlowUntil || 0);
+        if (slowed) hitChance -= 0.08;
+
+        hitChance = Phaser.Math.Clamp(hitChance, 0.48, 0.95);
+        return Math.random() < hitChance;
     }
 
     isWithinCameraAggro(enemy, camera, range) {

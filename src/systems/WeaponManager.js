@@ -124,12 +124,13 @@ export class WeaponManager {
 
         const key = this.currentWeaponKey;
         const def = this.getRuntimeWeaponDef(key);
+        const shotDef = { ...def, ownerRoleKey: 'leader' };
         let spawnedCount = 0;
 
-        if (def.bulletsPerShot > 1) {
-            spawnedCount = this.bulletPool.fireSpread(x, y, angle, time, def);
+        if (shotDef.bulletsPerShot > 1) {
+            spawnedCount = this.bulletPool.fireSpread(x, y, angle, time, shotDef);
         } else {
-            spawnedCount = this.bulletPool.fire(x, y, angle, time, def) ? 1 : 0;
+            spawnedCount = this.bulletPool.fire(x, y, angle, time, shotDef) ? 1 : 0;
         }
 
         if (spawnedCount <= 0) {

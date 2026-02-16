@@ -18,9 +18,9 @@ export class BulletPool extends Phaser.Physics.Arcade.Group {
         const bullet = this.getFirstDead(false);
         if (bullet) {
             bullet.fire(x, y, angle, time, weaponDef);
-            return true;
+            return bullet;
         }
-        return false;
+        return null;
     }
 
     fireSpread(x, y, centerAngle, time, weaponDef) {

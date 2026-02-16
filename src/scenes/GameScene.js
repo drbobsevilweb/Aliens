@@ -245,7 +245,10 @@ export class GameScene extends Phaser.Scene {
             this.showAlienAcidSplash(enemy.x, enemy.y);
             bullet.deactivate();
             const killed = this.enemyManager.handleBulletHit(enemy, bullet.damage || 0, bullet);
-            if (killed) this.totalKills++;
+            if (killed) {
+                this.totalKills++;
+                this.onEnemyKilled(enemy, bullet, this.time.now);
+            }
         });
         this.physics.add.overlap(this.bulletPool, this.enemyManager.getEggPhysicsGroup(), (a, b) => {
             const bullet = typeof a.deactivate === 'function' ? a : b;
@@ -800,6 +803,23 @@ export class GameScene extends Phaser.Scene {
         for (const marine of marines) {
             if (!marine || marine.alive === false || marine.active === false) continue;
             this.applyMarineMoraleDelta(marine, delta);
+        }
+    }
+
+    onEnemyKilled(_enemy, projectile = null, time = this.time.now) {
+        const owner = projectile && projectile.ownerRoleKey ? projectile.ownerRoleKey : 'leader';
+        if (owner === 'leader') {
+            this.showFloatingText(this.leader.x, this.leader.y - 20, 'HOSTILE DOWN', '#ffde9a');
+            return;
+        }
+        const marine = this.squadSystem?.getFollowerByRole?.(owner) || null;
+        if (!marine || marine.active === false || marine.alive === false) return;
+        this.applyMarineMoraleDelta(marine, 3);
+        const key = marine.roleKey || 'leader';
+        this.lastDamageCalloutByMarine.set(key, Math.max(this.lastDamageCalloutByMarine.get(key) || 0, time + 700));
+        if (Math.random() < 0.34) {
+            const line = Phaser.Utils.Array.GetRandom(['Target down!', 'One less!', 'Got it!', 'Hostile dropped!']);
+            this.showFloatingText(marine.x, marine.y - 20, line, '#ffe2a8');
         }
     }
 
@@ -2216,6 +2236,7 @@ export class GameScene extends Phaser.Scene {
             const shotAngle = aim + Phaser.Math.FloatBetween(-spread, spread);
             const shotDef = {
                 ...def,
+                ownerRoleKey: follower.roleKey || 'follower',
                 fireRate: Math.max(
                     70,
                     Math.floor(

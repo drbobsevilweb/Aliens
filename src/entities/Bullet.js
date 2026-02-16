@@ -5,6 +5,7 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
         this.lifespan = 2000;
         this.damage = 0;
         this.weaponKey = 'pulseRifle';
+        this.ownerRoleKey = 'leader';
     }
 
     fire(x, y, angle, time, weaponDef) {
@@ -21,6 +22,7 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
         this.lifespan = weaponDef.bulletLifespan;
         this.damage = weaponDef.damage;
         this.weaponKey = weaponDef.key || this.weaponKey || 'pulseRifle';
+        this.ownerRoleKey = weaponDef.ownerRoleKey || this.ownerRoleKey || 'leader';
         this.setRotation(angle);
         this.body.setVelocity(
             Math.cos(angle) * weaponDef.bulletSpeed,
