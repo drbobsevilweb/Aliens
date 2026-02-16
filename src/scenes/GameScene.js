@@ -334,6 +334,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerCooldownUntil = 0;
         this.nextTrackerBeepAt = 0;
         this.nextAmbientBeepAt = 0;
+        this.nextThreatPulseAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
         this.followerCombatState = new Map();
@@ -1140,6 +1141,12 @@ export class GameScene extends Phaser.Scene {
             return;
         }
         const t = Phaser.Math.Clamp(1 - (near.dist / 920), 0, 1);
+        const closeCount = this.countCloseEnemiesToTeam(260);
+        const swarmHot = closeCount >= 4 && t >= 0.38;
+        if (swarmHot && time >= this.nextThreatPulseAt) {
+            this.showEdgeWordCue('SWARM CLOSE', near.enemy.x, near.enemy.y, '#ff8d8d');
+            this.nextThreatPulseAt = time + Phaser.Math.Linear(2200, 900, Phaser.Math.Clamp(closeCount / 9, 0, 1));
+        }
 
         // Passive proximity beeps (always on), even when tracker is not active.
         if (!trackerLocked) {
@@ -1147,8 +1154,9 @@ export class GameScene extends Phaser.Scene {
             const interval = Phaser.Math.Linear(1300, 220, t);
             this.showEdgeWordCue('BEEP', near.enemy.x, near.enemy.y, '#9db7ff');
             if (this.trackerPulseText) {
-                this.trackerPulseText.setText(`MOTION ALERT ${Math.round(t * 100)}%`);
-                this.trackerPulseText.setColor('#9db7ff');
+                const pct = Math.round(t * 100);
+                this.trackerPulseText.setText(swarmHot ? `SWARM ALERT ${pct}%` : `MOTION ALERT ${pct}%`);
+                this.trackerPulseText.setColor(swarmHot ? '#ffb0a6' : '#9db7ff');
                 this.trackerPulseText.setVisible(true);
             }
             this.nextAmbientBeepAt = time + interval;
@@ -2760,6 +2768,27 @@ export class GameScene extends Phaser.Scene {
             if (!best || dist < best.dist) best = { enemy, dist };
         }
         return best;
+    }
+
+    countCloseEnemiesToTeam(maxDist = 260, marines = null) {
+        if (!this.enemyManager || !Array.isArray(this.enemyManager.enemies)) return 0;
+        const team = Array.isArray(marines) && marines.length > 0
+            ? marines
+            : (this.squadSystem ? this.squadSystem.getAllMarines() : [this.leader]);
+        let count = 0;
+        for (const enemy of this.enemyManager.enemies) {
+            if (!enemy || !enemy.active) continue;
+            let near = false;
+            for (const m of team) {
+                if (!m || m.active === false || m.alive === false) continue;
+                if (Phaser.Math.Distance.Between(enemy.x, enemy.y, m.x, m.y) <= maxDist) {
+                    near = true;
+                    break;
+                }
+            }
+            if (near) count++;
+        }
+        return count;
     }
 
     reportDoorThump(worldX, worldY, time = this.time.now, breached = false) {
