@@ -131,6 +131,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     }),
     scripting: Object.freeze({
         directorEnabled: 1,
+        useMissionPackageDirector: 0,
         eventTickMs: 80,
         aiThinkIntervalMs: 120,
         autoSaveBetweenMissions: 1,
@@ -331,6 +332,7 @@ function sanitize(settings) {
     s.mapTiles.tileEdgePadding = clampNumber(s.mapTiles.tileEdgePadding, 0, 8, 0);
 
     s.scripting.directorEnabled = clampNumber(s.scripting.directorEnabled, 0, 1, 1);
+    s.scripting.useMissionPackageDirector = clampNumber(s.scripting.useMissionPackageDirector, 0, 1, 0);
     s.scripting.eventTickMs = clampNumber(s.scripting.eventTickMs, 10, 1000, 80);
     s.scripting.aiThinkIntervalMs = clampNumber(s.scripting.aiThinkIntervalMs, 20, 2000, 120);
     s.scripting.autoSaveBetweenMissions = clampNumber(s.scripting.autoSaveBetweenMissions, 0, 1, 1);

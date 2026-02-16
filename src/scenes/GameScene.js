@@ -27,6 +27,7 @@ import { MEDKIT_HEAL_AMOUNT, MEDKIT_WAVE_SPAWNS, AMMO_WAVE_SPAWNS, AMMO_PICKUP_V
 import { resolveMissionLayout } from '../map/missionLayout.js';
 import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
+import { getMissionDirectorOverridesForMission } from '../settings/missionPackageRuntime.js';
 import { CombatDirector } from '../systems/CombatDirector.js';
 
 const TEAM_SPEED_SCALE = 1.5;
@@ -354,7 +355,12 @@ export class GameScene extends Phaser.Scene {
         this.lastTeamHealthSample = 0;
         this.lastDirectorUpdateAt = -10000;
         this.combatMods = this.combatDirector.getModifiers();
-        const script = this.runtimeSettings?.scripting || {};
+        const scriptBase = this.runtimeSettings?.scripting || {};
+        const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
+        const missionDirectorOverrides = useMissionPackageDirector
+            ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
+            : null;
+        const script = missionDirectorOverrides ? { ...scriptBase, ...missionDirectorOverrides } : scriptBase;
         const missionPressureScale = this.getMissionSpawnPressureScale(this.activeMission?.id);
         const idleBaseMs = Number(script.idlePressureBaseMs) || 7000;
         const idleMinMs = Number(script.idlePressureMinMs) || 3500;

@@ -2,6 +2,7 @@ import { buildPackageFromEditorState } from './backend/js/buildPackageFromEditor
 import { normalizeMissionPackage, validateMissionPackageShape } from './backend/js/normalizeMissionPackage.js';
 
 const STORAGE_KEY = 'aliens_dev_editors_v1';
+const PACKAGE_STORAGE_KEY = 'aliens_mission_package_v1';
 
 const TILE_VALUES = {
     terrain: [
@@ -1085,6 +1086,18 @@ document.getElementById('validatePackageBtn').addEventListener('click', () => {
     } else {
         setStatus('Mission package validation failed');
     }
+});
+document.getElementById('publishPackageBtn').addEventListener('click', () => {
+    const missionPkg = buildPackageFromEditorState(state);
+    const errors = validateMissionPackageShape(missionPkg);
+    if (errors.length) {
+        setStatus(`Publish blocked: ${errors[0]}`);
+        refreshPackageValidationSummary();
+        return;
+    }
+    localStorage.setItem(PACKAGE_STORAGE_KEY, JSON.stringify(missionPkg));
+    setStatus('Mission package published to game storage');
+    refreshPackageValidationSummary();
 });
 
 document.getElementById('exportBtn').addEventListener('click', () => {
