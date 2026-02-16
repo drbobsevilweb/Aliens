@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aliens://schemas/mission-package-v1",
+  "title": "Aliens Mission Package V1",
+  "type": "object",
+  "required": ["version", "maps", "missions"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "maps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "width", "height", "terrain", "doors", "markers"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "width": { "type": "integer", "minimum": 8, "maximum": 256 },
+          "height": { "type": "integer", "minimum": 8, "maximum": 256 },
+          "terrain": { "type": "array" },
+          "doors": { "type": "array" },
+          "markers": { "type": "array" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "missions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "mapId", "difficulty"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^m[0-9]+$" },
+          "name": { "type": "string" },
+          "mapId": { "type": "string" },
+          "difficulty": { "type": "string", "enum": ["normal", "hard", "extreme"] },
+          "enemyBudget": { "type": "integer", "minimum": 0, "maximum": 999 },
+          "objective": { "type": "string" },
+          "notes": { "type": "string" },
+          "director": {
+            "type": "object",
+            "properties": {
+              "idlePressureBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
+              "gunfireReinforceBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
+              "reinforceCap": { "type": "integer", "minimum": 0, "maximum": 200 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "directorEvents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "trigger", "action"],
+        "properties": {
+          "id": { "type": "string" },
+          "trigger": { "type": "string" },
+          "action": { "type": "string" },
+          "params": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "audioCues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "textCue"],
+        "properties": {
+          "id": { "type": "string" },
+          "textCue": { "type": "string" },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 10 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}
