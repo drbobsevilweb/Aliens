@@ -929,9 +929,30 @@ export class EnemyManager {
         return casters;
     }
 
-    handleBulletHit(enemy, damage) {
+    handleBulletHit(enemy, damage, projectile = null) {
         if (!enemy || !enemy.active) return false;
         const killed = enemy.takeDamage(damage);
+        if (!killed && projectile && enemy.body) {
+            const key = projectile.weaponKey || 'pulseRifle';
+            const impulseByWeapon = {
+                pulseRifle: 90,
+                pistol: 70,
+                shotgun: 170,
+            };
+            const impulse = impulseByWeapon[key] || 80;
+            const vx = Number(projectile.body?.velocity?.x) || 0;
+            const vy = Number(projectile.body?.velocity?.y) || 0;
+            const mag = Math.sqrt(vx * vx + vy * vy) || 1;
+            const ix = (vx / mag) * impulse;
+            const iy = (vy / mag) * impulse;
+            enemy.body.velocity.x += ix;
+            enemy.body.velocity.y += iy;
+            if (key === 'shotgun') {
+                const now = this.scene?.time?.now || 0;
+                enemy.hitSlowUntil = Math.max(enemy.hitSlowUntil || 0, now + 220);
+                enemy.hitSlowMultiplier = Math.min(enemy.hitSlowMultiplier || 1, 0.38);
+            }
+        }
         if (killed) {
             this.aliveCount = Math.max(0, this.aliveCount - 1);
             const label = this.labels.get(enemy);

@@ -81,6 +81,16 @@ const MARINE_AMBIENT_CHATTER = Object.freeze([
     'This place is crawling.',
     'No one gets left behind.',
 ]);
+const RADIO_STATIC_INCIDENTS = Object.freeze([
+    '--kssht-- movement in maintenance...',
+    'Command, we have no clean signal.',
+    '--static-- hold that corridor.',
+    'Power fluctuation, lights are unstable.',
+    '--kssht-- motion all around us.',
+    'Copy? ... copy?!',
+    '--static-- something in the vents.',
+    'This place is alive, keep moving.',
+]);
 
 export class GameScene extends Phaser.Scene {
     constructor() {
@@ -234,7 +244,7 @@ export class GameScene extends Phaser.Scene {
             this.showImpactEffect(bullet.x, bullet.y, 0xff7777);
             this.showAlienAcidSplash(enemy.x, enemy.y);
             bullet.deactivate();
-            const killed = this.enemyManager.handleBulletHit(enemy, bullet.damage || 0);
+            const killed = this.enemyManager.handleBulletHit(enemy, bullet.damage || 0, bullet);
             if (killed) this.totalKills++;
         });
         this.physics.add.overlap(this.bulletPool, this.enemyManager.getEggPhysicsGroup(), (a, b) => {
@@ -311,6 +321,7 @@ export class GameScene extends Phaser.Scene {
         this.nextMarineSpotCalloutAt = 0;
         this.nextMarineAttackCalloutAt = 0;
         this.nextMarineAmbientRadioAt = 0;
+        this.nextAtmosphereIncidentAt = 0;
         this.lastDamageCalloutByMarine = new Map();
         this.teamDamageSampleWindowMs = 2400;
         this.lastTeamDamageSampleAt = -10000;
@@ -649,6 +660,7 @@ export class GameScene extends Phaser.Scene {
         marines = this.squadSystem.getAllMarines();
         this.updateFollowerCombat(time, delta, marines);
         this.updateMarineRadioChatter(time, marines);
+        this.updateAtmosphereIncidents(time, marines);
         if (this.hud && typeof this.hud.updateSquad === 'function') {
             this.hud.updateSquad(marines, time);
         }
@@ -1557,6 +1569,27 @@ export class GameScene extends Phaser.Scene {
         const line = Phaser.Utils.Array.GetRandom(MARINE_AMBIENT_CHATTER);
         this.showFloatingText(speaker.x, speaker.y - 22, line, '#bcd8ff');
         this.nextMarineAmbientRadioAt = time + Phaser.Math.Between(ambientMin, ambientMax);
+    }
+
+    updateAtmosphereIncidents(time, marines) {
+        if (time < (this.nextAtmosphereIncidentAt || 0)) return;
+        const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1);
+        const onScreen = this.enemyManager?.getOnScreenHostileCount?.(this.cameras.main) || 0;
+        if (pressure < 0.46 || onScreen < 2) {
+            this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(2800, 5200);
+            return;
+        }
+        const chance = Phaser.Math.Clamp((pressure - 0.46) * 1.3, 0.08, 0.64);
+        if (Math.random() > chance) {
+            this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(2400, 4600);
+            return;
+        }
+        const candidates = (marines || []).filter((m) => m && m.active !== false && m.alive !== false);
+        if (candidates.length === 0) return;
+        const anchor = Phaser.Utils.Array.GetRandom(candidates);
+        const line = Phaser.Utils.Array.GetRandom(RADIO_STATIC_INCIDENTS);
+        this.showFloatingText(anchor.x, anchor.y - 34, line, '#9ed0ff');
+        this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(4800, 9000);
     }
 
     createMoveTargetIcon() {
