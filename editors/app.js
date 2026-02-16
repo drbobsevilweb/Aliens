@@ -3,6 +3,7 @@ import { normalizeMissionPackage, validateMissionPackageShape } from './backend/
 
 const STORAGE_KEY = 'aliens_dev_editors_v1';
 const PACKAGE_STORAGE_KEY = 'aliens_mission_package_v1';
+const PACKAGE_META_STORAGE_KEY = 'aliens_mission_package_meta_v1';
 
 const TILE_VALUES = {
     terrain: [
@@ -1067,15 +1068,29 @@ function refreshPackageValidationSummary() {
     if (!validationEl) return;
     const missionPkg = buildPackageFromEditorState(state);
     const errors = validateMissionPackageShape(missionPkg);
+    let publishedLine = 'Published: no';
+    try {
+        const rawMeta = localStorage.getItem(PACKAGE_META_STORAGE_KEY);
+        if (rawMeta) {
+            const meta = JSON.parse(rawMeta);
+            if (meta && meta.publishedAt) {
+                const stamp = new Date(meta.publishedAt).toLocaleString();
+                const bytes = Number(meta.sizeBytes) || 0;
+                publishedLine = `Published: yes (${stamp}, ${bytes} bytes)`;
+            }
+        }
+    } catch {
+        // Ignore malformed publish metadata.
+    }
     if (!errors.length) {
         validationEl.classList.remove('err');
         validationEl.classList.add('ok');
-        validationEl.textContent = `Mission Package: OK\nMaps: ${missionPkg.maps.length} | Missions: ${missionPkg.missions.length}`;
+        validationEl.textContent = `Mission Package: OK\nMaps: ${missionPkg.maps.length} | Missions: ${missionPkg.missions.length}\n${publishedLine}`;
         return;
     }
     validationEl.classList.remove('ok');
     validationEl.classList.add('err');
-    validationEl.textContent = `Mission Package: ${errors.length} issue(s)\n- ${errors.join('\n- ')}`;
+    validationEl.textContent = `Mission Package: ${errors.length} issue(s)\n- ${errors.join('\n- ')}\n${publishedLine}`;
 }
 
 document.getElementById('saveAllBtn').addEventListener('click', () => saveState('Saved all sections'));
@@ -1095,7 +1110,12 @@ document.getElementById('publishPackageBtn').addEventListener('click', () => {
         refreshPackageValidationSummary();
         return;
     }
-    localStorage.setItem(PACKAGE_STORAGE_KEY, JSON.stringify(missionPkg));
+    const payload = JSON.stringify(missionPkg);
+    localStorage.setItem(PACKAGE_STORAGE_KEY, payload);
+    localStorage.setItem(PACKAGE_META_STORAGE_KEY, JSON.stringify({
+        publishedAt: Date.now(),
+        sizeBytes: payload.length,
+    }));
     setStatus('Mission package published to game storage');
     refreshPackageValidationSummary();
 });
