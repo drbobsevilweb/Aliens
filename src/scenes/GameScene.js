@@ -2237,13 +2237,24 @@ export class GameScene extends Phaser.Scene {
                 state.nextThinkAt = time + thinkIntervalMs;
                 best = null;
                 bestDist = Infinity;
+                let closeThreat = null;
+                let closeThreatDist = Infinity;
+                const closeSupportDist = CONFIG.TILE_SIZE * 1.9;
                 for (const enemy of enemies) {
                     if (!canSee(follower, enemy)) continue;
                     const d = Phaser.Math.Distance.Between(follower.x, follower.y, enemy.x, enemy.y);
+                    if (d <= closeSupportDist && d < closeThreatDist) {
+                        closeThreat = enemy;
+                        closeThreatDist = d;
+                    }
                     if (d < bestDist) {
                         bestDist = d;
                         best = enemy;
                     }
+                }
+                if (closeThreat) {
+                    best = closeThreat;
+                    bestDist = closeThreatDist;
                 }
 
                 if (!best && selfRecentlyAttacked) {
