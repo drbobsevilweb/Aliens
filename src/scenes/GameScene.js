@@ -1859,7 +1859,49 @@ export class GameScene extends Phaser.Scene {
             this.nextGunfireReinforceAt = Math.max(this.nextGunfireReinforceAt || 0, this.pressureGraceUntil);
             return true;
         }
+        if (action === 'door_action' || action === 'door_state') {
+            return this.applyDirectorDoorAction(params);
+        }
         return false;
+    }
+
+    applyDirectorDoorAction(params = {}) {
+        if (!this.doorManager || !Array.isArray(this.doorManager.doorGroups)) return false;
+        const opRaw = String(params.op || params.state || params.action || '').toLowerCase().trim();
+        const validOps = new Set(['open', 'close', 'lock', 'hack', 'weld', 'unweld']);
+        const op = validOps.has(opRaw) ? opRaw : '';
+        if (!op) return false;
+        const doorId = String(params.doorId || '').trim();
+        let group = null;
+        if (doorId) {
+            group = (this.doorManager.doorGroups || []).find((g) => g && String(g.id) === doorId) || null;
+        }
+        if (!group) {
+            const dir = String(params.dir || '').toUpperCase().trim();
+            const candidates = (this.doorManager.doorGroups || []).filter((g) => g && g.state !== 'open');
+            let best = null;
+            let bestScore = -Infinity;
+            for (const g of candidates) {
+                const center = this.getDoorGroupCenter(g);
+                const bucket = this.getDirectionBucket(center.x, center.y);
+                const dirScore = dir && bucket === dir ? 800 : 0;
+                const dist = Phaser.Math.Distance.Between(this.leader.x, this.leader.y, center.x, center.y);
+                const score = dirScore + dist;
+                if (score > bestScore) {
+                    best = g;
+                    bestScore = score;
+                }
+            }
+            group = best;
+        }
+        if (!group) return false;
+        const pathGrid = this.pathGrid;
+        const physicsGroup = this.doorManager.physicsGroup;
+        const lightBlockerGrid = this.lightBlockerGrid;
+        const wallLayer = this.wallLayer;
+        if (typeof group[op] !== 'function') return false;
+        group[op](pathGrid, physicsGroup, lightBlockerGrid, wallLayer);
+        return true;
     }
 
     spawnDirectorPack(params = {}, time = this.time.now, marines = null) {

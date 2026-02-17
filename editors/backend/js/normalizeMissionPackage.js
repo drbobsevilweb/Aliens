@@ -90,7 +90,17 @@ export function validateMissionPackageShape(pkg) {
     }
 
     const allowedTriggers = new Set(['time', 'wave', 'pressure', 'kills', 'stage', 'objective', 'always']);
-    const allowedActions = new Set(['spawn_pack', 'text_cue', 'cue_text', 'show_text', 'door_thump', 'thump', 'set_pressure_grace']);
+    const allowedActions = new Set([
+        'spawn_pack',
+        'text_cue',
+        'cue_text',
+        'show_text',
+        'door_thump',
+        'thump',
+        'set_pressure_grace',
+        'door_action',
+        'door_state',
+    ]);
     const allowedStages = new Set(['combat', 'intermission', 'extract', 'victory', 'defeat']);
 
     for (const e of pkg?.directorEvents || []) {
@@ -125,6 +135,11 @@ export function validateMissionPackageShape(pkg) {
         if (action === 'set_pressure_grace') {
             const ms = Number(e?.params?.ms);
             if (!Number.isFinite(ms)) errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
+        }
+        if (action === 'door_action' || action === 'door_state') {
+            const op = String(e?.params?.op || e?.params?.state || e?.params?.action || '').toLowerCase().trim();
+            const validOps = new Set(['open', 'close', 'lock', 'hack', 'weld', 'unweld']);
+            if (!validOps.has(op)) errors.push(`directorEvent ${e.id} door action params.op must be open/close/lock/hack/weld/unweld.`);
         }
     }
 
