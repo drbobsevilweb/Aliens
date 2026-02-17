@@ -1333,17 +1333,19 @@ export class GameScene extends Phaser.Scene {
         if (time < (this.nextTrackerWordAt || 0)) return;
         this.nextTrackerWordAt = time + 180;
         const p = this.getSquadTrackerCueScreenPos();
+        const txt = String(word || '').trim();
+        const fontPx = txt.length >= 12 ? 22 : 24;
         const msg = this.add.text(
             p.x + Phaser.Math.Between(-10, 10),
             p.y - 20 + Phaser.Math.Between(-3, 3),
             word,
             {
-                fontSize: '20px',
+                fontSize: `${fontPx}px`,
                 fontFamily: 'Impact, "Arial Black", sans-serif',
                 fontStyle: 'bold',
                 color,
                 backgroundColor: '#11212b',
-                padding: { left: 8, right: 8, top: 3, bottom: 3 },
+                padding: { left: 10, right: 10, top: 4, bottom: 4 },
             }
         );
         msg.setOrigin(0.5);
@@ -3837,15 +3839,15 @@ export class GameScene extends Phaser.Scene {
             y = CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT - 26;
         }
         const msg = this.add.text(x, y, `${word} ${dir}`, {
-            fontSize: '24px',
+            fontSize: '30px',
             fontFamily: 'Impact, "Arial Black", sans-serif',
             fontStyle: 'bold',
             color,
             backgroundColor: '#111111',
-            padding: { left: 8, right: 8, top: 4, bottom: 4 },
+            padding: { left: 10, right: 10, top: 5, bottom: 5 },
         });
         msg.setOrigin(0.5);
-        msg.setStroke('#070707', 5);
+        msg.setStroke('#070707', 6);
         msg.setShadow(3, 3, '#000000', 0.85, false, true);
         msg.setRotation(Phaser.Math.FloatBetween(-0.05, 0.05));
         msg.setScale(0.86);
@@ -3853,10 +3855,10 @@ export class GameScene extends Phaser.Scene {
         msg.setDepth(241);
         this.tweens.add({
             targets: msg,
-            y: y - 22,
-            scale: 1.06,
+            y: y - 28,
+            scale: 1.09,
             alpha: 0,
-            duration: 700,
+            duration: 760,
             ease: 'Cubic.out',
             onComplete: () => msg.destroy(),
         });
