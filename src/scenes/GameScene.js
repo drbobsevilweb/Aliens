@@ -340,6 +340,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerCueAnchorX = null;
         this.trackerCueAnchorY = null;
         this.nextThreatPulseAt = 0;
+        this.nextImpactShakeAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
         this.followerCombatState = new Map();
@@ -2117,8 +2118,9 @@ export class GameScene extends Phaser.Scene {
                 rangeBoost: 66 * sparkIntensity,
             });
         }
-        if (Math.random() < 0.22) {
+        if (Math.random() < 0.22 && this.time.now >= (this.nextImpactShakeAt || 0)) {
             this.cameras.main.shake(45, 0.0018 + sparkIntensity * 0.0006, true);
+            this.nextImpactShakeAt = this.time.now + 120;
         }
     }
 
@@ -2241,7 +2243,10 @@ export class GameScene extends Phaser.Scene {
                 rangeBoost: 82 * fxMul,
             });
         }
-        this.cameras.main.shake(80, 0.0026 + fxMul * 0.0009, true);
+        if (this.time.now >= (this.nextImpactShakeAt || 0)) {
+            this.cameras.main.shake(80, 0.0026 + fxMul * 0.0009, true);
+            this.nextImpactShakeAt = this.time.now + 140;
+        }
     }
 
     spawnAcidHazard(x, y, options = {}) {
