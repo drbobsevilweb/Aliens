@@ -40,8 +40,15 @@
             "type": "object",
             "properties": {
               "idlePressureBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
+              "idlePressureMinMs": { "type": "number", "minimum": 500, "maximum": 60000 },
               "gunfireReinforceBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
+              "gunfireReinforceMinMs": { "type": "number", "minimum": 500, "maximum": 60000 },
               "reinforceCap": { "type": "integer", "minimum": 0, "maximum": 200 },
+              "reinforceCapIdle": { "type": "integer", "minimum": 0, "maximum": 200 },
+              "reinforceCapGunfire": { "type": "integer", "minimum": 0, "maximum": 200 },
+              "doorNoiseMemoryMs": { "type": "number", "minimum": 500, "maximum": 120000 },
+              "idleSpawnMemoryMs": { "type": "number", "minimum": 500, "maximum": 120000 },
+              "waveTransitionGraceMs": { "type": "number", "minimum": 0, "maximum": 60000 },
               "inactivityAmbushMs": { "type": "number", "minimum": 1000, "maximum": 120000 },
               "inactivityAmbushCooldownMs": { "type": "number", "minimum": 500, "maximum": 120000 }
             },
