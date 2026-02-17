@@ -1124,7 +1124,7 @@ function refreshPackageValidationSummary() {
     if (!errors.length) {
         validationEl.classList.remove('err');
         validationEl.classList.add('ok');
-        validationEl.textContent = `Mission Package: OK\nMaps: ${missionPkg.maps.length} | Missions: ${missionPkg.missions.length}\n${publishedLine}`;
+        validationEl.textContent = `Mission Package: OK\nMaps: ${missionPkg.maps.length} | Missions: ${missionPkg.missions.length} | Events: ${(missionPkg.directorEvents || []).length} | Cues: ${(missionPkg.audioCues || []).length}\n${publishedLine}`;
         return;
     }
     validationEl.classList.remove('ok');
