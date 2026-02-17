@@ -3575,6 +3575,7 @@ export class GameScene extends Phaser.Scene {
             enemy.investigatePoint = { x: c.center.x, y: c.center.y, power: 1.1 };
             enemy.investigateUntil = time + 3600;
             this.noteDoorNoiseDirection(c.dir, c.group.id, time);
+            this.reportDoorThump(c.center.x, c.center.y, time + i * 90, false);
             spawned++;
         }
         return spawned;
