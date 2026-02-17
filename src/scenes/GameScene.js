@@ -377,6 +377,7 @@ export class GameScene extends Phaser.Scene {
         this.missionDirectorEvents = this.useMissionPackageDirector
             ? getMissionDirectorEventsForMission(this.activeMission?.id || '')
             : [];
+        this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
         this.missionDirectorEventState = new Map();
         this.missionAudioCueMap = this.useMissionPackageDirector
             ? this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''))
@@ -1715,6 +1716,8 @@ export class GameScene extends Phaser.Scene {
         const intensityCapMul = Phaser.Math.Linear(0.9, 1.32, intensityNorm);
         const fxCap = Math.max(60, Math.floor(420 * (this.fxQualityScale || 1) * intensityCapMul));
         if (fxActive >= Math.floor(fxCap * 0.94)) warnings.push('FX near saturation cap');
+        const evtIssues = Array.isArray(this.missionDirectorEventIssues) ? this.missionDirectorEventIssues.length : 0;
+        if (evtIssues > 0) warnings.push(`Director event issues: ${evtIssues}`);
         if (this.missionPackageMetaStale) warnings.push('Mission package checksum stale');
         return warnings;
     }
@@ -1742,12 +1745,39 @@ export class GameScene extends Phaser.Scene {
         this.missionPackageMetaStale = isMissionPackageMetaStale();
         if (this.useMissionPackageDirector) {
             this.missionDirectorEvents = getMissionDirectorEventsForMission(this.activeMission?.id || '');
+            this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
             this.missionAudioCueMap = this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''));
             this.ensureMissionDirectorEventState();
         } else {
             this.missionDirectorEvents = [];
+            this.missionDirectorEventIssues = [];
             this.missionAudioCueMap = new Map();
         }
+    }
+
+    validateMissionDirectorEvents(events = []) {
+        const issues = [];
+        const allowedTriggers = new Set(['always', 'time', 'wave', 'pressure', 'kills', 'stage', 'objective']);
+        const allowedActions = new Set([
+            'spawn_pack',
+            'text_cue',
+            'cue_text',
+            'show_text',
+            'door_thump',
+            'thump',
+            'set_pressure_grace',
+            'door_action',
+            'door_state',
+        ]);
+        for (const e of events || []) {
+            const id = String(e?.id || '?');
+            const trigger = String(e?.trigger || '').trim().toLowerCase();
+            const action = String(e?.action || '').trim().toLowerCase();
+            const triggerKind = trigger ? String(trigger.split(':', 1)[0]).trim() : '';
+            if (!triggerKind || !allowedTriggers.has(triggerKind)) issues.push(`Director event ${id} has unsupported trigger`);
+            if (!action || !allowedActions.has(action)) issues.push(`Director event ${id} has unsupported action`);
+        }
+        return issues;
     }
 
     buildMissionAudioCueMap(cues = []) {
