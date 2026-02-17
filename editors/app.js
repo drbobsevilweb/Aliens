@@ -1114,6 +1114,13 @@ function renderMissionsTab() {
             <button id="applyMissionChanges">Apply Mission Changes</button>
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>
+            <div class="tool-row">
+                <button id="snippetSpawnPackBtn">+ Spawn Pack</button>
+                <button id="snippetDoorThumpBtn">+ Door Thump</button>
+                <button id="snippetTrackerBtn">+ Tracker Action</button>
+                <button id="snippetLightingBtn">+ Lighting Shift</button>
+                <button id="snippetCombatModsBtn">+ Combat Mods</button>
+            </div>
             <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
             <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_lighting, set_pressure_grace, set_reinforce_caps, set_combat_mods, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: cueId, dir(N/S/E/W), repeatMs, retryMs, maxFires.</p>
             <h3>Audio Cues (JSON array)</h3>
@@ -1176,6 +1183,48 @@ function renderMissionsTab() {
             setStatus(`Apply failed: ${detail}`);
         }
     });
+
+    const appendDirectorEventSnippet = (kind) => {
+        try {
+            const area = document.getElementById('directorEventsJson');
+            const arr = parseJsonArrayInput(area.value, 'directorEvents');
+            const maxSuffix = arr.reduce((best, e) => {
+                const m = String(e?.id || '').match(/evt_snippet_(\d+)/);
+                if (!m) return best;
+                return Math.max(best, Number(m[1]) || 0);
+            }, 0);
+            const id = `evt_snippet_${maxSuffix + 1}`;
+            let event = { id, trigger: 'time:20', action: 'text_cue', params: { textCue: 'EVENT READY' } };
+            if (kind === 'spawn_pack') {
+                event = { id, trigger: 'time:20', action: 'spawn_pack', params: { size: 3, source: 'idle', dir: 'N' } };
+            } else if (kind === 'door_thump') {
+                event = { id, trigger: 'pressure:0.7', action: 'door_thump', params: { word: 'THUMP!!', dir: 'E' } };
+            } else if (kind === 'trigger_tracker') {
+                event = { id, trigger: 'time:30', action: 'trigger_tracker', params: { role: 'tech' } };
+            } else if (kind === 'set_lighting') {
+                event = { id, trigger: 'pressure:0.75', action: 'set_lighting', params: { ambientDarkness: 0.62, torchRange: 290 } };
+            } else if (kind === 'set_combat_mods') {
+                event = {
+                    id,
+                    trigger: 'wave:2',
+                    action: 'set_combat_mods',
+                    params: { marineAccuracyMul: 1.1, marineJamMul: 0.82, enemyAggressionMul: 1.08, ms: 7000 },
+                };
+            }
+            arr.push(event);
+            area.value = JSON.stringify(arr, null, 2);
+            setStatus(`Snippet added: ${event.action}`);
+        } catch (err) {
+            const detail = err && err.message ? err.message : 'snippet add failed';
+            setStatus(`Snippet failed: ${detail}`);
+        }
+    };
+
+    document.getElementById('snippetSpawnPackBtn').addEventListener('click', () => appendDirectorEventSnippet('spawn_pack'));
+    document.getElementById('snippetDoorThumpBtn').addEventListener('click', () => appendDirectorEventSnippet('door_thump'));
+    document.getElementById('snippetTrackerBtn').addEventListener('click', () => appendDirectorEventSnippet('trigger_tracker'));
+    document.getElementById('snippetLightingBtn').addEventListener('click', () => appendDirectorEventSnippet('set_lighting'));
+    document.getElementById('snippetCombatModsBtn').addEventListener('click', () => appendDirectorEventSnippet('set_combat_mods'));
 
     document.getElementById('resetMissionsBtn').addEventListener('click', () => {
         state.missions = defaultState().missions;
