@@ -1825,13 +1825,52 @@ export class GameScene extends Phaser.Scene {
             'spawn_queen',
             'spawn_boss',
         ]);
+        const allowedDoorOps = new Set(['open', 'close', 'lock', 'hack', 'weld', 'unweld']);
+        const allowedTrackerRoles = new Set(['tech', 'medic', 'heavy', 'leader']);
+        const allowedSpawnTypes = new Set(['warrior', 'drone', 'facehugger', 'queenlesser', 'queen_lesser', 'queen']);
         for (const e of events || []) {
             const id = String(e?.id || '?');
             const trigger = String(e?.trigger || '').trim().toLowerCase();
             const action = String(e?.action || '').trim().toLowerCase();
+            const params = (e?.params && typeof e.params === 'object') ? e.params : {};
             const triggerKind = trigger ? String(trigger.split(':', 1)[0]).trim() : '';
             if (!triggerKind || !allowedTriggers.has(triggerKind)) issues.push(`Director event ${id} has unsupported trigger`);
             if (!action || !allowedActions.has(action)) issues.push(`Director event ${id} has unsupported action`);
+            if (action === 'spawn_pack') {
+                const size = Number(params.size);
+                if (Number.isFinite(size) && (size < 1 || size > 16)) issues.push(`Director event ${id} spawn_pack size out of range`);
+                const source = String(params.source || '').toLowerCase().trim();
+                if (source && source !== 'idle' && source !== 'gunfire') issues.push(`Director event ${id} spawn_pack source invalid`);
+                const type = String(params.type || '').toLowerCase().trim();
+                if (type && !allowedSpawnTypes.has(type)) issues.push(`Director event ${id} spawn_pack type invalid`);
+            }
+            if (action === 'door_action' || action === 'door_state') {
+                const op = String(params.op || params.state || params.action || '').toLowerCase().trim();
+                if (!allowedDoorOps.has(op)) issues.push(`Director event ${id} door action invalid`);
+            }
+            if (action === 'trigger_tracker' || action === 'start_tracker') {
+                const role = String(params.role || 'tech').toLowerCase().trim();
+                if (!allowedTrackerRoles.has(role)) issues.push(`Director event ${id} tracker role invalid`);
+            }
+            if (action === 'set_pressure_grace' && params.ms !== undefined && !Number.isFinite(Number(params.ms))) {
+                issues.push(`Director event ${id} pressure grace ms invalid`);
+            }
+            if ((action === 'morale_delta' || action === 'panic_delta') && !Number.isFinite(Number(params.amount))) {
+                issues.push(`Director event ${id} morale amount invalid`);
+            }
+            if ((action === 'set_reinforce_caps' || action === 'set_reinforcement_caps')) {
+                const hasAny = params.total !== undefined || params.idle !== undefined || params.gunfire !== undefined;
+                if (!hasAny) issues.push(`Director event ${id} reinforce caps missing values`);
+            }
+            if (action === 'set_lighting') {
+                const hasAny = params.ambientDarkness !== undefined || params.torchRange !== undefined || params.torchConeHalfAngle !== undefined;
+                if (!hasAny) issues.push(`Director event ${id} set_lighting missing values`);
+            }
+            if (action === 'set_combat_mods') {
+                const keys = ['enemyAggressionMul', 'enemyFlankMul', 'enemyDoorDamageMul', 'marineAccuracyMul', 'marineJamMul', 'marineReactionMul'];
+                const hasAny = keys.some((k) => params[k] !== undefined);
+                if (!hasAny) issues.push(`Director event ${id} set_combat_mods missing values`);
+            }
         }
         return issues;
     }
