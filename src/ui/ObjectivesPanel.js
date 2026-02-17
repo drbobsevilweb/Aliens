@@ -46,6 +46,7 @@ export class ObjectivesPanel {
                 `${extractMark} Reach extraction zone`,
             ];
         }
+        if (data.statusLine) lines.push(String(data.statusLine));
         this.lines.setText(lines.join('\n'));
         this.resizeToContent(lines);
     }

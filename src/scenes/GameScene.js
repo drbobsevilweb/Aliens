@@ -1552,7 +1552,15 @@ export class GameScene extends Phaser.Scene {
             currentWave: this.stageFlow.currentWave,
             totalWaves: this.stageFlow.totalWaves,
             objectiveLines: missionState ? missionState.objectiveLines : null,
+            statusLine: this.getMissionPackageHudStatusLine(),
         });
+    }
+
+    getMissionPackageHudStatusLine() {
+        const events = Array.isArray(this.missionDirectorEvents) ? this.missionDirectorEvents.length : 0;
+        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${events}`;
+        const tag = this.missionPackageMetaStale ? 'STALE' : 'OK';
+        return `PKG: ${tag} | EVT:${events}`;
     }
 
     spawnWaveMedkit(waveNumber) {
