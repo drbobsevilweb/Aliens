@@ -169,6 +169,10 @@ export function validateMissionPackageShape(pkg) {
             if (idle !== undefined && !Number.isFinite(Number(idle))) errors.push(`directorEvent ${e.id} params.idle must be numeric.`);
             if (gunfire !== undefined && !Number.isFinite(Number(gunfire))) errors.push(`directorEvent ${e.id} params.gunfire must be numeric.`);
         }
+        if (action === 'spawn_pack') {
+            const dir = String(e?.params?.dir || '').toUpperCase().trim();
+            if (dir && !['N', 'S', 'E', 'W'].includes(dir)) errors.push(`directorEvent ${e.id} params.dir must be N/S/E/W.`);
+        }
         if (action === 'set_lighting') {
             const darkness = e?.params?.ambientDarkness;
             const range = e?.params?.torchRange;

@@ -1029,7 +1029,7 @@ function renderMissionsTab() {
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>
             <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
-            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_lighting, set_pressure_grace, set_reinforce_caps, set_combat_mods, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: cueId, repeatMs, retryMs, maxFires.</p>
+            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_lighting, set_pressure_grace, set_reinforce_caps, set_combat_mods, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: cueId, dir(N/S/E/W), repeatMs, retryMs, maxFires.</p>
             <h3>Audio Cues (JSON array)</h3>
             <textarea id="audioCuesJson" rows="9">${escapeHtml(JSON.stringify(state.audioCues || [], null, 2))}</textarea>
             <p class="small">Cue IDs used in gameplay text: cue_motion_near, cue_tracker_active, cue_swarm_close, cue_door_thump, cue_door_breach.</p>

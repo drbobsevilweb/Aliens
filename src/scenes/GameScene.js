@@ -1843,6 +1843,8 @@ export class GameScene extends Phaser.Scene {
                 if (source && source !== 'idle' && source !== 'gunfire') issues.push(`Director event ${id} spawn_pack source invalid`);
                 const type = String(params.type || '').toLowerCase().trim();
                 if (type && !allowedSpawnTypes.has(type)) issues.push(`Director event ${id} spawn_pack type invalid`);
+                const dir = String(params.dir || '').toUpperCase().trim();
+                if (dir && !['N', 'S', 'E', 'W'].includes(dir)) issues.push(`Director event ${id} spawn_pack dir invalid`);
             }
             if (action === 'door_action' || action === 'door_state') {
                 const op = String(params.op || params.state || params.action || '').toLowerCase().trim();
@@ -2193,10 +2195,11 @@ export class GameScene extends Phaser.Scene {
         const packSize = Math.min(slots, capRoom, requestedSize);
         if (packSize <= 0) return 0;
         const forcedType = params.type ? String(params.type) : '';
+        const preferredDir = String(params.dir || '').toUpperCase().trim();
         const view = this.cameras.main ? this.cameras.main.worldView : null;
         let spawned = 0;
         for (let i = 0; i < packSize; i++) {
-            const world = this.pickIdlePressureSpawnWorld(view, marList, time);
+            const world = this.pickIdlePressureSpawnWorld(view, marList, time, preferredDir);
             if (!world) continue;
             const type = forcedType || this.pickReinforcementType(source, i, time);
             const enemy = this.enemyManager.spawnEnemyAtWorld(type, world.x, world.y, this.stageFlow.currentWave || 1);
@@ -3879,7 +3882,7 @@ export class GameScene extends Phaser.Scene {
         return spawned;
     }
 
-    pickIdlePressureSpawnWorld(view, marines, time = this.time.now) {
+    pickIdlePressureSpawnWorld(view, marines, time = this.time.now, preferredDir = '') {
         const leader = this.leader;
         const minDist = CONFIG.TILE_SIZE * 8;
         const maxAttempts = 120;
@@ -3900,7 +3903,9 @@ export class GameScene extends Phaser.Scene {
             const onScreen = view && Phaser.Geom.Rectangle.Contains(view, world.x, world.y);
             const offscreenBonus = onScreen ? -2200 : 1800;
             const repeatPenalty = this.getIdleSpawnRepeatPenalty(world, time);
-            const score = nearest + offscreenBonus - repeatPenalty + Phaser.Math.Between(0, 140);
+            const dir = this.getDirectionBucket(world.x, world.y);
+            const dirBonus = preferredDir && preferredDir === dir ? 900 : 0;
+            const score = nearest + offscreenBonus - repeatPenalty + dirBonus + Phaser.Math.Between(0, 140);
             if (score > bestScore) {
                 best = world;
                 bestScore = score;
