@@ -1595,9 +1595,19 @@ export class GameScene extends Phaser.Scene {
 
     getMissionPackageHudStatusLine() {
         const events = Array.isArray(this.missionDirectorEvents) ? this.missionDirectorEvents.length : 0;
-        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${events}`;
+        const fired = this.countMissionDirectorEventsFired();
+        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${fired}/${events}`;
         const tag = this.missionPackageMetaStale ? 'STALE' : 'OK';
-        return `PKG: ${tag} | EVT:${events}`;
+        return `PKG: ${tag} | EVT:${fired}/${events}`;
+    }
+
+    countMissionDirectorEventsFired() {
+        if (!this.missionDirectorEventState || typeof this.missionDirectorEventState.values !== 'function') return 0;
+        let n = 0;
+        for (const s of this.missionDirectorEventState.values()) {
+            if (s && s.fired) n++;
+        }
+        return n;
     }
 
     spawnWaveMedkit(waveNumber) {
