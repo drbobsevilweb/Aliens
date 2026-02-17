@@ -27,7 +27,7 @@ import { MEDKIT_HEAL_AMOUNT, MEDKIT_WAVE_SPAWNS, AMMO_WAVE_SPAWNS, AMMO_PICKUP_V
 import { resolveMissionLayout } from '../map/missionLayout.js';
 import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
-import { getMissionDirectorOverridesForMission } from '../settings/missionPackageRuntime.js';
+import { getMissionDirectorOverridesForMission, getMissionPackageMeta } from '../settings/missionPackageRuntime.js';
 import { CombatDirector } from '../systems/CombatDirector.js';
 
 const TEAM_SPEED_SCALE = 1.5;
@@ -359,6 +359,7 @@ export class GameScene extends Phaser.Scene {
         this.combatMods = this.combatDirector.getModifiers();
         const scriptBase = this.runtimeSettings?.scripting || {};
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
+        this.missionPackageMeta = getMissionPackageMeta();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -1584,7 +1585,7 @@ export class GameScene extends Phaser.Scene {
             ? ` | ${this.lastMissionState.phaseLabel}`
             : '';
         this.debugOverlay.update(time, {
-            stage: `${this.stageFlow.state} (wave ${this.stageFlow.getWaveLabel()})${phase} | Director: ${this.directorSourceLabel || 'SETTINGS'}`,
+            stage: `${this.stageFlow.state} (wave ${this.stageFlow.getWaveLabel()})${phase} | Director: ${this.directorSourceLabel || 'SETTINGS'}${this.getMissionPackageMetaDebugSuffix()}`,
             hostiles: this.enemyManager.getAliveCount(),
             health: this.leader.health,
             inputMode: 'mouse',
@@ -1611,6 +1612,13 @@ export class GameScene extends Phaser.Scene {
         const totalCap = Number.isFinite(this.reinforceCapEffective) ? this.reinforceCapEffective : this.reinforceCap;
         if (!Number.isFinite(totalCap) || totalCap < 0) warnings.push('Invalid reinforcement cap');
         return warnings;
+    }
+
+    getMissionPackageMetaDebugSuffix() {
+        const meta = this.missionPackageMeta;
+        if (!meta || !meta.publishedAt) return '';
+        const ageSec = Math.max(0, Math.floor((Date.now() - meta.publishedAt) / 1000));
+        return ` | PkgAge:${ageSec}s`;
     }
 
     updateCombatFeedback(time) {
