@@ -29,7 +29,7 @@ export function normalizeMissionPackage(input) {
                 enemyBudget: clampInt(m.enemyBudget, 0, 999, 0),
                 objective: String(m.objective || ''),
                 notes: String(m.notes || ''),
-                director: m.director && typeof m.director === 'object' ? { ...m.director } : {},
+                director: normalizeMissionDirectorOverrides(m.director),
             }))
         : [];
 
@@ -86,6 +86,24 @@ export function validateMissionPackageShape(pkg) {
             for (const [k, v] of Object.entries(m.director)) {
                 if (!Number.isFinite(Number(v))) errors.push(`Mission ${m.id} director.${k} must be numeric.`);
             }
+            const d = m.director;
+            const inRange = (key, min, max) => {
+                if (d[key] === undefined) return true;
+                const n = Number(d[key]);
+                return Number.isFinite(n) && n >= min && n <= max;
+            };
+            if (!inRange('idlePressureBaseMs', 500, 60000)) errors.push(`Mission ${m.id} director.idlePressureBaseMs out of range.`);
+            if (!inRange('idlePressureMinMs', 500, 60000)) errors.push(`Mission ${m.id} director.idlePressureMinMs out of range.`);
+            if (!inRange('gunfireReinforceBaseMs', 500, 60000)) errors.push(`Mission ${m.id} director.gunfireReinforceBaseMs out of range.`);
+            if (!inRange('gunfireReinforceMinMs', 500, 60000)) errors.push(`Mission ${m.id} director.gunfireReinforceMinMs out of range.`);
+            if (!inRange('reinforceCap', 0, 200)) errors.push(`Mission ${m.id} director.reinforceCap out of range.`);
+            if (!inRange('reinforceCapIdle', 0, 200)) errors.push(`Mission ${m.id} director.reinforceCapIdle out of range.`);
+            if (!inRange('reinforceCapGunfire', 0, 200)) errors.push(`Mission ${m.id} director.reinforceCapGunfire out of range.`);
+            if (!inRange('doorNoiseMemoryMs', 500, 120000)) errors.push(`Mission ${m.id} director.doorNoiseMemoryMs out of range.`);
+            if (!inRange('idleSpawnMemoryMs', 500, 120000)) errors.push(`Mission ${m.id} director.idleSpawnMemoryMs out of range.`);
+            if (!inRange('waveTransitionGraceMs', 0, 60000)) errors.push(`Mission ${m.id} director.waveTransitionGraceMs out of range.`);
+            if (!inRange('inactivityAmbushMs', 1000, 120000)) errors.push(`Mission ${m.id} director.inactivityAmbushMs out of range.`);
+            if (!inRange('inactivityAmbushCooldownMs', 500, 120000)) errors.push(`Mission ${m.id} director.inactivityAmbushCooldownMs out of range.`);
         }
     }
 
@@ -256,4 +274,40 @@ function clampInt(v, min, max, fallback) {
     const n = Number(v);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function clampNumber(v, min, max) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return undefined;
+    return Math.max(min, Math.min(max, n));
+}
+
+function normalizeMissionDirectorOverrides(director) {
+    if (!director || typeof director !== 'object') return {};
+    const out = {};
+    const idleBaseMs = clampNumber(director.idlePressureBaseMs, 500, 60000);
+    if (idleBaseMs !== undefined) out.idlePressureBaseMs = idleBaseMs;
+    const idleMinMs = clampNumber(director.idlePressureMinMs, 500, 60000);
+    if (idleMinMs !== undefined) out.idlePressureMinMs = idleMinMs;
+    const gunfireBaseMs = clampNumber(director.gunfireReinforceBaseMs, 500, 60000);
+    if (gunfireBaseMs !== undefined) out.gunfireReinforceBaseMs = gunfireBaseMs;
+    const gunfireMinMs = clampNumber(director.gunfireReinforceMinMs, 500, 60000);
+    if (gunfireMinMs !== undefined) out.gunfireReinforceMinMs = gunfireMinMs;
+    const reinforceCap = clampInt(director.reinforceCap, 0, 200, -1);
+    if (reinforceCap >= 0) out.reinforceCap = reinforceCap;
+    const reinforceCapIdle = clampInt(director.reinforceCapIdle, 0, 200, -1);
+    if (reinforceCapIdle >= 0) out.reinforceCapIdle = reinforceCapIdle;
+    const reinforceCapGunfire = clampInt(director.reinforceCapGunfire, 0, 200, -1);
+    if (reinforceCapGunfire >= 0) out.reinforceCapGunfire = reinforceCapGunfire;
+    const doorNoiseMemoryMs = clampNumber(director.doorNoiseMemoryMs, 500, 120000);
+    if (doorNoiseMemoryMs !== undefined) out.doorNoiseMemoryMs = doorNoiseMemoryMs;
+    const idleSpawnMemoryMs = clampNumber(director.idleSpawnMemoryMs, 500, 120000);
+    if (idleSpawnMemoryMs !== undefined) out.idleSpawnMemoryMs = idleSpawnMemoryMs;
+    const waveTransitionGraceMs = clampNumber(director.waveTransitionGraceMs, 0, 60000);
+    if (waveTransitionGraceMs !== undefined) out.waveTransitionGraceMs = waveTransitionGraceMs;
+    const inactivityAmbushMs = clampNumber(director.inactivityAmbushMs, 1000, 120000);
+    if (inactivityAmbushMs !== undefined) out.inactivityAmbushMs = inactivityAmbushMs;
+    const inactivityAmbushCooldownMs = clampNumber(director.inactivityAmbushCooldownMs, 500, 120000);
+    if (inactivityAmbushCooldownMs !== undefined) out.inactivityAmbushCooldownMs = inactivityAmbushCooldownMs;
+    return out;
 }
