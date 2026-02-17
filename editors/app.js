@@ -1024,8 +1024,10 @@ function renderMissionsTab() {
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>
             <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
+            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, set_pressure_grace, spawn_queen, text_cue.</p>
             <h3>Audio Cues (JSON array)</h3>
             <textarea id="audioCuesJson" rows="9">${escapeHtml(JSON.stringify(state.audioCues || [], null, 2))}</textarea>
+            <p class="small">Cue IDs used in gameplay text: cue_motion_near, cue_tracker_active, cue_swarm_close, cue_door_thump, cue_door_breach.</p>
         </div>
         <div class="workspace">
             <h2>Campaign Table</h2>
@@ -1051,24 +1053,29 @@ function renderMissionsTab() {
 
     document.getElementById('applyMissionChanges').addEventListener('click', () => {
         try {
+            const next = clone(state);
             document.querySelectorAll('[data-mission]').forEach((input) => {
                 const idx = Number(input.dataset.i);
                 const key = input.dataset.mission;
                 const value = key === 'enemyBudget' ? Number(input.value) : input.value;
-                state.missions[idx][key] = value;
+                next.missions[idx][key] = value;
             });
             document.querySelectorAll('[data-missiondir]').forEach((input) => {
                 const idx = Number(input.dataset.i);
                 const key = input.dataset.missiondir;
-                if (!state.missions[idx].director || typeof state.missions[idx].director !== 'object') {
-                    state.missions[idx].director = {};
+                if (!next.missions[idx].director || typeof next.missions[idx].director !== 'object') {
+                    next.missions[idx].director = {};
                 }
-                state.missions[idx].director[key] = Number(input.value);
+                next.missions[idx].director[key] = Number(input.value);
             });
             const directorEventsParsed = parseJsonArrayInput(document.getElementById('directorEventsJson').value, 'directorEvents');
             const audioCuesParsed = parseJsonArrayInput(document.getElementById('audioCuesJson').value, 'audioCues');
-            state.directorEvents = directorEventsParsed;
-            state.audioCues = audioCuesParsed;
+            next.directorEvents = directorEventsParsed;
+            next.audioCues = audioCuesParsed;
+            const pkgPreview = buildPackageFromEditorState(next);
+            const errors = validateMissionPackageShape(pkgPreview);
+            if (errors.length) throw new Error(errors[0]);
+            Object.assign(state, next);
             saveState('Mission table updated');
             renderMissionsTab();
         } catch (err) {
