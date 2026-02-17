@@ -195,6 +195,7 @@ function defaultState() {
             { id: 'evt_m3_blackout_push', missionId: 'm3', trigger: 'pressure:0.78', action: 'set_lighting', params: { ambientDarkness: 0.62, torchRange: 290 } },
             { id: 'evt_objective_relief', missionId: 'm4', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
             { id: 'evt_m4_relief_caps', missionId: 'm4', trigger: 'objective:1', action: 'set_reinforce_caps', params: { idle: 4, gunfire: 7 } },
+            { id: 'evt_m4_regroup_posture', missionId: 'm4', trigger: 'objective:1', action: 'set_combat_mods', params: { marineAccuracyMul: 1.12, marineJamMul: 0.82, ms: 7000 } },
             { id: 'evt_extract_lockdown', missionId: 'm5', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },
             { id: 'evt_m5_queen_reveal', missionId: 'm5', trigger: 'pressure:0.8', action: 'spawn_queen', params: { type: 'queenLesser' } },
         ],
@@ -1028,7 +1029,7 @@ function renderMissionsTab() {
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>
             <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
-            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_lighting, set_pressure_grace, set_reinforce_caps, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: repeatMs, retryMs, maxFires.</p>
+            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_lighting, set_pressure_grace, set_reinforce_caps, set_combat_mods, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: repeatMs, retryMs, maxFires.</p>
             <h3>Audio Cues (JSON array)</h3>
             <textarea id="audioCuesJson" rows="9">${escapeHtml(JSON.stringify(state.audioCues || [], null, 2))}</textarea>
             <p class="small">Cue IDs used in gameplay text: cue_motion_near, cue_tracker_active, cue_swarm_close, cue_door_thump, cue_door_breach.</p>

@@ -366,6 +366,8 @@ export class GameScene extends Phaser.Scene {
         this.lastTeamDamageSampleAt = -10000;
         this.lastTeamHealthSample = 0;
         this.lastDirectorUpdateAt = -10000;
+        this.directorOverrideMods = null;
+        this.directorOverrideUntil = 0;
         this.combatMods = this.combatDirector.getModifiers();
         const scriptBase = this.runtimeSettings?.scripting || {};
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
@@ -917,7 +919,7 @@ export class GameScene extends Phaser.Scene {
         const scriptEnabled = (Number(this.runtimeSettings?.scripting?.directorEnabled) || 0) > 0;
         const directorEnabled = (Number(this.runtimeSettings?.director?.enabled) || 0) > 0;
         if (!scriptEnabled || !directorEnabled) {
-            return {
+            return this.applyDirectorModifierOverrides({
                 state: 'manual',
                 pressure: 0.25,
                 enemyAggressionMul: 1,
@@ -926,11 +928,11 @@ export class GameScene extends Phaser.Scene {
                 marineAccuracyMul: 1,
                 marineJamMul: 1,
                 marineReactionMul: 1,
-            };
+            }, time);
         }
         const tickMs = Number(this.runtimeSettings?.scripting?.eventTickMs) || 80;
         if ((time - this.lastDirectorUpdateAt) < tickMs) {
-            return this.combatMods || this.combatDirector.getModifiers();
+            return this.applyDirectorModifierOverrides(this.combatMods || this.combatDirector.getModifiers(), time);
         }
         this.lastDirectorUpdateAt = time;
         const teamHealth = this.getTeamHealthTotal(marines);
@@ -947,7 +949,24 @@ export class GameScene extends Phaser.Scene {
             firing: this.inputHandler.isFiring,
             avgMorale: this.getAverageMorale(marines),
         };
-        return this.combatDirector.update(time, delta, telemetry);
+        const baseMods = this.combatDirector.update(time, delta, telemetry);
+        return this.applyDirectorModifierOverrides(baseMods, time);
+    }
+
+    applyDirectorModifierOverrides(baseMods, time = this.time.now) {
+        const mods = baseMods ? { ...baseMods } : {};
+        const override = this.directorOverrideMods;
+        if (!override || typeof override !== 'object') return mods;
+        if (this.directorOverrideUntil > 0 && time > this.directorOverrideUntil) {
+            this.directorOverrideMods = null;
+            this.directorOverrideUntil = 0;
+            return mods;
+        }
+        for (const [k, v] of Object.entries(override)) {
+            if (!Number.isFinite(v)) continue;
+            mods[k] = Number(v);
+        }
+        return mods;
     }
 
     showDoorContextMenu(doorGroup, worldX, worldY) {
@@ -1798,6 +1817,7 @@ export class GameScene extends Phaser.Scene {
             'set_reinforce_caps',
             'set_reinforcement_caps',
             'set_lighting',
+            'set_combat_mods',
             'morale_delta',
             'panic_delta',
             'trigger_tracker',
@@ -2003,6 +2023,30 @@ export class GameScene extends Phaser.Scene {
                 this.showFloatingText(this.leader.x, this.leader.y - 44, 'LIGHTING SHIFT', '#9dc8ff');
             }
             return changed;
+        }
+        if (action === 'set_combat_mods') {
+            const keys = [
+                'enemyAggressionMul',
+                'enemyFlankMul',
+                'enemyDoorDamageMul',
+                'marineAccuracyMul',
+                'marineJamMul',
+                'marineReactionMul',
+            ];
+            const mods = {};
+            let changed = false;
+            for (const key of keys) {
+                const v = Number(params[key]);
+                if (!Number.isFinite(v)) continue;
+                mods[key] = Phaser.Math.Clamp(v, 0.2, 3);
+                changed = true;
+            }
+            if (!changed) return false;
+            const ms = Phaser.Math.Clamp(Number(params.ms) || 0, 0, 30000);
+            this.directorOverrideMods = mods;
+            this.directorOverrideUntil = ms > 0 ? (time + ms) : 0;
+            this.showFloatingText(this.leader.x, this.leader.y - 44, 'COMBAT POSTURE SHIFT', '#9fc7ff');
+            return true;
         }
         if (action === 'morale_delta' || action === 'panic_delta') {
             const marines = this.squadSystem ? this.squadSystem.getAllMarines() : [this.leader];

@@ -104,6 +104,7 @@ export function validateMissionPackageShape(pkg) {
         'set_reinforce_caps',
         'set_reinforcement_caps',
         'set_lighting',
+        'set_combat_mods',
         'morale_delta',
         'panic_delta',
         'trigger_tracker',
@@ -177,6 +178,28 @@ export function validateMissionPackageShape(pkg) {
             if (darkness !== undefined && !Number.isFinite(Number(darkness))) errors.push(`directorEvent ${e.id} params.ambientDarkness must be numeric.`);
             if (range !== undefined && !Number.isFinite(Number(range))) errors.push(`directorEvent ${e.id} params.torchRange must be numeric.`);
             if (cone !== undefined && !Number.isFinite(Number(cone))) errors.push(`directorEvent ${e.id} params.torchConeHalfAngle must be numeric.`);
+        }
+        if (action === 'set_combat_mods') {
+            const keys = [
+                'enemyAggressionMul',
+                'enemyFlankMul',
+                'enemyDoorDamageMul',
+                'marineAccuracyMul',
+                'marineJamMul',
+                'marineReactionMul',
+            ];
+            let found = false;
+            for (const key of keys) {
+                if (e?.params?.[key] === undefined) continue;
+                found = true;
+                if (!Number.isFinite(Number(e.params[key]))) {
+                    errors.push(`directorEvent ${e.id} params.${key} must be numeric.`);
+                }
+            }
+            if (!found) errors.push(`directorEvent ${e.id} set_combat_mods requires at least one modifier key.`);
+            if (e?.params?.ms !== undefined && !Number.isFinite(Number(e.params.ms))) {
+                errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
+            }
         }
         if (action === 'edge_cue') {
             const word = String(e?.params?.word || e?.params?.text || '').trim();

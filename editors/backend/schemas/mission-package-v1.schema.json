@@ -76,6 +76,7 @@
               "set_reinforce_caps",
               "set_reinforcement_caps",
               "set_lighting",
+              "set_combat_mods",
               "morale_delta",
               "panic_delta",
               "trigger_tracker",
