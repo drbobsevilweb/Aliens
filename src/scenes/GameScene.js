@@ -3149,6 +3149,7 @@ export class GameScene extends Phaser.Scene {
                     if (follower.roleKey === 'heavy') assistDelayMs -= 140;
                     else if (follower.roleKey === 'tech') assistDelayMs -= 80;
                     else if (follower.roleKey === 'medic') assistDelayMs += 60;
+                    if (threatenedAlly && !threatenedAlly.roleKey) assistDelayMs -= 120;
                     assistDelayMs = Math.floor(assistDelayMs * Phaser.Math.Linear(1.08, 0.78, combatMods.pressure));
                     assistDelayMs = Phaser.Math.Clamp(assistDelayMs, 620, 1300);
                     if ((now - state.assistNoticedAt) >= assistDelayMs) {
