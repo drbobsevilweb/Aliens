@@ -130,7 +130,61 @@ function createDefaultTilemaps() {
     map3.markers[4][33] = 3;
     map3.markers[20][18] = 4;
 
-    return [map1, map2, map3];
+    const map4 = {
+        id: 'lv4_operations_block',
+        name: 'Level 4: Operations Block',
+        width,
+        height,
+        terrain: createGrid(width, height, 1),
+        doors: createGrid(width, height, 0),
+        markers: createGrid(width, height, 0),
+    };
+    carveRect(map4.terrain, 2, 3, 13, 12, 0);
+    carveRect(map4.terrain, 16, 3, 26, 10, 0);
+    carveRect(map4.terrain, 29, 3, 38, 12, 0);
+    carveRect(map4.terrain, 4, 15, 14, 24, 0);
+    carveRect(map4.terrain, 17, 17, 23, 24, 0);
+    carveRect(map4.terrain, 27, 15, 38, 24, 0);
+    carveRect(map4.terrain, 14, 6, 15, 7, 0);
+    carveRect(map4.terrain, 27, 6, 28, 7, 0);
+    carveRect(map4.terrain, 8, 13, 9, 14, 0);
+    carveRect(map4.terrain, 19, 11, 20, 16, 0);
+    carveRect(map4.terrain, 30, 13, 31, 14, 0);
+    map4.markers[6][6] = 1;
+    map4.markers[20][34] = 2;
+    map4.markers[6][20] = 3;
+    map4.markers[18][20] = 3;
+
+    const map5 = {
+        id: 'lv5_queen_cathedral',
+        name: 'Level 5: Queen Cathedral',
+        width,
+        height,
+        terrain: createGrid(width, height, 1),
+        doors: createGrid(width, height, 0),
+        markers: createGrid(width, height, 0),
+    };
+    carveRect(map5.terrain, 3, 3, 12, 10, 0);
+    carveRect(map5.terrain, 15, 3, 24, 10, 0);
+    carveRect(map5.terrain, 27, 3, 36, 10, 0);
+    carveRect(map5.terrain, 8, 12, 31, 17, 0);
+    carveRect(map5.terrain, 3, 19, 12, 24, 0);
+    carveRect(map5.terrain, 15, 19, 24, 24, 0);
+    carveRect(map5.terrain, 27, 19, 36, 24, 0);
+    carveRect(map5.terrain, 13, 11, 14, 18, 0);
+    carveRect(map5.terrain, 25, 11, 26, 18, 0);
+    map5.doors[6][13] = 1; map5.doors[7][13] = 1;
+    map5.doors[6][25] = 2; map5.doors[7][25] = 2;
+    map5.doors[11][13] = 4; map5.doors[11][14] = 4;
+    map5.doors[11][25] = 3; map5.doors[11][26] = 3;
+    map5.doors[18][13] = 2; map5.doors[18][14] = 2;
+    map5.doors[18][25] = 2; map5.doors[18][26] = 2;
+    map5.markers[6][6] = 1;
+    map5.markers[22][34] = 2;
+    map5.markers[14][20] = 3;
+    map5.markers[14][19] = 4;
+
+    return [map1, map2, map3, map4, map5];
 }
 
 function defaultState() {
@@ -194,7 +248,7 @@ function defaultState() {
                 },
             },
             {
-                id: 'm4', name: 'Mission 4: Purge Nest', mapId: 'lv3_hive_core', objective: 'Destroy egg clusters',
+                id: 'm4', name: 'Mission 4: Purge Nest', mapId: 'lv4_operations_block', objective: 'Destroy egg clusters',
                 difficulty: 'hard', enemyBudget: 36, notes: 'Vertical ambush pressure',
                 director: {
                     idlePressureBaseMs: 5600,
@@ -205,7 +259,7 @@ function defaultState() {
                 },
             },
             {
-                id: 'm5', name: 'Mission 5: Queen Hunt', mapId: 'lv3_hive_core', objective: 'Kill queen and survive extraction',
+                id: 'm5', name: 'Mission 5: Queen Hunt', mapId: 'lv5_queen_cathedral', objective: 'Kill queen and survive extraction',
                 difficulty: 'extreme', enemyBudget: 44, notes: 'Finale with breach threats',
                 director: {
                     idlePressureBaseMs: 5200,
@@ -1056,7 +1110,7 @@ function renderMissionsTab() {
     panels.missions.innerHTML = `
         <div class="controls">
             <h2>Mission Planner</h2>
-            <p class="small">Five missions mapped across exactly three tilemaps.</p>
+            <p class="small">Five missions mapped across five base tilemaps.</p>
             <button id="applyMissionChanges">Apply Mission Changes</button>
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>

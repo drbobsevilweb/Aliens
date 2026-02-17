@@ -26,7 +26,7 @@ export const MISSION_SET = Object.freeze([
     {
         id: 'm4',
         name: 'Mission 4: Purge Nest',
-        tilemapId: 'lv3_hive_core',
+        tilemapId: 'lv4_operations_block',
         objective: 'Destroy egg clusters',
         difficulty: 'hard',
         enemyBudget: 48,
@@ -34,7 +34,7 @@ export const MISSION_SET = Object.freeze([
     {
         id: 'm5',
         name: 'Mission 5: Queen Hunt',
-        tilemapId: 'lv3_hive_core',
+        tilemapId: 'lv5_queen_cathedral',
         objective: 'Kill queen and survive extraction',
         difficulty: 'extreme',
         enemyBudget: 58,

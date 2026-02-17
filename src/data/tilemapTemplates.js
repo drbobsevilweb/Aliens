@@ -172,8 +172,116 @@ function buildLevel3() {
     };
 }
 
+function buildLevel4() {
+    const terrain = makeGrid(1);
+    const doors = makeGrid(0);
+    const markers = makeGrid(0);
+
+    // Ops block: wider lanes and offset rooms.
+    carveRect(terrain, 4, 5, 27, 24);
+    carveRect(terrain, 34, 5, 57, 20);
+    carveRect(terrain, 64, 5, 99, 24);
+    carveRect(terrain, 8, 37, 31, 64);
+    carveRect(terrain, 40, 43, 63, 64);
+    carveRect(terrain, 70, 37, 99, 64);
+
+    // Connectors and choke corridors.
+    carveRect(terrain, 28, 13, 33, 14);
+    carveRect(terrain, 58, 13, 63, 14);
+    carveRect(terrain, 19, 25, 20, 36);
+    carveRect(terrain, 49, 21, 50, 42);
+    carveRect(terrain, 79, 25, 80, 36);
+    carveRect(terrain, 32, 53, 39, 54);
+    carveRect(terrain, 64, 53, 69, 54);
+
+    addTwoTileDoor(doors, 27, 13, false, 1);
+    addTwoTileDoor(doors, 33, 13, false, 2);
+    addTwoTileDoor(doors, 58, 13, false, 1);
+    addTwoTileDoor(doors, 63, 13, false, 2);
+    addTwoTileDoor(doors, 19, 24, true, 2);
+    addTwoTileDoor(doors, 19, 36, true, 1);
+    addTwoTileDoor(doors, 49, 20, true, 2);
+    addTwoTileDoor(doors, 49, 43, true, 1);
+    addTwoTileDoor(doors, 79, 24, true, 2);
+    addTwoTileDoor(doors, 79, 36, true, 1);
+    addTwoTileDoor(doors, 32, 53, false, 1);
+    addTwoTileDoor(doors, 39, 53, false, 2);
+    addTwoTileDoor(doors, 64, 53, false, 1);
+    addTwoTileDoor(doors, 69, 53, false, 2);
+
+    markers[10][10] = 1;
+    markers[58][94] = 2;
+    markers[11][49] = 3;
+    markers[50][50] = 3;
+
+    return {
+        id: 'lv4_operations_block',
+        name: 'Level 4: Operations Block',
+        width: WIDTH,
+        height: HEIGHT,
+        terrain,
+        doors,
+        markers,
+    };
+}
+
+function buildLevel5() {
+    const terrain = makeGrid(1);
+    const doors = makeGrid(0);
+    const markers = makeGrid(0);
+
+    // Queen cathedral: central nave + side arenas.
+    carveRect(terrain, 10, 6, 31, 22);
+    carveRect(terrain, 38, 6, 65, 22);
+    carveRect(terrain, 72, 6, 97, 22);
+    carveRect(terrain, 18, 30, 89, 44);
+    carveRect(terrain, 8, 50, 33, 66);
+    carveRect(terrain, 40, 50, 61, 66);
+    carveRect(terrain, 68, 50, 99, 66);
+
+    // Vertical trunks and approach channels.
+    carveRect(terrain, 49, 23, 50, 29);
+    carveRect(terrain, 23, 23, 24, 29);
+    carveRect(terrain, 76, 23, 77, 29);
+    carveRect(terrain, 23, 45, 24, 49);
+    carveRect(terrain, 49, 45, 50, 49);
+    carveRect(terrain, 76, 45, 77, 49);
+
+    addTwoTileDoor(doors, 32, 13, false, 1);
+    addTwoTileDoor(doors, 37, 13, false, 2);
+    addTwoTileDoor(doors, 66, 13, false, 1);
+    addTwoTileDoor(doors, 71, 13, false, 2);
+    addTwoTileDoor(doors, 49, 22, true, 4);
+    addTwoTileDoor(doors, 23, 22, true, 3);
+    addTwoTileDoor(doors, 76, 22, true, 3);
+    addTwoTileDoor(doors, 23, 49, true, 2);
+    addTwoTileDoor(doors, 49, 49, true, 2);
+    addTwoTileDoor(doors, 76, 49, true, 2);
+    addTwoTileDoor(doors, 34, 56, false, 1);
+    addTwoTileDoor(doors, 39, 56, false, 2);
+    addTwoTileDoor(doors, 62, 56, false, 1);
+    addTwoTileDoor(doors, 67, 56, false, 2);
+
+    markers[10][14] = 1;
+    markers[60][96] = 2;
+    markers[36][23] = 3;
+    markers[36][50] = 4;
+
+    return {
+        id: 'lv5_queen_cathedral',
+        name: 'Level 5: Queen Cathedral',
+        width: WIDTH,
+        height: HEIGHT,
+        terrain,
+        doors,
+        markers,
+    };
+}
+
 export const TILEMAP_TEMPLATES = Object.freeze([
     buildLevel1(),
     buildLevel2(),
     buildLevel3(),
+    buildLevel4(),
+    buildLevel5(),
 ]);
