@@ -58,6 +58,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         trackerRiskMs: 6000,
         trackerCooldownMs: 30000,
         trackerRange: 420,
+        alienContrastBoost: 1.15,
     }),
     doors: Object.freeze({
         integrityHits: 10,
@@ -278,6 +279,7 @@ function sanitize(settings) {
     s.visibility.trackerRiskMs = clampNumber(s.visibility.trackerRiskMs, 1000, 20000, 6000);
     s.visibility.trackerCooldownMs = clampNumber(s.visibility.trackerCooldownMs, 1000, 120000, 30000);
     s.visibility.trackerRange = clampNumber(s.visibility.trackerRange, 120, 1600, 420);
+    s.visibility.alienContrastBoost = clampNumber(s.visibility.alienContrastBoost, 0.6, 2, 1.15);
 
     s.doors.integrityHits = clampNumber(s.doors.integrityHits, 1, 20, 10);
     s.doors.hackDurationMs = clampNumber(s.doors.hackDurationMs, 100, 20000, 3000);

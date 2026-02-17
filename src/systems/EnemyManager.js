@@ -994,14 +994,26 @@ export class EnemyManager {
 
     getVisibilityTintColor(enemy, revealCharge = 0, visible = false) {
         const base = Phaser.Display.Color.ValueToColor(enemy.baseTint || 0x9dcbb9);
-        if (!visible) return Phaser.Display.Color.GetColor(base.r, base.g, base.b);
+        const contrastBoost = Phaser.Math.Clamp(Number(this.visibilitySettings?.alienContrastBoost) || 1.15, 0.6, 2);
+        const boostChannel = (v) => Phaser.Math.Clamp(Math.round(v * contrastBoost), 0, 255);
+        if (!visible) {
+            return Phaser.Display.Color.GetColor(
+                boostChannel(base.r),
+                boostChannel(base.g),
+                boostChannel(base.b)
+            );
+        }
         const c = Phaser.Display.Color.Interpolate.ColorWithColor(
             base,
             Phaser.Display.Color.ValueToColor(0xf3fff9),
             100,
             Math.round(Phaser.Math.Clamp(revealCharge, 0, 1) * 100)
         );
-        return Phaser.Display.Color.GetColor(c.r, c.g, c.b);
+        return Phaser.Display.Color.GetColor(
+            boostChannel(c.r),
+            boostChannel(c.g),
+            boostChannel(c.b)
+        );
     }
 
     isInLightCone(source, enemy) {
