@@ -2510,6 +2510,8 @@ export class GameScene extends Phaser.Scene {
             const maxHp = Math.max(1, Number(follower.maxHealth) || 100);
             const hpPct = Phaser.Math.Clamp((Number(follower.health) || 0) / maxHp, 0, 1);
 
+            const allyRecentlyAttacked = teammateRecentlyAttacked
+                && (!Number.isFinite(follower.lastDamagedAt) || (time - follower.lastDamagedAt) > 1500);
             let morale = Phaser.Math.Clamp(follower.morale || 0, -100, 100);
             if (morale > 0) morale = Math.max(0, morale - calmPerSec * dtSec);
             else if (morale < 0) morale = Math.min(0, morale + calmPerSec * dtSec);
@@ -2518,7 +2520,7 @@ export class GameScene extends Phaser.Scene {
                 morale -= selfHitLoss;
                 state.lastSelfShockAt = time;
             }
-            if (teammateRecentlyAttacked && (time - state.lastMoraleShockAt) > 1100) {
+            if (allyRecentlyAttacked && (time - state.lastMoraleShockAt) > 1100) {
                 morale -= allyHitLoss;
                 state.lastMoraleShockAt = time;
             }
@@ -2541,6 +2543,7 @@ export class GameScene extends Phaser.Scene {
             let best = state.targetRef && state.targetRef.active ? state.targetRef : null;
             let bestDist = best ? Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y) : Infinity;
 
+            const prevTarget = state.targetRef && state.targetRef.active ? state.targetRef : null;
             if (time >= state.nextThinkAt) {
                 state.nextThinkAt = time + thinkIntervalMs;
                 best = null;
@@ -2619,7 +2622,6 @@ export class GameScene extends Phaser.Scene {
                 } else {
                     state.assistNoticedAt = 0;
                 }
-                state.targetRef = best;
             } else if (best && !canSee(follower, best)) {
                 state.lastKnownX = best.x;
                 state.lastKnownY = best.y;
@@ -2684,7 +2686,7 @@ export class GameScene extends Phaser.Scene {
 
             const canShoot = bestDist < Infinity;
             if (!canShoot) continue;
-            if (state.targetRef !== best) {
+            if (prevTarget !== best) {
                 state.targetRef = best;
                 // Callouts fire only when a marine freshly spots a hostile in beam/LOS.
                 this.tryMarineSpotCallout(follower, time);
