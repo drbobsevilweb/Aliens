@@ -148,6 +148,9 @@ export function validateMissionPackageShape(pkg) {
         if (e?.params?.repeatMs !== undefined && !Number.isFinite(Number(e.params.repeatMs))) {
             errors.push(`directorEvent ${e.id} params.repeatMs must be numeric.`);
         }
+        if (e?.params?.retryMs !== undefined && !Number.isFinite(Number(e.params.retryMs))) {
+            errors.push(`directorEvent ${e.id} params.retryMs must be numeric.`);
+        }
         if (e?.params?.maxFires !== undefined) {
             const maxFires = Number(e.params.maxFires);
             if (!Number.isFinite(maxFires) || maxFires < 1) {

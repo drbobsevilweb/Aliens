@@ -1850,7 +1850,7 @@ export class GameScene extends Phaser.Scene {
         for (const event of this.missionDirectorEvents || []) {
             if (!event || !event.id) continue;
             const prev = current.get(event.id);
-            next.set(event.id, prev || { fired: false, lastFiredAt: -100000, fireCount: 0 });
+            next.set(event.id, prev || { fired: false, lastFiredAt: -100000, fireCount: 0, lastTriedAt: -100000 });
         }
         this.missionDirectorEventState = next;
     }
@@ -1862,15 +1862,21 @@ export class GameScene extends Phaser.Scene {
         this.ensureMissionDirectorEventState();
         for (const event of this.missionDirectorEvents) {
             if (!event || !event.id) continue;
-            const state = this.missionDirectorEventState.get(event.id) || { fired: false, lastFiredAt: -100000, fireCount: 0 };
+            const state = this.missionDirectorEventState.get(event.id) || { fired: false, lastFiredAt: -100000, fireCount: 0, lastTriedAt: -100000 };
             const repeatMs = Math.max(0, Math.floor(Number(event?.params?.repeatMs) || 0));
             const maxFires = Math.max(0, Math.floor(Number(event?.params?.maxFires) || 0));
+            const retryMs = Math.max(120, Math.floor(Number(event?.params?.retryMs) || 600));
             if (state.fired && repeatMs <= 0) continue;
             if (maxFires > 0 && (Number(state.fireCount) || 0) >= maxFires) continue;
             if (repeatMs > 0 && time < (state.lastFiredAt + repeatMs)) continue;
+            if (time < ((Number(state.lastTriedAt) || -100000) + retryMs)) continue;
             if (!this.isMissionDirectorTriggerMet(event, time)) continue;
+            state.lastTriedAt = time;
             const executed = this.executeMissionDirectorAction(event, time, marines);
-            if (!executed) continue;
+            if (!executed) {
+                this.missionDirectorEventState.set(event.id, state);
+                continue;
+            }
             state.fired = true;
             state.lastFiredAt = time;
             state.fireCount = (Number(state.fireCount) || 0) + 1;
