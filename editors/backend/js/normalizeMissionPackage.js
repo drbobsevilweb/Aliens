@@ -234,6 +234,12 @@ export function validateMissionPackageShape(pkg) {
             if (!Number.isFinite(p) || p < 0 || p > 10) errors.push(`audioCue ${c.id} priority must be 0-10.`);
         }
     }
+    const cueIds = new Set((pkg?.audioCues || []).map((c) => String(c?.id || '').trim()).filter(Boolean));
+    for (const e of pkg?.directorEvents || []) {
+        const cueId = String(e?.params?.cueId || e?.params?.audioCueId || '').trim();
+        if (!cueId) continue;
+        if (!cueIds.has(cueId)) errors.push(`directorEvent ${e.id} references unknown cueId ${cueId}.`);
+    }
     return errors;
 }
 

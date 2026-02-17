@@ -379,7 +379,6 @@ export class GameScene extends Phaser.Scene {
         this.missionDirectorEvents = this.useMissionPackageDirector
             ? getMissionDirectorEventsForMission(this.activeMission?.id || '')
             : [];
-        this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
         this.missionDirectorEventState = new Map();
         this.missionAudioCues = this.useMissionPackageDirector
             ? getMissionAudioCuesForMission(this.activeMission?.id || '')
@@ -388,6 +387,7 @@ export class GameScene extends Phaser.Scene {
         this.missionAudioCueMap = this.useMissionPackageDirector
             ? this.buildMissionAudioCueMap(this.missionAudioCues)
             : new Map();
+        this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -1786,10 +1786,10 @@ export class GameScene extends Phaser.Scene {
         this.missionPackageMetaStale = isMissionPackageMetaStale();
         if (this.useMissionPackageDirector) {
             this.missionDirectorEvents = getMissionDirectorEventsForMission(this.activeMission?.id || '');
-            this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
             this.missionAudioCues = getMissionAudioCuesForMission(this.activeMission?.id || '');
             this.missionAudioCueIssues = this.validateMissionAudioCues(this.missionAudioCues);
             this.missionAudioCueMap = this.buildMissionAudioCueMap(this.missionAudioCues);
+            this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
             this.ensureMissionDirectorEventState();
         } else {
             this.missionDirectorEvents = [];
@@ -1870,6 +1870,12 @@ export class GameScene extends Phaser.Scene {
                 const keys = ['enemyAggressionMul', 'enemyFlankMul', 'enemyDoorDamageMul', 'marineAccuracyMul', 'marineJamMul', 'marineReactionMul'];
                 const hasAny = keys.some((k) => params[k] !== undefined);
                 if (!hasAny) issues.push(`Director event ${id} set_combat_mods missing values`);
+            }
+            if (action === 'text_cue' || action === 'cue_text' || action === 'show_text' || action === 'edge_cue') {
+                const cueId = String(params.cueId || params.audioCueId || '').trim();
+                if (cueId && !(this.missionAudioCueMap && this.missionAudioCueMap.has(cueId))) {
+                    issues.push(`Director event ${id} references missing cueId ${cueId}`);
+                }
             }
         }
         return issues;
@@ -1992,7 +1998,9 @@ export class GameScene extends Phaser.Scene {
             return spawned > 0;
         }
         if (action === 'text_cue' || action === 'cue_text' || action === 'show_text') {
-            const msg = String(params.text || params.message || event.id || 'DIRECTOR CUE');
+            const cueId = String(params.cueId || params.audioCueId || '').trim();
+            const fallback = String(params.text || params.message || event.id || 'DIRECTOR CUE');
+            const msg = this.getMissionAudioCueText(cueId, fallback);
             const color = String(params.color || '#a9d8ff');
             this.showFloatingText(this.leader.x, this.leader.y - 42, msg.toUpperCase(), color);
             return true;
@@ -2014,7 +2022,9 @@ export class GameScene extends Phaser.Scene {
             return this.applyDirectorDoorAction(params);
         }
         if (action === 'edge_cue') {
-            const word = String(params.word || params.text || 'MOVEMENT');
+            const cueId = String(params.cueId || params.audioCueId || '').trim();
+            const fallback = String(params.word || params.text || 'MOVEMENT');
+            const word = this.getMissionAudioCueText(cueId, fallback);
             const cue = this.buildMissionCueWorldFromDir(params.dir);
             this.showEdgeWordCue(word, cue.x, cue.y, String(params.color || '#9dc8ff'));
             return true;
