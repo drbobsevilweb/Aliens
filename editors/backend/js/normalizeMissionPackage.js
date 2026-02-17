@@ -51,8 +51,27 @@ export function validateMissionPackageShape(pkg) {
     if (!Array.isArray(pkg?.missions) || pkg.missions.length === 0) errors.push('At least one mission is required.');
 
     const mapIds = new Set((pkg?.maps || []).map((m) => m.id));
+    const uniqueCheck = (items, label) => {
+        const seen = new Set();
+        for (const item of items || []) {
+            const id = item && item.id ? String(item.id) : '';
+            if (!id) continue;
+            if (seen.has(id)) errors.push(`Duplicate ${label} id: ${id}`);
+            seen.add(id);
+        }
+    };
+    uniqueCheck(pkg?.maps, 'map');
+    uniqueCheck(pkg?.missions, 'mission');
+    uniqueCheck(pkg?.directorEvents, 'directorEvent');
+    uniqueCheck(pkg?.audioCues, 'audioCue');
+
     for (const m of pkg?.missions || []) {
         if (!mapIds.has(m.mapId)) errors.push(`Mission ${m.id} references unknown mapId ${m.mapId}.`);
+        if (m?.director && typeof m.director === 'object') {
+            for (const [k, v] of Object.entries(m.director)) {
+                if (!Number.isFinite(Number(v))) errors.push(`Mission ${m.id} director.${k} must be numeric.`);
+            }
+        }
     }
     return errors;
 }
