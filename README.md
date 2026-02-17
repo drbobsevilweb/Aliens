@@ -50,3 +50,32 @@ Tools:
 - `src/ui`: HUD, tracker, objectives, overlays, context menu
 - `src/data`: Weapons, enemies, pickups
 - `src/map`: Tile and door definitions
+
+## AI Handoff
+
+If another model/agent needs to continue, start from commit:
+
+- `1823583` (`v3.07 apply leader panic effects to weapon handling with jam feedback`)
+
+Current workspace note:
+
+- `docs/fx-research.md` may be modified locally as notes.
+
+Recommended continuation order:
+
+1. Run regression playtest first (do not refactor first):
+- follower door-task persistence (leader movement should not cancel follower hack/weld).
+- motion tracker flow (5s channel + 5s active, cancel on attack only).
+- passive visual beeps/thump cues visibility.
+2. Tune panic/weapon behavior from `v3.07`:
+- verify leader jam frequency is noticeable under stress but not constant at calm morale.
+3. Validate visibility readability:
+- enemies visible in cone and held for ~2s after losing direct torch exposure.
+4. Continue combat pacing polish:
+- spawn pressure and alien aggression per mission, while preserving survivability.
+
+Guardrails for future AI edits:
+
+- Do not revert existing behavior unless it conflicts with explicit gameplay rules.
+- Prefer tuning values before rewriting systems.
+- Keep CMS/editor compatibility with multi-map mission-package imports.
