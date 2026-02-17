@@ -3913,10 +3913,6 @@ export class GameScene extends Phaser.Scene {
         if ((time - this.lastActionAt) < (this.inactivityAmbushDelayMs || 10000)) return;
         if (time < (this.nextReinforcementSpawnAt || 0)) return;
         if (time < this.pressureGraceUntil) return;
-        if (this.getAvailableReinforcementSlots('idle') <= 0) {
-            this.nextInactivityAmbushAt = time + 1400;
-            return;
-        }
         if (this.shouldApplySurvivalRelief(marines)) {
             this.nextInactivityAmbushAt = time + Math.max(1800, Math.floor((this.inactivityAmbushCooldownMs || 14000) * 0.55));
             return;
@@ -3934,6 +3930,11 @@ export class GameScene extends Phaser.Scene {
         }
 
         const pressure = this.getCombatPressure();
+        const source = pressure >= 0.66 ? 'gunfire' : 'idle';
+        if (this.getAvailableReinforcementSlots(source) <= 0) {
+            this.nextInactivityAmbushAt = time + 1400;
+            return;
+        }
         const dirs = ['N', 'E', 'S', 'W'];
         const bestDir = dirs.reduce((best, dir) => {
             const score = this.getDoorNoisePenalty(dir, time) + Phaser.Math.Between(0, 140);
@@ -3941,14 +3942,18 @@ export class GameScene extends Phaser.Scene {
             return best;
         }, null);
         const dir = (bestDir && bestDir.dir) || Phaser.Utils.Array.GetRandom(dirs);
-        const size = Math.max(1, Math.min(5, Math.round(2 + pressure * 2.6)));
-        const spawned = this.spawnDirectorPack({ size, source: 'idle', dir }, time, marines);
+        const size = Math.max(1, Math.min(6, Math.round(2 + pressure * 3.1)));
+        const spawned = this.spawnDirectorPack({ size, source, dir }, time, marines);
         if (spawned > 0) {
             const cue = this.buildMissionCueWorldFromDir(dir);
             this.showEdgeWordCue(this.getMissionAudioCueText('cue_motion_near', 'MOVEMENT'), cue.x, cue.y, '#9fc6ff');
-            this.showFloatingText(this.leader.x, this.leader.y - 34, `QUIET BROKEN: CONTACT ${dir}`, '#a9d8ff');
+            this.showFloatingText(this.leader.x, this.leader.y - 34, `QUIET BROKEN: ${source.toUpperCase()} CONTACT ${dir}`, '#a9d8ff');
             this.markCombatAction(time);
-            this.nextInactivityAmbushAt = time + Math.max(2600, this.inactivityAmbushCooldownMs || 14000);
+            const cdMul = Phaser.Math.Linear(1.08, 0.76, pressure);
+            this.nextInactivityAmbushAt = time + Math.max(
+                2600,
+                Math.floor((this.inactivityAmbushCooldownMs || 14000) * cdMul)
+            );
             return;
         }
         this.nextInactivityAmbushAt = time + 1200;
