@@ -1802,6 +1802,7 @@ export class GameScene extends Phaser.Scene {
             : '';
         this.debugOverlay.update(time, {
             stage: `${this.stageFlow.state} (wave ${this.stageFlow.getWaveLabel()})${phase} | Director: ${this.directorSourceLabel || 'SETTINGS'}${this.getMissionPackageMetaDebugSuffix()}`,
+            campaign: this.getCampaignDebugLabel(),
             hostiles: this.enemyManager.getAliveCount(),
             health: this.leader.health,
             inputMode: 'mouse',
@@ -1812,6 +1813,15 @@ export class GameScene extends Phaser.Scene {
             pathStats: this.pathPlanner && this.pathPlanner.getStats ? this.pathPlanner.getStats() : null,
             warnings: this.collectLogicWarnings(time),
         });
+    }
+
+    getCampaignDebugLabel() {
+        if (!Array.isArray(this.campaignMissionOrder) || this.campaignMissionOrder.length === 0) return 'n/a';
+        const p = this.campaignProgress || {};
+        const unlocked = Math.max(1, Math.min(this.campaignMissionOrder.length, (Number(p.unlockedIndex) || 0) + 1));
+        const cur = p.currentMissionId || this.activeMission?.id || this.campaignMissionOrder[0];
+        const auto = (Number(this.runtimeSettings?.scripting?.autoSaveBetweenMissions) || 0) > 0 ? 'on' : 'off';
+        return `${auto} ${cur} (${unlocked}/${this.campaignMissionOrder.length})`;
     }
 
     collectLogicWarnings(time = this.time.now) {

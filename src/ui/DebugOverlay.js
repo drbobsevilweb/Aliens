@@ -43,6 +43,7 @@ export class DebugOverlay {
         const lines = [
             `FPS: ${fps.toFixed(1)}`,
             `Stage: ${snapshot.stage}`,
+            `Campaign: ${snapshot.campaign || 'n/a'}`,
             `Hostiles: ${snapshot.hostiles}`,
             `Kills: ${snapshot.kills || 0}`,
             `HP: ${Math.ceil(snapshot.health)}`,
