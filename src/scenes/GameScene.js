@@ -2908,7 +2908,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnGunfireDoorPack(time, _sourceX, _sourceY, marines) {
+    spawnGunfireDoorPack(time, sourceX, sourceY, marines) {
         const slots = this.getAvailableReinforcementSlots('gunfire');
         if (slots <= 0) return 0;
         const aliveNow = this.enemyManager?.getAliveCount?.() || 0;
@@ -2928,6 +2928,7 @@ export class GameScene extends Phaser.Scene {
         const marList = Array.isArray(marines) && marines.length > 0 ? marines : [this.leader];
         const view = this.cameras.main ? this.cameras.main.worldView : null;
         this.pruneDoorNoiseHistory(time);
+        const hasSource = Number.isFinite(sourceX) && Number.isFinite(sourceY);
         const candidates = [];
         for (const group of this.doorManager.doorGroups || []) {
             if (!group || group.state === 'open') continue;
@@ -2940,7 +2941,13 @@ export class GameScene extends Phaser.Scene {
             if (view && Phaser.Geom.Rectangle.Contains(view, center.x, center.y)) continue;
             const dir = this.getDirectionBucket(center.x, center.y);
             const repeatPenalty = this.getDoorRepeatPenalty(group.id, time);
-            const score = nearestDist - this.getDoorNoisePenalty(dir, time) - repeatPenalty + Phaser.Math.Between(0, 120);
+            let sourceScore = 0;
+            if (hasSource) {
+                const sourceDist = Phaser.Math.Distance.Between(sourceX, sourceY, center.x, center.y);
+                const sourceNorm = Phaser.Math.Clamp(sourceDist / (CONFIG.TILE_SIZE * 18), 0, 1);
+                sourceScore = Phaser.Math.Linear(1000, -300, sourceNorm);
+            }
+            const score = nearestDist - this.getDoorNoisePenalty(dir, time) - repeatPenalty + sourceScore + Phaser.Math.Between(0, 120);
             candidates.push({ group, center, nearestDist, dir, score, repeatPenalty });
         }
         if (candidates.length === 0) return 0;
