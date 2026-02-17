@@ -29,6 +29,7 @@ import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
 import {
     getMissionDirectorOverridesForMission,
+    getMissionDirectorEventsForMission,
     getMissionPackageMeta,
     getMissionPackageSummary,
     isMissionPackageMetaStale,
@@ -367,10 +368,15 @@ export class GameScene extends Phaser.Scene {
         this.combatMods = this.combatDirector.getModifiers();
         const scriptBase = this.runtimeSettings?.scripting || {};
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
+        this.useMissionPackageDirector = useMissionPackageDirector;
         this.missionPackageMeta = getMissionPackageMeta();
         this.missionPackageSummary = getMissionPackageSummary();
         this.missionPackageMetaStale = isMissionPackageMetaStale();
         this.nextMissionPackageMetaRefreshAt = this.time.now + 2000;
+        this.missionDirectorEvents = this.useMissionPackageDirector
+            ? getMissionDirectorEventsForMission(this.activeMission?.id || '')
+            : [];
+        this.missionDirectorEventState = new Map();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -735,6 +741,7 @@ export class GameScene extends Phaser.Scene {
         this.updateTrackerAudioCue(time);
         this.updateIdlePressureSpawns(time, marines);
         this.updateCombatBurstState(time);
+        this.updateMissionDirectorEvents(time, marines);
 
         const shadowCasters = this.buildMarineShadowCasters(marines).concat(this.enemyManager.getShadowCasters());
         this.lightingOverlay.update(lightSources, shadowCasters);
@@ -1689,6 +1696,159 @@ export class GameScene extends Phaser.Scene {
         this.missionPackageMeta = getMissionPackageMeta();
         this.missionPackageSummary = getMissionPackageSummary();
         this.missionPackageMetaStale = isMissionPackageMetaStale();
+        if (this.useMissionPackageDirector) {
+            this.missionDirectorEvents = getMissionDirectorEventsForMission(this.activeMission?.id || '');
+            this.ensureMissionDirectorEventState();
+        } else {
+            this.missionDirectorEvents = [];
+        }
+    }
+
+    ensureMissionDirectorEventState() {
+        const next = new Map();
+        const current = this.missionDirectorEventState || new Map();
+        for (const event of this.missionDirectorEvents || []) {
+            if (!event || !event.id) continue;
+            const prev = current.get(event.id);
+            next.set(event.id, prev || { fired: false, lastFiredAt: -100000 });
+        }
+        this.missionDirectorEventState = next;
+    }
+
+    updateMissionDirectorEvents(time, marines) {
+        if (!this.useMissionPackageDirector) return;
+        if (this.stageFlow?.isEnded?.()) return;
+        if (!Array.isArray(this.missionDirectorEvents) || this.missionDirectorEvents.length === 0) return;
+        this.ensureMissionDirectorEventState();
+        for (const event of this.missionDirectorEvents) {
+            if (!event || !event.id) continue;
+            const state = this.missionDirectorEventState.get(event.id) || { fired: false, lastFiredAt: -100000 };
+            const repeatMs = Math.max(0, Math.floor(Number(event?.params?.repeatMs) || 0));
+            if (state.fired && repeatMs <= 0) continue;
+            if (repeatMs > 0 && time < (state.lastFiredAt + repeatMs)) continue;
+            if (!this.isMissionDirectorTriggerMet(event, time)) continue;
+            const executed = this.executeMissionDirectorAction(event, time, marines);
+            if (!executed) continue;
+            state.fired = true;
+            state.lastFiredAt = time;
+            this.missionDirectorEventState.set(event.id, state);
+        }
+    }
+
+    isMissionDirectorTriggerMet(event, time) {
+        const triggerRaw = String(event?.trigger || '').trim().toLowerCase();
+        if (!triggerRaw) return false;
+        const [kindRaw, valueRaw = ''] = triggerRaw.split(':', 2);
+        const kind = String(kindRaw || '').trim();
+        const value = String(valueRaw || '').trim();
+        if (kind === 'always') return true;
+        if (kind === 'time') {
+            const sec = Math.max(0, Number(value) || 0);
+            const elapsedSec = Math.max(0, (time - (this.sessionStartTime || 0)) / 1000);
+            return elapsedSec >= sec;
+        }
+        if (kind === 'wave') {
+            const wave = Math.max(1, Math.floor(Number(value) || 1));
+            return (this.stageFlow?.currentWave || 1) >= wave;
+        }
+        if (kind === 'pressure') {
+            const p = Phaser.Math.Clamp(Number(value) || 0, 0, 1);
+            return this.getCombatPressure() >= p;
+        }
+        if (kind === 'kills') {
+            const n = Math.max(0, Math.floor(Number(value) || 0));
+            return (this.totalKills || 0) >= n;
+        }
+        if (kind === 'stage') {
+            return String(this.stageFlow?.state || '').toLowerCase() === value;
+        }
+        if (kind === 'objective') {
+            const n = Math.max(0, Math.floor(Number(value) || 0));
+            return (this.lastObjectiveProgressCount || 0) >= n;
+        }
+        return false;
+    }
+
+    executeMissionDirectorAction(event, time, marines) {
+        const action = String(event?.action || '').trim().toLowerCase();
+        const params = (event?.params && typeof event.params === 'object') ? event.params : {};
+        if (action === 'spawn_pack') {
+            const spawned = this.spawnDirectorPack(params, time, marines);
+            if (spawned > 0 && params.textCue) {
+                this.showFloatingText(this.leader.x, this.leader.y - 42, String(params.textCue), '#a9d8ff');
+            }
+            return spawned > 0;
+        }
+        if (action === 'text_cue' || action === 'cue_text' || action === 'show_text') {
+            const msg = String(params.text || params.message || event.id || 'DIRECTOR CUE');
+            const color = String(params.color || '#a9d8ff');
+            this.showFloatingText(this.leader.x, this.leader.y - 42, msg.toUpperCase(), color);
+            return true;
+        }
+        if (action === 'door_thump' || action === 'thump') {
+            const word = String(params.word || 'THUMP!!');
+            const cue = this.buildMissionCueWorldFromDir(params.dir);
+            this.showEdgeWordCue(word, cue.x, cue.y, String(params.color || '#ffb0a8'));
+            return true;
+        }
+        if (action === 'set_pressure_grace') {
+            const ms = Phaser.Math.Clamp(Number(params.ms) || 0, 0, 30000);
+            this.pressureGraceUntil = Math.max(this.pressureGraceUntil || 0, time + ms);
+            this.nextIdlePressureAt = Math.max(this.nextIdlePressureAt || 0, this.pressureGraceUntil);
+            this.nextGunfireReinforceAt = Math.max(this.nextGunfireReinforceAt || 0, this.pressureGraceUntil);
+            return true;
+        }
+        return false;
+    }
+
+    spawnDirectorPack(params = {}, time = this.time.now, marines = null) {
+        if (!this.enemyManager || this.stageFlow?.isEnded?.()) return 0;
+        const source = String(params.source || 'idle').toLowerCase() === 'gunfire' ? 'gunfire' : 'idle';
+        const slots = this.getAvailableReinforcementSlots(source);
+        if (slots <= 0) return 0;
+        const aliveNow = this.enemyManager.getAliveCount();
+        const marList = Array.isArray(marines) && marines.length > 0 ? marines : this.squadSystem.getAllMarines();
+        const softCap = this.getDynamicAliveSoftCap(marList);
+        const capRoom = Math.max(0, softCap - aliveNow);
+        if (capRoom <= 0) return 0;
+        const requestedSize = Phaser.Math.Clamp(Math.floor(Number(params.size) || 3), 1, 16);
+        const packSize = Math.min(slots, capRoom, requestedSize);
+        if (packSize <= 0) return 0;
+        const forcedType = params.type ? String(params.type) : '';
+        const view = this.cameras.main ? this.cameras.main.worldView : null;
+        let spawned = 0;
+        for (let i = 0; i < packSize; i++) {
+            const world = this.pickIdlePressureSpawnWorld(view, marList, time);
+            if (!world) continue;
+            const type = forcedType || this.pickReinforcementType(source, i, time);
+            const enemy = this.enemyManager.spawnEnemyAtWorld(type, world.x, world.y, this.stageFlow.currentWave || 1);
+            if (!enemy) continue;
+            this.noteReinforcementTypeSpawn(type, time);
+            enemy.dynamicReinforcement = true;
+            enemy.reinforcementSource = source;
+            const target = marList[Math.floor(Math.random() * marList.length)] || this.leader;
+            enemy.alertUntil = Math.max(enemy.alertUntil, time + 3800);
+            enemy.investigatePoint = { x: target.x, y: target.y, power: 1.05 };
+            enemy.investigateUntil = time + 3200;
+            spawned++;
+        }
+        if (spawned > 0) {
+            this.noteReinforcementSpawn(time, source, spawned);
+            this.markCombatAction(time);
+        }
+        return spawned;
+    }
+
+    buildMissionCueWorldFromDir(rawDir = null) {
+        let dir = String(rawDir || '').toUpperCase().trim();
+        if (!['N', 'S', 'E', 'W'].includes(dir)) {
+            dir = Phaser.Utils.Array.GetRandom(['N', 'S', 'E', 'W']);
+        }
+        const dist = CONFIG.TILE_SIZE * 9;
+        if (dir === 'N') return { x: this.leader.x, y: this.leader.y - dist };
+        if (dir === 'S') return { x: this.leader.x, y: this.leader.y + dist };
+        if (dir === 'E') return { x: this.leader.x + dist, y: this.leader.y };
+        return { x: this.leader.x - dist, y: this.leader.y };
     }
 
     updateCombatFeedback(time) {

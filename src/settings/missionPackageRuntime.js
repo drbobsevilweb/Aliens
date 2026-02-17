@@ -36,6 +36,40 @@ export function getMissionDirectorOverridesForMission(missionId = '') {
     return Object.keys(out).length > 0 ? out : null;
 }
 
+export function getMissionDirectorEventsForMission(missionId = '') {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    try {
+        const raw = window.localStorage.getItem(MISSION_PACKAGE_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        const events = Array.isArray(parsed?.directorEvents) ? parsed.directorEvents : [];
+        const out = [];
+        for (const e of events) {
+            if (!e || typeof e !== 'object') continue;
+            const id = String(e.id || '').trim();
+            const trigger = String(e.trigger || '').trim();
+            const action = String(e.action || '').trim();
+            if (!id || !trigger || !action) continue;
+            const scopedMission = e.missionId || e.mission || null;
+            const scopedList = Array.isArray(e.missionIds) ? e.missionIds.map((v) => String(v)) : null;
+            const include = !missionId
+                || (!scopedMission && !scopedList)
+                || (scopedMission && String(scopedMission) === String(missionId))
+                || (scopedList && scopedList.includes(String(missionId)));
+            if (!include) continue;
+            out.push({
+                id,
+                trigger,
+                action,
+                params: (e.params && typeof e.params === 'object') ? { ...e.params } : {},
+            });
+        }
+        return out;
+    } catch {
+        return [];
+    }
+}
+
 export function getMissionPackageMeta() {
     if (typeof window === 'undefined' || !window.localStorage) return null;
     try {
