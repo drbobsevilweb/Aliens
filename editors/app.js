@@ -1067,6 +1067,8 @@ function clamp(v, min, max) {
 function refreshPackageValidationSummary() {
     if (!validationEl) return;
     const missionPkg = buildPackageFromEditorState(state);
+    const payload = JSON.stringify(missionPkg);
+    const currentChecksum = checksumString(payload);
     const errors = validateMissionPackageShape(missionPkg);
     let publishedLine = 'Published: no';
     try {
@@ -1076,7 +1078,8 @@ function refreshPackageValidationSummary() {
             if (meta && meta.publishedAt) {
                 const stamp = new Date(meta.publishedAt).toLocaleString();
                 const bytes = Number(meta.sizeBytes) || 0;
-                publishedLine = `Published: yes (${stamp}, ${bytes} bytes)`;
+                const stale = Number(meta.checksum) !== currentChecksum;
+                publishedLine = `Published: yes (${stamp}, ${bytes} bytes)${stale ? ' [STALE]' : ' [CURRENT]'}`;
             }
         }
     } catch {
@@ -1115,10 +1118,20 @@ document.getElementById('publishPackageBtn').addEventListener('click', () => {
     localStorage.setItem(PACKAGE_META_STORAGE_KEY, JSON.stringify({
         publishedAt: Date.now(),
         sizeBytes: payload.length,
+        checksum: checksumString(payload),
     }));
     setStatus('Mission package published to game storage');
     refreshPackageValidationSummary();
 });
+
+function checksumString(s) {
+    let hash = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        hash ^= s.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+}
 
 document.getElementById('exportBtn').addEventListener('click', () => {
     const data = JSON.stringify(state, null, 2);
