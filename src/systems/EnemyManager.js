@@ -446,12 +446,20 @@ export class EnemyManager {
         const maxHit = Math.max(1, Math.floor(maxHp * maxHitPct));
         const currentHp = Math.max(0, Number(target.health) || 0);
         const hpPct = Phaser.Math.Clamp(currentHp / maxHp, 0, 1);
+        const squad = this.scene?.squadSystem?.getAllMarines?.() || [this.scene?.leader].filter(Boolean);
+        const teamHpPctRaw = this.scene?.getTeamHealthPct ? this.scene.getTeamHealthPct(squad) : 1;
+        const teamHpPct = Phaser.Math.Clamp(Number(teamHpPctRaw) || 1, 0, 1);
         const lowHpStart = Phaser.Math.Clamp(Number(tuning.lowHpMitigationStartPct) || 0.35, 0.1, 0.8);
         const lowHpMinMul = Phaser.Math.Clamp(Number(tuning.lowHpMitigationMulMin) || 0.58, 0.2, 1);
         if (hpPct < lowHpStart) {
             const t = Phaser.Math.Clamp(hpPct / Math.max(0.001, lowHpStart), 0, 1);
             dmg *= Phaser.Math.Linear(lowHpMinMul, 1, t);
         }
+        if (teamHpPct < 0.5) {
+            const teamRelief = Phaser.Math.Linear(0.64, 1, Phaser.Math.Clamp(teamHpPct / 0.5, 0, 1));
+            dmg *= teamRelief;
+        }
+        if (hpPct < 0.2) dmg *= 0.86;
         dmg = Math.max(1, Math.min(maxHit, Math.round(dmg)));
 
         if (typeof target.takeDamage === 'function') {
