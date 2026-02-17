@@ -144,6 +144,15 @@ export function validateMissionPackageShape(pkg) {
             const ms = Number(e?.params?.ms);
             if (!Number.isFinite(ms)) errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
         }
+        if (e?.params?.repeatMs !== undefined && !Number.isFinite(Number(e.params.repeatMs))) {
+            errors.push(`directorEvent ${e.id} params.repeatMs must be numeric.`);
+        }
+        if (e?.params?.maxFires !== undefined) {
+            const maxFires = Number(e.params.maxFires);
+            if (!Number.isFinite(maxFires) || maxFires < 1) {
+                errors.push(`directorEvent ${e.id} params.maxFires must be >= 1.`);
+            }
+        }
         if (action === 'set_reinforce_caps' || action === 'set_reinforcement_caps') {
             const total = e?.params?.total;
             const idle = e?.params?.idle;

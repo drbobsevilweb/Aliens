@@ -1820,7 +1820,7 @@ export class GameScene extends Phaser.Scene {
         for (const event of this.missionDirectorEvents || []) {
             if (!event || !event.id) continue;
             const prev = current.get(event.id);
-            next.set(event.id, prev || { fired: false, lastFiredAt: -100000 });
+            next.set(event.id, prev || { fired: false, lastFiredAt: -100000, fireCount: 0 });
         }
         this.missionDirectorEventState = next;
     }
@@ -1832,15 +1832,18 @@ export class GameScene extends Phaser.Scene {
         this.ensureMissionDirectorEventState();
         for (const event of this.missionDirectorEvents) {
             if (!event || !event.id) continue;
-            const state = this.missionDirectorEventState.get(event.id) || { fired: false, lastFiredAt: -100000 };
+            const state = this.missionDirectorEventState.get(event.id) || { fired: false, lastFiredAt: -100000, fireCount: 0 };
             const repeatMs = Math.max(0, Math.floor(Number(event?.params?.repeatMs) || 0));
+            const maxFires = Math.max(0, Math.floor(Number(event?.params?.maxFires) || 0));
             if (state.fired && repeatMs <= 0) continue;
+            if (maxFires > 0 && (Number(state.fireCount) || 0) >= maxFires) continue;
             if (repeatMs > 0 && time < (state.lastFiredAt + repeatMs)) continue;
             if (!this.isMissionDirectorTriggerMet(event, time)) continue;
             const executed = this.executeMissionDirectorAction(event, time, marines);
             if (!executed) continue;
             state.fired = true;
             state.lastFiredAt = time;
+            state.fireCount = (Number(state.fireCount) || 0) + 1;
             this.missionDirectorEventState.set(event.id, state);
         }
     }
