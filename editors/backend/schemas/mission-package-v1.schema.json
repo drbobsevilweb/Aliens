@@ -56,8 +56,26 @@
         "required": ["id", "trigger", "action"],
         "properties": {
           "id": { "type": "string" },
-          "trigger": { "type": "string" },
-          "action": { "type": "string" },
+          "trigger": {
+            "type": "string",
+            "pattern": "^(always|time:[0-9]+(\\.[0-9]+)?|wave:[0-9]+|pressure:(0(\\.[0-9]+)?|1(\\.0+)?)|kills:[0-9]+|objective:[0-9]+|stage:(combat|intermission|extract|victory|defeat))$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "spawn_pack",
+              "text_cue",
+              "cue_text",
+              "show_text",
+              "door_thump",
+              "thump",
+              "set_pressure_grace",
+              "door_action",
+              "door_state",
+              "spawn_queen",
+              "spawn_boss"
+            ]
+          },
           "params": { "type": "object" }
         },
         "additionalProperties": true
