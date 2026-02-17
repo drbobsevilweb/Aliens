@@ -24,9 +24,11 @@ import { DebugOverlay } from '../ui/DebugOverlay.js';
 import { ObjectivesPanel } from '../ui/ObjectivesPanel.js';
 import { ControlsOverlay } from '../ui/ControlsOverlay.js';
 import { MEDKIT_HEAL_AMOUNT, MEDKIT_WAVE_SPAWNS, AMMO_WAVE_SPAWNS, AMMO_PICKUP_VALUE } from '../data/pickupData.js';
+import { MISSION_SET } from '../data/missionData.js';
 import { resolveMissionLayout } from '../map/missionLayout.js';
 import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
+import { loadCampaignProgress, saveCampaignProgress, completeCampaignMission } from '../settings/campaignProgress.js';
 import {
     getMissionDirectorOverridesForMission,
     getMissionDirectorEventsForMission,
@@ -206,6 +208,17 @@ export class GameScene extends Phaser.Scene {
         this.sessionStartTime = this.time.now;
         this.totalKills = 0;
         this.meta = this.loadMetaProgress();
+        this.campaignMissionOrder = MISSION_SET.map((m) => m.id);
+        this.campaignProgress = loadCampaignProgress(this.campaignMissionOrder);
+        this.campaignProgressUpdated = false;
+        const autoSaveMissions = (Number(this.runtimeSettings?.scripting?.autoSaveBetweenMissions) || 0) > 0;
+        if (autoSaveMissions && this.activeMission?.id) {
+            this.campaignProgress = saveCampaignProgress({
+                ...this.campaignProgress,
+                currentMissionId: this.activeMission.id,
+                updatedAt: Date.now(),
+            }, this.campaignMissionOrder);
+        }
 
         this.contextMenu = new ContextMenu(this);
         this.doorActionSystem = new DoorActionSystem(this, this.pathGrid, this.pathPlanner, this.movementSystem);
@@ -545,6 +558,9 @@ export class GameScene extends Phaser.Scene {
         this.restartPointerHandler = () => {
             if (this.stageFlow.isEnded()) this.scene.restart(this.launchData);
         };
+        this.nextMissionKeyHandler = () => {
+            if (this.stageFlow.state === 'victory') this.startNextMissionIfAvailable();
+        };
         this.toggleDebugHandler = () => {
             if (this.debugOverlay) this.debugOverlay.toggle();
         };
@@ -595,6 +611,7 @@ export class GameScene extends Phaser.Scene {
         };
         if (this.input.keyboard) {
             this.input.keyboard.on('keydown-R', this.restartKeyHandler);
+            this.input.keyboard.on('keydown-N', this.nextMissionKeyHandler);
             this.input.keyboard.on('keydown-F3', this.toggleDebugHandler);
             this.input.keyboard.on('keydown-P', this.togglePauseHandler);
             this.input.keyboard.on('keydown-ESC', this.togglePauseHandler);
@@ -609,6 +626,7 @@ export class GameScene extends Phaser.Scene {
         this.events.once('shutdown', () => {
             if (this.input.keyboard) {
                 this.input.keyboard.off('keydown-R', this.restartKeyHandler);
+                this.input.keyboard.off('keydown-N', this.nextMissionKeyHandler);
                 this.input.keyboard.off('keydown-F3', this.toggleDebugHandler);
                 this.input.keyboard.off('keydown-P', this.togglePauseHandler);
                 this.input.keyboard.off('keydown-ESC', this.togglePauseHandler);
@@ -1593,8 +1611,9 @@ export class GameScene extends Phaser.Scene {
             this.extractionLabel.setVisible(false);
             this.objectiveTargetMarker.setVisible(false);
             this.updateMetaProgress(true);
+            this.updateCampaignProgressOnVictory();
             this.stageText.setText('STAGE: MISSION COMPLETE');
-            this.endHintText.setText(`${this.buildMissionStatsText()}\n${this.buildMetaProgressText()}\nClick or press R to restart`);
+            this.endHintText.setText(`${this.buildMissionStatsText()}\n${this.buildMetaProgressText()}\n${this.buildMissionEndPrompt('victory')}`);
             this.endHintText.setVisible(true);
             return;
         }
@@ -1609,7 +1628,7 @@ export class GameScene extends Phaser.Scene {
             this.objectiveTargetMarker.setVisible(false);
             this.updateMetaProgress(false);
             this.stageText.setText('STAGE: TEAM WIPED');
-            this.endHintText.setText(`${this.buildMissionStatsText()}\n${this.buildMetaProgressText()}\nClick or press R to restart`);
+            this.endHintText.setText(`${this.buildMissionStatsText()}\n${this.buildMetaProgressText()}\n${this.buildMissionEndPrompt('defeat')}`);
             this.endHintText.setVisible(true);
         }
     }
@@ -1676,6 +1695,42 @@ export class GameScene extends Phaser.Scene {
         const sec = String(totalSec % 60).padStart(2, '0');
         const title = this.stageFlow.state === 'victory' ? 'MISSION COMPLETE' : 'TEAM WIPED';
         return `${title}\nKills: ${this.totalKills} | Time: ${min}:${sec}`;
+    }
+
+    buildMissionEndPrompt(result = 'defeat') {
+        if (result === 'victory' && this.getNextCampaignMissionId()) {
+            return 'Press N for next mission, or click/press R to replay';
+        }
+        return 'Click or press R to restart';
+    }
+
+    getNextCampaignMissionId() {
+        const order = Array.isArray(this.campaignMissionOrder) ? this.campaignMissionOrder : [];
+        if (!this.activeMission?.id || order.length <= 0) return null;
+        const idx = order.indexOf(this.activeMission.id);
+        if (idx < 0 || idx >= (order.length - 1)) return null;
+        return order[idx + 1];
+    }
+
+    updateCampaignProgressOnVictory() {
+        if (this.campaignProgressUpdated) return;
+        this.campaignProgressUpdated = true;
+        const autoSaveMissions = (Number(this.runtimeSettings?.scripting?.autoSaveBetweenMissions) || 0) > 0;
+        if (!autoSaveMissions || !this.activeMission?.id) return;
+        this.campaignProgress = completeCampaignMission(
+            this.campaignProgress,
+            this.activeMission.id,
+            this.campaignMissionOrder
+        );
+        this.campaignProgress = saveCampaignProgress(this.campaignProgress, this.campaignMissionOrder);
+    }
+
+    startNextMissionIfAvailable() {
+        const nextMissionId = this.getNextCampaignMissionId();
+        if (!nextMissionId) return false;
+        const data = { ...(this.launchData || {}), missionId: nextMissionId };
+        this.scene.restart(data);
+        return true;
     }
 
     loadMetaProgress() {

@@ -1,4 +1,7 @@
 import { CONFIG } from '../config.js';
+import { MISSION_SET } from '../data/missionData.js';
+import { loadCampaignProgress } from '../settings/campaignProgress.js';
+import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
 
 export class BootScene extends Phaser.Scene {
     constructor() {
@@ -15,7 +18,17 @@ export class BootScene extends Phaser.Scene {
         this.generateWeaponIcons();
         this.generateDoorTextures();
         const params = new URLSearchParams(window.location.search);
-        const missionId = params.get('mission') || undefined;
+        const missionOrder = MISSION_SET.map((m) => m.id);
+        const missionLookup = new Set(missionOrder);
+        const explicitMission = String(params.get('mission') || '').trim();
+        let missionId = explicitMission || undefined;
+        const runtimeSettings = loadRuntimeSettings();
+        const autoSaveMissions = (Number(runtimeSettings?.scripting?.autoSaveBetweenMissions) || 0) > 0;
+        if (!missionId && autoSaveMissions) {
+            const progress = loadCampaignProgress(missionOrder);
+            missionId = progress.currentMissionId || missionOrder[0] || undefined;
+        }
+        if (missionId && !missionLookup.has(missionId)) missionId = missionOrder[0] || undefined;
         this.scene.start('GameScene', { missionId });
     }
 
