@@ -625,6 +625,7 @@ export class GameScene extends Phaser.Scene {
         this.motionTracker.setState(trackerActive);
         const trackerLeaderBusy = this.isTrackerLeaderBusy(time);
         const healLeaderBusy = this.isLeaderHealBusy(time);
+        this.resolveActionLockConflicts(time);
         this.updateTrackerOperatorLock(time, trackerRiskLocked);
         this.updateHealActionLock(time);
 
@@ -3183,11 +3184,34 @@ export class GameScene extends Phaser.Scene {
         return time < this.trackerRiskUntil;
     }
 
+    resolveActionLockConflicts(time = this.time.now) {
+        const trackerLocked = this.isMotionTrackerRiskLocked(time);
+        if (!trackerLocked || !this.healAction || !this.trackerOperator) return;
+        const h = this.healAction;
+        const t = this.trackerOperator;
+        const sameActor = t.actor && (t.actor === h.operator || t.actor === h.target);
+        const sameRole = !!(t.roleKey && (t.roleKey === h.operatorRoleKey || t.roleKey === h.targetRoleKey));
+        if (!sameActor && !sameRole) return;
+
+        const trackerStart = Number(this.trackerStartedAt) || 0;
+        const healStart = Number(h.startedAt) || 0;
+        if (trackerStart >= healStart) {
+            this.cancelMotionTrackerScan(false);
+        } else {
+            this.cancelHealAction(false);
+        }
+        this.showFloatingText(this.leader.x, this.leader.y - 24, 'ACTION DECONFLICT', '#ffcb8a');
+    }
+
     startMotionTrackerScan(time, preferredRoleKey = null) {
         const visibility = this.runtimeSettings?.visibility || {};
         const actionMs = 5000;
         const scanMs = 5000;
         const cooldownMs = Number(visibility.trackerCooldownMs) || CONFIG.MOTION_TRACKER_COOLDOWN_MS;
+        if (this.healAction) {
+            this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER BLOCKED: HEAL ACTIVE', '#ffcc88');
+            return;
+        }
         if (this.isMotionTrackerRiskLocked(time)) {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER IN PROGRESS', '#ffcc88');
             return;
