@@ -2536,6 +2536,8 @@ export class GameScene extends Phaser.Scene {
 
     showMuzzleFlash(x, y, angle, weaponKey = 'pulseRifle') {
         const flashScale = Number(this.runtimeSettings?.spriteAnimation?.muzzleFlashScale) || 1;
+        const fxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const flashBoost = Phaser.Math.Linear(0.85, 1.45, Phaser.Math.Clamp((fxIntensity - 0.2) / 2.8, 0, 1));
         const profiles = {
             pulseRifle: {
                 coneCore: 0.11,
@@ -2581,7 +2583,7 @@ export class GameScene extends Phaser.Scene {
         const offset = 18 * flashScale;
         const fx = x + Math.cos(angle) * offset;
         const fy = y + Math.sin(angle) * offset;
-        const coreQty = Math.max(2, Math.round(8 * p.coreMul * flashScale * this.fxQualityScale));
+        const coreQty = Math.max(3, Math.round(10 * p.coreMul * flashScale * this.fxQualityScale * flashBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = angle + Phaser.Math.FloatBetween(-p.coneCore, p.coneCore);
             const speed = Phaser.Math.FloatBetween(90, 220) * p.speedMul;
@@ -2600,7 +2602,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const sparkQty = Math.max(2, Math.round(7 * p.sparkMul * flashScale * this.fxQualityScale));
+        const sparkQty = Math.max(4, Math.round(10 * p.sparkMul * flashScale * this.fxQualityScale * flashBoost));
         for (let i = 0; i < sparkQty; i++) {
             const dir = angle + Phaser.Math.FloatBetween(-p.coneSpark, p.coneSpark);
             const speed = Phaser.Math.FloatBetween(280, 560) * p.speedMul;
@@ -2620,7 +2622,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const emberQty = Math.max(1, Math.round(5 * p.emberMul * flashScale * this.fxQualityScale));
+        const emberQty = Math.max(2, Math.round(7 * p.emberMul * flashScale * this.fxQualityScale * flashBoost));
         for (let i = 0; i < emberQty; i++) {
             const dir = angle + Phaser.Math.FloatBetween(-p.coneEmber, p.coneEmber);
             const speed = Phaser.Math.FloatBetween(110, 260) * p.speedMul;
@@ -2639,7 +2641,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        if (Math.random() < p.smokeChance * this.fxQualityScale) {
+        if (Math.random() < p.smokeChance * this.fxQualityScale * flashBoost) {
             this.spawnFxSprite('smoke', fx - Math.cos(angle) * 2, fy - Math.sin(angle) * 2, {
                 vx: Phaser.Math.FloatBetween(-16, 16),
                 vy: Phaser.Math.FloatBetween(-28, -8),
@@ -2651,12 +2653,19 @@ export class GameScene extends Phaser.Scene {
                 tint: weaponKey === 'pistol' ? 0xd8dff9 : 0xffdfcc,
             });
         }
+        if (Math.random() < 0.55 * this.fxQualityScale * flashBoost) {
+            this.addSparkLight(fx, fy, this.time.now, {
+                duration: Phaser.Math.Between(54, 120),
+                rangeMin: 20,
+                rangeBoost: 42 * flashBoost,
+            });
+        }
     }
 
     showImpactEffect(x, y, color = 0xdddddd) {
         const sparkIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.ricochetSparkIntensity) || 1, 0.4, 2.2);
         const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
-        const fxBoost = 2.05 * impactFxIntensity;
+        const fxBoost = 2.45 * impactFxIntensity;
         const coreQty = Math.max(3, Math.round((5 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -2676,7 +2685,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const sparkQty = Math.max(12, Math.round((18 + Phaser.Math.Between(0, 12)) * this.fxQualityScale * sparkIntensity * fxBoost));
+        const sparkQty = Math.max(16, Math.round((24 + Phaser.Math.Between(0, 14)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < sparkQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const speed = Phaser.Math.FloatBetween(200, 560) * sparkIntensity;
@@ -2695,8 +2704,8 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        if (Math.random() < 0.92 * this.fxQualityScale) {
-            const steamQty = Math.max(2, Math.round((4 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * fxBoost));
+        if (Math.random() < 0.96 * this.fxQualityScale) {
+            const steamQty = Math.max(4, Math.round((7 + Phaser.Math.Between(0, 5)) * this.fxQualityScale * fxBoost));
             for (let i = 0; i < steamQty; i++) {
                 this.spawnFxSprite('smoke', x + Phaser.Math.Between(-3, 3), y + Phaser.Math.Between(-3, 3), {
                     vx: Phaser.Math.FloatBetween(-12, 14),
@@ -2735,8 +2744,9 @@ export class GameScene extends Phaser.Scene {
 
     showAlienAcidSplash(x, y, options = {}) {
         const acidPalette = [0x79ff76, 0x9aff90, 0xc5ff80, 0x7de6a5];
-        const fxBoost = 1.5;
-        const sprayQty = Math.max(10, Math.round((16 + Phaser.Math.Between(0, 8)) * this.fxQualityScale * fxBoost));
+        const fxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const fxBoost = 1.9 * Phaser.Math.Linear(0.84, 1.36, Phaser.Math.Clamp((fxIntensity - 0.2) / 2.8, 0, 1));
+        const sprayQty = Math.max(12, Math.round((20 + Phaser.Math.Between(0, 10)) * this.fxQualityScale * fxBoost));
         for (let i = 0; i < sprayQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const speed = Phaser.Math.FloatBetween(80, 240);
@@ -2755,7 +2765,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const glowQty = Math.max(4, Math.round((6 + Phaser.Math.Between(0, 4)) * this.fxQualityScale * fxBoost));
+        const glowQty = Math.max(6, Math.round((9 + Phaser.Math.Between(0, 5)) * this.fxQualityScale * fxBoost));
         for (let i = 0; i < glowQty; i++) {
             this.spawnFxSprite('dot', x + Phaser.Math.Between(-5, 5), y + Phaser.Math.Between(-4, 3), {
                 vx: Phaser.Math.FloatBetween(-14, 14),
@@ -2772,7 +2782,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const steamQty = Math.max(8, Math.round((13 + Phaser.Math.Between(0, 6)) * this.fxQualityScale * fxBoost));
+        const steamQty = Math.max(10, Math.round((16 + Phaser.Math.Between(0, 8)) * this.fxQualityScale * fxBoost));
         for (let i = 0; i < steamQty; i++) {
             this.spawnFxSprite('smoke', x + Phaser.Math.Between(-7, 7), y + Phaser.Math.Between(-3, 5), {
                 vx: Phaser.Math.FloatBetween(-20, 22),
@@ -2792,6 +2802,13 @@ export class GameScene extends Phaser.Scene {
                 duration: Phaser.Math.Between(130, 220),
                 rangeMin: 28,
                 rangeBoost: 78,
+            });
+        }
+        if (Math.random() < 0.44 * this.fxQualityScale) {
+            this.addSparkLight(x, y, this.time.now, {
+                duration: Phaser.Math.Between(84, 170),
+                rangeMin: 20,
+                rangeBoost: 52,
             });
         }
         const allowPool = options.spawnPool !== false;

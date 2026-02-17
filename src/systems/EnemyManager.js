@@ -1112,6 +1112,26 @@ export class EnemyManager {
                 enemy.hitSlowUntil = Math.max(enemy.hitSlowUntil || 0, now + 220);
                 enemy.hitSlowMultiplier = Math.min(enemy.hitSlowMultiplier || 1, 0.38);
             }
+            if (this.scene && typeof this.scene.showAlienAcidSplash === 'function') {
+                const acidSprayChance = key === 'shotgun' ? 0.34 : (key === 'pistol' ? 0.14 : 0.22);
+                if (Math.random() < acidSprayChance) {
+                    this.scene.showAlienAcidSplash(enemy.x, enemy.y, { spawnPool: false });
+                }
+            }
+            if (this.scene && typeof this.scene.spawnAcidHazard === 'function') {
+                const hazardChance = key === 'shotgun' ? 0.18 : 0.1;
+                if (Math.random() < hazardChance) {
+                    this.scene.spawnAcidHazard(
+                        enemy.x + Phaser.Math.Between(-6, 6),
+                        enemy.y + Phaser.Math.Between(-6, 6),
+                        {
+                            radius: Phaser.Math.Between(10, 18),
+                            duration: Phaser.Math.Between(1200, 2600),
+                            damageScale: Phaser.Math.FloatBetween(0.35, 0.7),
+                        }
+                    );
+                }
+            }
         }
         if (killed) {
             this.aliveCount = Math.max(0, this.aliveCount - 1);
