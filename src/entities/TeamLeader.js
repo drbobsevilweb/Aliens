@@ -23,6 +23,7 @@ export class TeamLeader extends Phaser.Physics.Arcade.Sprite {
         this.maxHealth = CONFIG.PLAYER_MAX_HEALTH;
         this.health = CONFIG.PLAYER_START_HEALTH;
         this.lastDamagedAt = -1;
+        this.morale = 0;
         this.onHealthChange = null;
     }
 

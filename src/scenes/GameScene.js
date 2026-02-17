@@ -170,6 +170,15 @@ export class GameScene extends Phaser.Scene {
         this.bulletPool = new BulletPool(this);
         this.acidPool = new AcidPool(this);
         this.weaponManager = new WeaponManager(this.bulletPool, this.runtimeSettings.weapons);
+        this.weaponManager.onJam = ({ ownerRoleKey = 'leader', jamDuration = 0 } = {}) => {
+            const isLeader = ownerRoleKey === 'leader' || !ownerRoleKey;
+            const actor = isLeader
+                ? this.leader
+                : (this.squadSystem?.getFollowerByRole?.(ownerRoleKey) || this.leader);
+            const sec = Math.max(0, jamDuration / 1000);
+            const label = isLeader ? 'WEAPON JAM!' : `${String(ownerRoleKey).toUpperCase()} JAM!`;
+            this.showFloatingText(actor.x, actor.y - 24, `${label} ${sec.toFixed(1)}s`, '#ffb7a2');
+        };
         this.inputHandler = new InputHandler(this);
         this.movementSystem = new MovementSystem();
         this.squadSystem = new SquadSystem(this, this.leader, this.pathGrid, this.runtimeSettings.squad);
@@ -797,12 +806,45 @@ export class GameScene extends Phaser.Scene {
 
         this.weaponManager.update(delta);
         if (this.inputHandler.isFiring && !trackerLeaderBusy && !healLeaderBusy) {
-            const fired = this.weaponManager.fire(this.leader.x, this.leader.y, this.leader.rotation, time);
+            const morale = Number.isFinite(this.leader?.morale) ? this.leader.morale : 0;
+            const moralePenalty = Phaser.Math.Clamp(-morale / 100, 0, 1);
+            const moraleBoost = Phaser.Math.Clamp(morale / 100, 0, 1);
+            const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1);
+            const jamMul = Phaser.Math.Clamp(Number(this.combatMods?.marineJamMul) || 1, 0.25, 3);
+            const weaponKey = this.weaponManager.currentWeaponKey || 'pulseRifle';
+            const weaponDef = this.weaponManager.getRuntimeWeaponDef(weaponKey);
+            const overheatThreshold = Math.max(1, Number(weaponDef?.overheatThreshold) || 100);
+            const heatNorm = Phaser.Math.Clamp((Number(this.weaponManager.heat) || 0) / overheatThreshold, 0, 1);
+            const spreadMul = Phaser.Math.Clamp(
+                1 + moralePenalty * 1.05 - moraleBoost * 0.26 + pressure * 0.05,
+                0.6,
+                2.8
+            );
+            const fireRateMul = Phaser.Math.Clamp(
+                1 + moralePenalty * 0.36 - moraleBoost * 0.2 + pressure * 0.08,
+                0.62,
+                2.4
+            );
+            const angleJitterBase = weaponKey === 'shotgun'
+                ? 0.034
+                : (weaponKey === 'pistol' ? 0.016 : 0.023);
+            const jamChance = Phaser.Math.Clamp(
+                (0.01 + moralePenalty * 0.11 + heatNorm * 0.06) * jamMul,
+                0,
+                0.34
+            );
+            const fired = this.weaponManager.fire(this.leader.x, this.leader.y, this.leader.rotation, time, {
+                ownerRoleKey: 'leader',
+                fireRateMul,
+                jamChance,
+                angleJitter: angleJitterBase * spreadMul,
+                jamDurationMinMs: 700,
+                jamDurationMaxMs: 1550,
+            });
             if (fired) {
                 this.noteGunfireEvent(time);
                 this.markCombatAction(time);
                 this.tryGunfireReinforcement(time, this.leader.x, this.leader.y, marines);
-                const weaponKey = this.weaponManager.currentWeaponKey || 'pulseRifle';
                 this.emitWeaponFlashAndStimulus(
                     this.leader.x,
                     this.leader.y,

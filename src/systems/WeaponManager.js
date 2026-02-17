@@ -1,5 +1,9 @@
 import { WEAPONS, WEAPON_ORDER } from '../data/weaponData.js';
 
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
 export class WeaponManager {
     constructor(bulletPool, runtimeSettings = null) {
         this.bulletPool = bulletPool;
@@ -31,6 +35,8 @@ export class WeaponManager {
         this.onWeaponChange = null;
         this.onAmmoChange = null;
         this.onHeatChange = null;
+        this.onJam = null;
+        this.jamUntil = 0;
     }
 
     getCurrentWeapon() {
@@ -108,29 +114,54 @@ export class WeaponManager {
         if (this.onAmmoChange) this.onAmmoChange(weaponKey, this.ammo[weaponKey]);
     }
 
-    canFire(time) {
+    getAdjustedFireRate(def, options = {}) {
+        const mulRaw = Number(options.fireRateMul);
+        const mul = Number.isFinite(mulRaw) ? clamp(mulRaw, 0.5, 3) : 1;
+        return Math.max(20, Math.floor(def.fireRate * mul));
+    }
+
+    canFire(time, options = {}) {
         const key = this.currentWeaponKey;
         const def = this.getRuntimeWeaponDef(key);
+        const effectiveFireRate = this.getAdjustedFireRate(def, options);
 
-        if (time - this.lastFiredTime[key] < def.fireRate) return false;
+        if (time < this.jamUntil) return false;
+        if (time - this.lastFiredTime[key] < effectiveFireRate) return false;
         if (key === 'pulseRifle' && this.isOverheated) return false;
         if (def.ammoType === 'limited' && this.ammo[key] <= 0) return false;
 
         return true;
     }
 
-    fire(x, y, angle, time) {
-        if (!this.canFire(time)) return false;
+    fire(x, y, angle, time, options = {}) {
+        if (!this.canFire(time, options)) return false;
 
         const key = this.currentWeaponKey;
         const def = this.getRuntimeWeaponDef(key);
-        const shotDef = { ...def, ownerRoleKey: 'leader' };
+        const ownerRoleKey = options.ownerRoleKey || 'leader';
+        const jamChanceRaw = Number(options.jamChance);
+        const jamChance = Number.isFinite(jamChanceRaw) ? clamp(jamChanceRaw, 0, 0.9) : 0;
+        if (jamChance > 0 && Math.random() < jamChance) {
+            const jamMin = Math.max(100, Number(options.jamDurationMinMs) || 700);
+            const jamMax = Math.max(jamMin, Number(options.jamDurationMaxMs) || 1500);
+            const jamDuration = Math.floor(jamMin + Math.random() * (jamMax - jamMin));
+            this.jamUntil = time + jamDuration;
+            if (typeof this.onJam === 'function') {
+                this.onJam({ weaponKey: key, ownerRoleKey, jamUntil: this.jamUntil, jamDuration, time });
+            }
+            return false;
+        }
+
+        const angleJitterRaw = Number(options.angleJitter);
+        const angleJitter = Number.isFinite(angleJitterRaw) ? clamp(angleJitterRaw, 0, 0.35) : 0;
+        const shotAngle = angle + (angleJitter > 0 ? ((Math.random() * 2 - 1) * angleJitter) : 0);
+        const shotDef = { ...def, ownerRoleKey };
         let spawnedCount = 0;
 
         if (shotDef.bulletsPerShot > 1) {
-            spawnedCount = this.bulletPool.fireSpread(x, y, angle, time, shotDef);
+            spawnedCount = this.bulletPool.fireSpread(x, y, shotAngle, time, shotDef);
         } else {
-            spawnedCount = this.bulletPool.fire(x, y, angle, time, shotDef) ? 1 : 0;
+            spawnedCount = this.bulletPool.fire(x, y, shotAngle, time, shotDef) ? 1 : 0;
         }
 
         if (spawnedCount <= 0) {
