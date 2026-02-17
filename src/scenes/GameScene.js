@@ -1487,6 +1487,7 @@ export class GameScene extends Phaser.Scene {
             angle: marine.rotation || 0,
             halfAngle: lighting.torchConeHalfAngle ?? CONFIG.TORCH_CONE_HALF_ANGLE,
             range: lighting.torchRange ?? CONFIG.TORCH_RANGE,
+            kind: 'torch',
         }));
         const now = this.time.now;
         this.gunFlashLights = this.gunFlashLights.filter((f) => f.expiresAt > now);
@@ -1499,6 +1500,7 @@ export class GameScene extends Phaser.Scene {
                 angle: f.angle,
                 halfAngle: f.halfAngle ?? Math.PI,
                 range: (f.rangeMin ?? 120) + (f.rangeBoost ?? 110) * t,
+                kind: 'flash',
             });
         }
         for (const f of this.sparkLights) {
@@ -1509,6 +1511,7 @@ export class GameScene extends Phaser.Scene {
                 angle: 0,
                 halfAngle: Math.PI,
                 range: (f.rangeMin ?? 18) + (f.rangeBoost ?? 34) * t,
+                kind: 'spark',
             });
         }
         return out;

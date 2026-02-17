@@ -912,6 +912,7 @@ export class EnemyManager {
         for (const enemy of this.enemies) {
             if (!enemy.active) continue;
             let litNow = false;
+            let litByPersistent = false;
             const dt = Math.max(0, time - (enemy.lastRevealTickAt || time));
             enemy.lastRevealTickAt = time;
 
@@ -921,12 +922,16 @@ export class EnemyManager {
                 if (!this.isInLightCone(source, enemy)) continue;
                 if (!this.hasLineOfSight(source.x, source.y, enemy.x, enemy.y, source.range)) continue;
                 litNow = true;
+                const kind = String(source.kind || 'torch').toLowerCase();
+                if (kind === 'torch') litByPersistent = true;
             }
 
             if (litNow) {
                 enemy.revealCharge = 1;
                 enemy.lastSeenAt = time;
-                enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
+                if (litByPersistent) {
+                    enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
+                }
             }
             const trackerReveal = trackerActive && view && Phaser.Geom.Rectangle.Contains(view, enemy.x, enemy.y);
             if (trackerReveal) {
