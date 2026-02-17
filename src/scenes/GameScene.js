@@ -1664,7 +1664,10 @@ export class GameScene extends Phaser.Scene {
                 duration: 220,
                 ease: 'Quad.out',
             });
-            this.cameras.main.shake(90, Math.min(0.004 + lost * 0.0002, 0.012), true);
+            const shakeMul = this.getCameraShakeMul();
+            if (shakeMul > 0) {
+                this.cameras.main.shake(90, Math.min(0.004 + lost * 0.0002, 0.012) * shakeMul, true);
+            }
         }
         this.prevHealth = hp;
 
@@ -1674,6 +1677,10 @@ export class GameScene extends Phaser.Scene {
             const pulse = 0.5 + 0.5 * Math.sin(time / 140);
             this.lowHealthText.setAlpha(0.55 + pulse * 0.45);
         }
+    }
+
+    getCameraShakeMul() {
+        return Phaser.Math.Clamp(Number(this.runtimeSettings?.other?.cameraShakeMul) || 1, 0, 2);
     }
 
     showFloatingText(x, y, text, color) {
@@ -2134,7 +2141,8 @@ export class GameScene extends Phaser.Scene {
             });
         }
         if (Math.random() < 0.22 && this.time.now >= (this.nextImpactShakeAt || 0)) {
-            this.cameras.main.shake(45, 0.0018 + sparkIntensity * 0.0006, true);
+            const shakeMul = this.getCameraShakeMul();
+            if (shakeMul > 0) this.cameras.main.shake(45, (0.0018 + sparkIntensity * 0.0006) * shakeMul, true);
             this.nextImpactShakeAt = this.time.now + 120;
         }
     }
@@ -2259,7 +2267,8 @@ export class GameScene extends Phaser.Scene {
             });
         }
         if (this.time.now >= (this.nextImpactShakeAt || 0)) {
-            this.cameras.main.shake(80, 0.0026 + fxMul * 0.0009, true);
+            const shakeMul = this.getCameraShakeMul();
+            if (shakeMul > 0) this.cameras.main.shake(80, (0.0026 + fxMul * 0.0009) * shakeMul, true);
             this.nextImpactShakeAt = this.time.now + 140;
         }
     }

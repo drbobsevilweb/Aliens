@@ -124,6 +124,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     other: Object.freeze({
         uiScale: 1,
         audioBeepVolume: 1,
+        cameraShakeMul: 1,
         pauseOnFocusLoss: 0,
     }),
     game: Object.freeze({
@@ -342,6 +343,7 @@ function sanitize(settings) {
 
     s.other.uiScale = clampNumber(s.other.uiScale, 0.5, 2, 1);
     s.other.audioBeepVolume = clampNumber(s.other.audioBeepVolume, 0, 2, 1);
+    s.other.cameraShakeMul = clampNumber(s.other.cameraShakeMul, 0, 2, 1);
     s.other.pauseOnFocusLoss = clampNumber(s.other.pauseOnFocusLoss, 0, 1, 0);
 
     s.game.globalTimeScale = clampNumber(s.game.globalTimeScale, 0.25, 3, 1);
