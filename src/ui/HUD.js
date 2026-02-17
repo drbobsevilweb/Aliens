@@ -318,6 +318,7 @@ export class HUD {
                 ? this.scene.getFollowerCombatState(card.def.roleKey)
                 : null;
             const jammed = !!(isFollower && roleState && time < (Number(roleState.jamUntil) || 0));
+            const jamSec = jammed ? Math.max(0, ((Number(roleState.jamUntil) || time) - time) / 1000) : 0;
             const hostileCount = this.scene.enemyManager && this.scene.enemyManager.getAliveCount
                 ? this.scene.enemyManager.getAliveCount()
                 : 0;
@@ -328,13 +329,15 @@ export class HUD {
                 statusText = 'STATUS: KIA';
                 statusColor = '#8b8b8b';
             } else if (healTargeted || healOperator || healBusy) {
-                statusText = 'STATUS: HEALING';
+                const remain = healAction ? Math.max(0, ((Number(healAction.completeAt) || time) - time) / 1000) : 0;
+                statusText = `STATUS: HEALING ${remain.toFixed(1)}s`;
                 statusColor = '#8df5b1';
             } else if (trackerBusy) {
-                statusText = 'STATUS: TRACKING';
+                const until = Number(this.scene.trackerRiskUntil) || time;
+                statusText = `STATUS: TRACKING ${Math.max(0, (until - time) / 1000).toFixed(1)}s`;
                 statusColor = '#8fd9ff';
             } else if (jammed) {
-                statusText = 'STATUS: JAMMED';
+                statusText = `STATUS: JAMMED ${jamSec.toFixed(1)}s`;
                 statusColor = '#ffb09a';
             } else if (panicPct >= 60) {
                 statusText = `STATUS: PANIC ${panicPct}%`;
