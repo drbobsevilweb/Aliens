@@ -3203,6 +3203,35 @@ export class GameScene extends Phaser.Scene {
                     }
                 }
 
+                if (!best && threatenedAlly && threatenedAlly !== follower) {
+                    const threatAt = Number(threatenedAlly.lastThreatAt) || -100000;
+                    if (
+                        (time - threatAt) <= 2400
+                        && Number.isFinite(threatenedAlly.lastThreatX)
+                        && Number.isFinite(threatenedAlly.lastThreatY)
+                    ) {
+                        let bestThreat = null;
+                        let bestThreatScore = Infinity;
+                        for (const enemy of allEnemies) {
+                            if (!canAcquire(follower, enemy, true)) continue;
+                            const dThreat = Phaser.Math.Distance.Between(
+                                enemy.x,
+                                enemy.y,
+                                threatenedAlly.lastThreatX,
+                                threatenedAlly.lastThreatY
+                            );
+                            if (dThreat < bestThreatScore) {
+                                bestThreat = enemy;
+                                bestThreatScore = dThreat;
+                            }
+                        }
+                        if (bestThreat && bestThreatScore <= CONFIG.TILE_SIZE * 3.6) {
+                            best = bestThreat;
+                            bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
+                        }
+                    }
+                }
+
                 // Marine-to-marine support: idle marines assist after ~1 second.
                 if (!best && sharedContact && !selfRecentlyAttacked) {
                     if (!state.assistNoticedAt) state.assistNoticedAt = now;
