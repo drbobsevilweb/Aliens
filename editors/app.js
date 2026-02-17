@@ -191,6 +191,7 @@ function defaultState() {
             { id: 'evt_wave2_push', missionId: 'm2', trigger: 'wave:2', action: 'spawn_pack', params: { size: 4, source: 'gunfire' } },
             { id: 'evt_m2_tracker_check', missionId: 'm2', trigger: 'time:35', action: 'trigger_tracker', params: { role: 'tech' } },
             { id: 'evt_midfight_breach_warning', missionId: 'm3', trigger: 'pressure:0.72', action: 'door_thump', params: { word: 'THUMP!!', dir: 'S' } },
+            { id: 'evt_m3_edge_noise', missionId: 'm3', trigger: 'time:45', action: 'edge_cue', params: { word: 'VENT NOISE', dir: 'E' } },
             { id: 'evt_objective_relief', missionId: 'm4', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
             { id: 'evt_m4_relief_caps', missionId: 'm4', trigger: 'objective:1', action: 'set_reinforce_caps', params: { idle: 4, gunfire: 7 } },
             { id: 'evt_extract_lockdown', missionId: 'm5', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },
@@ -1026,7 +1027,7 @@ function renderMissionsTab() {
             <button id="resetMissionsBtn">Reset Missions</button>
             <h3>Director Events (JSON array)</h3>
             <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
-            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, set_pressure_grace, set_reinforce_caps, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: repeatMs, maxFires.</p>
+            <p class="small">Trigger format: always | time:20 | wave:2 | pressure:0.72 | kills:25 | objective:1 | stage:extract. Actions: spawn_pack, door_action, door_thump, edge_cue, set_pressure_grace, set_reinforce_caps, trigger_tracker, morale_delta, spawn_queen, text_cue. Optional params: repeatMs, maxFires.</p>
             <h3>Audio Cues (JSON array)</h3>
             <textarea id="audioCuesJson" rows="9">${escapeHtml(JSON.stringify(state.audioCues || [], null, 2))}</textarea>
             <p class="small">Cue IDs used in gameplay text: cue_motion_near, cue_tracker_active, cue_swarm_close, cue_door_thump, cue_door_breach.</p>

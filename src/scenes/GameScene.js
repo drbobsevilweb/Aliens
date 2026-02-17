@@ -1788,6 +1788,7 @@ export class GameScene extends Phaser.Scene {
             'show_text',
             'door_thump',
             'thump',
+            'edge_cue',
             'set_pressure_grace',
             'door_action',
             'door_state',
@@ -1942,6 +1943,12 @@ export class GameScene extends Phaser.Scene {
         }
         if (action === 'door_action' || action === 'door_state') {
             return this.applyDirectorDoorAction(params);
+        }
+        if (action === 'edge_cue') {
+            const word = String(params.word || params.text || 'MOVEMENT');
+            const cue = this.buildMissionCueWorldFromDir(params.dir);
+            this.showEdgeWordCue(word, cue.x, cue.y, String(params.color || '#9dc8ff'));
+            return true;
         }
         if (action === 'set_reinforce_caps' || action === 'set_reinforcement_caps') {
             let changed = false;

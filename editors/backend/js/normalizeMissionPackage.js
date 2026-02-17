@@ -97,6 +97,7 @@ export function validateMissionPackageShape(pkg) {
         'show_text',
         'door_thump',
         'thump',
+        'edge_cue',
         'set_pressure_grace',
         'door_action',
         'door_state',
@@ -162,6 +163,10 @@ export function validateMissionPackageShape(pkg) {
             if (total !== undefined && !Number.isFinite(Number(total))) errors.push(`directorEvent ${e.id} params.total must be numeric.`);
             if (idle !== undefined && !Number.isFinite(Number(idle))) errors.push(`directorEvent ${e.id} params.idle must be numeric.`);
             if (gunfire !== undefined && !Number.isFinite(Number(gunfire))) errors.push(`directorEvent ${e.id} params.gunfire must be numeric.`);
+        }
+        if (action === 'edge_cue') {
+            const word = String(e?.params?.word || e?.params?.text || '').trim();
+            if (!word) errors.push(`directorEvent ${e.id} edge_cue requires params.word or params.text.`);
         }
         if (action === 'morale_delta' || action === 'panic_delta') {
             const amount = Number(e?.params?.amount);

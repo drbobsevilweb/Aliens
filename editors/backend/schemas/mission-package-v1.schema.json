@@ -69,6 +69,7 @@
               "show_text",
               "door_thump",
               "thump",
+              "edge_cue",
               "set_pressure_grace",
               "door_action",
               "door_state",
