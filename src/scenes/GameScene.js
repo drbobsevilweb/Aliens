@@ -3586,7 +3586,7 @@ export class GameScene extends Phaser.Scene {
             enemy.investigatePoint = { x: c.center.x, y: c.center.y, power: 1.1 };
             enemy.investigateUntil = time + 3600;
             this.noteDoorNoiseDirection(c.dir, c.group.id, time);
-            this.reportDoorThump(c.center.x, c.center.y, time + i * 90, false);
+            this.reportDoorThump(c.center.x, c.center.y, time + i * 90, false, true);
             spawned++;
         }
         return spawned;
@@ -3821,9 +3821,9 @@ export class GameScene extends Phaser.Scene {
         return count;
     }
 
-    reportDoorThump(worldX, worldY, time = this.time.now, breached = false) {
-        if (time < this.nextDoorThumpCueAt) return;
-        this.nextDoorThumpCueAt = time + 280;
+    reportDoorThump(worldX, worldY, time = this.time.now, breached = false, force = false) {
+        if (!force && time < this.nextDoorThumpCueAt) return;
+        this.nextDoorThumpCueAt = time + (force ? 120 : 280);
         const thumpWord = this.getMissionAudioCueText('cue_door_thump', 'THUMP!!');
         const breachWord = this.getMissionAudioCueText('cue_door_breach', 'BREACH!!');
         this.showEdgeWordCue(breached ? breachWord : thumpWord, worldX, worldY, breached ? '#ff7f7f' : '#ffb0a8');
