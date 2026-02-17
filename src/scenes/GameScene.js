@@ -350,6 +350,18 @@ export class GameScene extends Phaser.Scene {
         const globalTimeScale = this.runtimeSettings?.game?.globalTimeScale || 1;
         this.physics.world.timeScale = gameSpeed * globalTimeScale;
 
+        this.followerCombatState = new Map();
+        this.sharedMarineContact = null;
+        this.lastMoraleKillCount = 0;
+        this.lastObjectiveProgressCount = 0;
+        this.nextMarineSpotCalloutAt = 0;
+        this.nextMarineAttackCalloutAt = 0;
+        this.nextMarineAmbientRadioAt = 0;
+        this.nextAtmosphereIncidentAt = 0;
+        this.nextLowAmmoCalloutAt = 0;
+        this.lastLowAmmoWeaponKey = '';
+        this.lastLowAmmoAmount = -1;
+        this.lastDamageCalloutByMarine = new Map();
         this.hud = new HUD(this, this.weaponManager, this.leader);
         this.motionTracker = new MotionTracker(this);
         this.motionTracker.range = Number(this.runtimeSettings?.visibility?.trackerRange) || CONFIG.MOTION_TRACKER_RANGE;
@@ -368,18 +380,6 @@ export class GameScene extends Phaser.Scene {
         this.nextImpactShakeAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
-        this.followerCombatState = new Map();
-        this.sharedMarineContact = null;
-        this.lastMoraleKillCount = 0;
-        this.lastObjectiveProgressCount = 0;
-        this.nextMarineSpotCalloutAt = 0;
-        this.nextMarineAttackCalloutAt = 0;
-        this.nextMarineAmbientRadioAt = 0;
-        this.nextAtmosphereIncidentAt = 0;
-        this.nextLowAmmoCalloutAt = 0;
-        this.lastLowAmmoWeaponKey = '';
-        this.lastLowAmmoAmount = -1;
-        this.lastDamageCalloutByMarine = new Map();
         this.teamDamageSampleWindowMs = 2400;
         this.lastTeamDamageSampleAt = -10000;
         this.lastTeamHealthSample = 0;
@@ -3128,6 +3128,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     getFollowerCombatState(roleKey) {
+        if (!this.followerCombatState) this.followerCombatState = new Map();
         let state = this.followerCombatState.get(roleKey);
         if (state) return state;
         const anchor = MARINE_SWEEP_ANCHORS[roleKey] ?? 0;

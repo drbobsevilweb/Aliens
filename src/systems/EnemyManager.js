@@ -927,7 +927,8 @@ export class EnemyManager {
             }
 
             if (litNow) {
-                enemy.revealCharge = 1;
+                const revealBoost = litByPersistent ? 1 : 0.62;
+                enemy.revealCharge = Math.max(enemy.revealCharge || 0, revealBoost);
                 enemy.lastSeenAt = time;
                 if (litByPersistent) {
                     enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
@@ -945,7 +946,8 @@ export class EnemyManager {
                 const inRate = dt / Math.max(60, fadeMemoryMs * 0.18);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge + inRate, 0, 1);
             } else {
-                const outRate = dt / Math.max(220, fadeMemoryMs * 0.8);
+                // Let flash/spark reveals ghost out quickly, while torch/tracker still honor the 2s hold window.
+                const outRate = dt / Math.max(120, fadeMemoryMs * 0.24);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge - outRate, 0, 1);
             }
 

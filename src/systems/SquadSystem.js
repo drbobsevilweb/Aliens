@@ -114,7 +114,7 @@ export class SquadSystem {
         }
         this.applyFollowerSeparation(delta);
 
-        const threat = null;
+        const threat = context && context.threat ? context.threat : null;
         for (const follower of this.followers) {
             if (!follower.sprite.alive || !follower.sprite.active) continue;
             if (this.isRoleTaskActive(follower.sprite.roleKey)) continue;
