@@ -1920,7 +1920,12 @@ export class GameScene extends Phaser.Scene {
         }
         if (action === 'trigger_tracker' || action === 'start_tracker') {
             const preferredRole = String(params.role || 'tech').toLowerCase();
-            const ok = this.startMotionTrackerScan(time, preferredRole === 'leader' ? 'leader' : preferredRole);
+            const force = (Number(params.force) || 0) > 0;
+            const ok = this.startMotionTrackerScan(
+                time,
+                preferredRole === 'leader' ? 'leader' : preferredRole,
+                { force }
+            );
             if (ok) this.showFloatingText(this.leader.x, this.leader.y - 44, 'MOTION TRACKER CHECK', '#9de7ff');
             return ok;
         }
@@ -3787,8 +3792,9 @@ export class GameScene extends Phaser.Scene {
         this.showFloatingText(this.leader.x, this.leader.y - 24, 'ACTION DECONFLICT', '#ffcb8a');
     }
 
-    startMotionTrackerScan(time, preferredRoleKey = null) {
+    startMotionTrackerScan(time, preferredRoleKey = null, options = null) {
         const visibility = this.runtimeSettings?.visibility || {};
+        const force = !!(options && options.force === true);
         const actionMs = 5000;
         const scanMs = 5000;
         const cooldownMs = Number(visibility.trackerCooldownMs) || CONFIG.MOTION_TRACKER_COOLDOWN_MS;
@@ -3800,7 +3806,7 @@ export class GameScene extends Phaser.Scene {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER IN PROGRESS', '#ffcc88');
             return;
         }
-        if (time < this.trackerCooldownUntil) {
+        if (!force && time < this.trackerCooldownUntil) {
             const remain = ((this.trackerCooldownUntil - time) / 1000).toFixed(1);
             this.showFloatingText(this.leader.x, this.leader.y - 24, `TRACKER COOL ${remain}s`, '#88ffaa');
             return;

@@ -151,6 +151,9 @@ export function validateMissionPackageShape(pkg) {
             if (!['tech', 'medic', 'heavy', 'leader'].includes(role)) {
                 errors.push(`directorEvent ${e.id} params.role must be tech/medic/heavy/leader.`);
             }
+            if (e?.params?.force !== undefined && !Number.isFinite(Number(e.params.force))) {
+                errors.push(`directorEvent ${e.id} params.force must be numeric (0/1).`);
+            }
         }
         if (action === 'door_action' || action === 'door_state') {
             const op = String(e?.params?.op || e?.params?.state || e?.params?.action || '').toLowerCase().trim();
