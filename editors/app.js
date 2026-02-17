@@ -315,8 +315,8 @@ function mergeWithDefaults(loaded) {
     return {
         sprite: { ...d.sprite, ...(loaded.sprite || {}) },
         animations: Array.isArray(loaded.animations) && loaded.animations.length ? loaded.animations : d.animations,
-        tilemaps: Array.isArray(loaded.tilemaps) && loaded.tilemaps.length === 3 ? loaded.tilemaps : d.tilemaps,
-        missions: Array.isArray(loaded.missions) && loaded.missions.length === 5 ? loaded.missions : d.missions,
+        tilemaps: Array.isArray(loaded.tilemaps) && loaded.tilemaps.length > 0 ? loaded.tilemaps : d.tilemaps,
+        missions: Array.isArray(loaded.missions) && loaded.missions.length > 0 ? loaded.missions : d.missions,
         directorEvents: Array.isArray(loaded.directorEvents) ? loaded.directorEvents : d.directorEvents,
         audioCues: Array.isArray(loaded.audioCues) ? loaded.audioCues : d.audioCues,
     };
