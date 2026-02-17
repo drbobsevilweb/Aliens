@@ -248,7 +248,7 @@ export class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.bulletPool, wallLayer, (a, b) => {
             const bullet = getProjectileFromPair(a, b);
             if (!bullet || !bullet.active) return;
-            this.showImpactEffect(bullet.x, bullet.y, 0xdddddd);
+            this.showImpactEffect(bullet.x, bullet.y, 0xdddddd, { profile: 'wall' });
             bullet.deactivate();
         });
         this.physics.add.collider(this.leader, this.doorManager.getPhysicsGroup(), null, shouldCollideWithDoor);
@@ -264,7 +264,7 @@ export class GameScene extends Phaser.Scene {
                     if (door.doorGroup.state === 'locked') color = 0xffcc66;
                     if (door.doorGroup.state === 'welded') color = 0x99ccff;
                 }
-                this.showImpactEffect(bullet.x, bullet.y, color);
+                this.showImpactEffect(bullet.x, bullet.y, color, { profile: 'door' });
                 bullet.deactivate();
             },
             shouldCollideWithDoor
@@ -286,7 +286,7 @@ export class GameScene extends Phaser.Scene {
             const bullet = typeof a.deactivate === 'function' ? a : b;
             const enemy = bullet === a ? b : a;
             if (!bullet || !enemy || !bullet.active || !enemy.active) return;
-            this.showImpactEffect(bullet.x, bullet.y, 0xff7777);
+            this.showImpactEffect(bullet.x, bullet.y, 0xff7777, { profile: 'flesh' });
             this.showAlienAcidSplash(enemy.x, enemy.y);
             bullet.deactivate();
             const killed = this.enemyManager.handleBulletHit(enemy, bullet.damage || 0, bullet);
@@ -300,7 +300,7 @@ export class GameScene extends Phaser.Scene {
             const bullet = typeof a.deactivate === 'function' ? a : b;
             const egg = bullet === a ? b : a;
             if (!bullet || !egg || !bullet.active || !egg.active) return;
-            this.showImpactEffect(bullet.x, bullet.y, 0xffcc88);
+            this.showImpactEffect(bullet.x, bullet.y, 0xffcc88, { profile: 'egg' });
             bullet.deactivate();
             this.enemyManager.handleEggHit(egg, bullet.damage || 0);
         });
@@ -378,6 +378,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerCueAnchorY = null;
         this.nextThreatPulseAt = 0;
         this.nextImpactShakeAt = 0;
+        this.nextRicochetWordAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
         this.teamDamageSampleWindowMs = 2400;
@@ -2817,10 +2818,14 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    showImpactEffect(x, y, color = 0xdddddd) {
+    showImpactEffect(x, y, color = 0xdddddd, options = {}) {
+        const profile = String(options.profile || 'wall').toLowerCase();
+        const profileMul = profile === 'door'
+            ? 1.3
+            : (profile === 'flesh' ? 0.92 : (profile === 'egg' ? 1.05 : 1.14));
         const sparkIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.ricochetSparkIntensity) || 1, 0.4, 2.2);
         const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
-        const fxBoost = 2.45 * impactFxIntensity;
+        const fxBoost = 2.45 * impactFxIntensity * profileMul;
         const coreQty = Math.max(3, Math.round((5 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -2859,8 +2864,27 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
+        const ricochetQty = Math.max(4, Math.round((8 + Phaser.Math.Between(0, 5)) * this.fxQualityScale * sparkIntensity * profileMul));
+        for (let i = 0; i < ricochetQty; i++) {
+            const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const speed = Phaser.Math.FloatBetween(260, 680) * sparkIntensity * Phaser.Math.Linear(0.9, 1.25, profileMul - 0.9);
+            this.spawnFxSprite('dot', x, y, {
+                vx: Math.cos(dir) * speed,
+                vy: Math.sin(dir) * speed + Phaser.Math.FloatBetween(-36, 18),
+                gravityY: Phaser.Math.FloatBetween(320, 620),
+                life: Phaser.Math.Between(30, 110),
+                scaleStart: Phaser.Math.FloatBetween(0.06, 0.14),
+                scaleEnd: 0,
+                alphaStart: Phaser.Math.FloatBetween(0.84, 1),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0xffffff, 0xffe8b8, 0xffd27a, color]),
+                rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                spin: Phaser.Math.FloatBetween(-20, 20),
+            });
+        }
+
         if (Math.random() < 0.96 * this.fxQualityScale) {
-            const steamQty = Math.max(4, Math.round((7 + Phaser.Math.Between(0, 5)) * this.fxQualityScale * fxBoost));
+            const steamQty = Math.max(4, Math.round((7 + Phaser.Math.Between(0, 5)) * this.fxQualityScale * fxBoost * Phaser.Math.Linear(0.82, 1.25, profileMul - 0.9)));
             for (let i = 0; i < steamQty; i++) {
                 this.spawnFxSprite('smoke', x + Phaser.Math.Between(-3, 3), y + Phaser.Math.Between(-3, 3), {
                     vx: Phaser.Math.FloatBetween(-12, 14),
@@ -2879,16 +2903,29 @@ export class GameScene extends Phaser.Scene {
         if (Math.random() < this.fxQualityScale) {
             this.addSparkLight(x, y, this.time.now, {
                 duration: Phaser.Math.Between(96, 190),
-                rangeMin: 34 * sparkIntensity,
-                rangeBoost: 84 * sparkIntensity,
+                rangeMin: 34 * sparkIntensity * profileMul,
+                rangeBoost: 84 * sparkIntensity * profileMul,
             });
         }
         if (Math.random() < 0.52 * this.fxQualityScale) {
             this.addSparkLight(x, y, this.time.now, {
                 duration: Phaser.Math.Between(60, 130),
-                rangeMin: 24 * sparkIntensity,
-                rangeBoost: 66 * sparkIntensity,
+                rangeMin: 24 * sparkIntensity * profileMul,
+                rangeBoost: 66 * sparkIntensity * profileMul,
             });
+        }
+        if (
+            (profile === 'wall' || profile === 'door')
+            && this.time.now >= (this.nextRicochetWordAt || 0)
+            && Math.random() < (profile === 'door' ? 0.2 : 0.14)
+        ) {
+            this.nextRicochetWordAt = this.time.now + Phaser.Math.Between(300, 620);
+            this.showFloatingText(
+                x + Phaser.Math.Between(-12, 12),
+                y - Phaser.Math.Between(8, 20),
+                profile === 'door' ? 'CLANG!' : 'RICOCHET!',
+                profile === 'door' ? '#ffd48e' : '#f0f6ff'
+            );
         }
         if (Math.random() < 0.22 && this.time.now >= (this.nextImpactShakeAt || 0)) {
             const shakeMul = this.getCameraShakeMul();
