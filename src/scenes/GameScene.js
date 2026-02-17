@@ -266,6 +266,7 @@ export class GameScene extends Phaser.Scene {
             bullet.deactivate();
             const killed = this.enemyManager.handleBulletHit(enemy, bullet.damage || 0, bullet);
             if (killed) {
+                this.showAlienDeathBurst(enemy.x, enemy.y);
                 this.totalKills++;
                 this.onEnemyKilled(enemy, bullet, this.time.now);
             }
@@ -2148,6 +2149,56 @@ export class GameScene extends Phaser.Scene {
                 damageScale: Phaser.Math.FloatBetween(0.55, 1.0),
             });
         }
+    }
+
+    showAlienDeathBurst(x, y) {
+        const fxMul = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const count = Math.max(16, Math.round((28 + Phaser.Math.Between(0, 12)) * this.fxQualityScale * fxMul));
+        for (let i = 0; i < count; i++) {
+            const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const speed = Phaser.Math.FloatBetween(120, 420) * fxMul;
+            this.spawnFxSprite('dot', x, y, {
+                vx: Math.cos(dir) * speed,
+                vy: Math.sin(dir) * speed - Phaser.Math.FloatBetween(0, 42),
+                gravityY: Phaser.Math.FloatBetween(160, 320),
+                life: Phaser.Math.Between(120, 300),
+                scaleStart: Phaser.Math.FloatBetween(0.1, 0.28),
+                scaleEnd: 0,
+                alphaStart: Phaser.Math.FloatBetween(0.76, 1),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0xd7ffd1, 0x9aff90, 0x7de6a5, 0xc5ff80]),
+                rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                spin: Phaser.Math.FloatBetween(-12, 12),
+            });
+        }
+        const smoke = Math.max(8, Math.round((12 + Phaser.Math.Between(0, 6)) * this.fxQualityScale * fxMul));
+        for (let i = 0; i < smoke; i++) {
+            this.spawnFxSprite('smoke', x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-8, 8), {
+                vx: Phaser.Math.FloatBetween(-44, 44),
+                vy: Phaser.Math.FloatBetween(-84, -24),
+                life: Phaser.Math.Between(380, 920),
+                scaleStart: Phaser.Math.FloatBetween(0.12, 0.28),
+                scaleEnd: Phaser.Math.FloatBetween(0.82, 1.35),
+                alphaStart: Phaser.Math.FloatBetween(0.22, 0.4),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0xd8ffe0, 0xbcecc6, 0x9ec9a8]),
+                rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                spin: Phaser.Math.FloatBetween(-1.2, 1.2),
+            });
+        }
+        this.addSparkLight(x, y, this.time.now, {
+            duration: Phaser.Math.Between(150, 260),
+            rangeMin: 38 * fxMul,
+            rangeBoost: 124 * fxMul,
+        });
+        if (Math.random() < 0.5) {
+            this.addSparkLight(x + Phaser.Math.Between(-4, 4), y + Phaser.Math.Between(-4, 4), this.time.now, {
+                duration: Phaser.Math.Between(90, 160),
+                rangeMin: 24 * fxMul,
+                rangeBoost: 82 * fxMul,
+            });
+        }
+        this.cameras.main.shake(80, 0.0026 + fxMul * 0.0009, true);
     }
 
     spawnAcidHazard(x, y, options = {}) {
