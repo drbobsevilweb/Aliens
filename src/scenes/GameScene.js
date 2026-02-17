@@ -450,6 +450,10 @@ export class GameScene extends Phaser.Scene {
         this.nextDoorThumpCueAt = 0;
         this.fxQualityScale = 1;
         this.nextFxQualityEvalAt = 0;
+        this.fxSpawnWindowStart = 0;
+        this.fxSpawnedInWindow = 0;
+        this.fxSpawnWindowMs = 16;
+        this.createAtmosphereOverlay();
         this.debugOverlay = new DebugOverlay(this);
         this.objectivesPanel = new ObjectivesPanel(this);
         this.controlsOverlay = new ControlsOverlay(this);
@@ -653,6 +657,7 @@ export class GameScene extends Phaser.Scene {
             if (this.objectivesPanel) this.objectivesPanel.destroy();
             if (this.controlsOverlay) this.controlsOverlay.destroy();
             if (this.objectiveTargetMarker) this.objectiveTargetMarker.destroy();
+            if (this.atmoVignette) this.atmoVignette.destroy();
             if (this.fxDotPool) {
                 for (const sprite of this.fxDotPool) sprite.destroy();
             }
@@ -862,6 +867,7 @@ export class GameScene extends Phaser.Scene {
         this.updateStageUI(stage, missionState);
         this.updateObjectives(missionState);
         this.updateCombatFeedback(time);
+        this.updateAtmosphereOverlay(time);
         this.updateDebugOverlay(time);
         this.updateMoveTargetIcon(time, delta);
     }
@@ -1426,6 +1432,36 @@ export class GameScene extends Phaser.Scene {
         addPoolSprites(this.fxSmokePool, 'fx_smoke', 220, 232, Phaser.BlendModes.SCREEN);
     }
 
+    createAtmosphereOverlay() {
+        const playHeight = CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT;
+        this.atmoVignette = this.add.image(
+            CONFIG.GAME_WIDTH * 0.5,
+            playHeight * 0.5,
+            'fx_vignette'
+        );
+        this.atmoVignette.setDepth(206);
+        this.atmoVignette.setScrollFactor(0);
+        const tex = this.textures.get('fx_vignette');
+        const tw = Math.max(1, tex ? tex.getSourceImage().width : 512);
+        const th = Math.max(1, tex ? tex.getSourceImage().height : 512);
+        this.atmoVignette.setScale(CONFIG.GAME_WIDTH / tw, playHeight / th);
+        this.atmoVignette.setBlendMode(Phaser.BlendModes.MULTIPLY);
+        this.atmoVignette.setAlpha(0.16);
+    }
+
+    updateAtmosphereOverlay(_time = this.time.now) {
+        if (!this.atmoVignette) return;
+        const pressure = this.getCombatPressure();
+        const tuning = this.runtimeSettings?.other || {};
+        const base = Phaser.Math.Clamp(Number(tuning.atmoVignetteBase) || 0.18, 0, 0.6);
+        const gain = Phaser.Math.Clamp(Number(tuning.atmoVignettePressureGain) || 0.16, 0, 0.8);
+        const onScreen = this.enemyManager?.getOnScreenHostileCount?.(this.cameras.main) || 0;
+        const crowdMul = Phaser.Math.Clamp(onScreen / 8, 0, 1) * 0.08;
+        const burstMul = this.isGunfireBurstActive() ? 0.05 : 0;
+        const target = Phaser.Math.Clamp(base + pressure * gain + crowdMul + burstMul, 0.08, 0.8);
+        this.atmoVignette.alpha = Phaser.Math.Linear(this.atmoVignette.alpha || target, target, 0.12);
+    }
+
     acquireFxSprite(poolKey) {
         const pool = poolKey === 'smoke' ? this.fxSmokePool : this.fxDotPool;
         if (!pool) return null;
@@ -1441,6 +1477,16 @@ export class GameScene extends Phaser.Scene {
         const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
         const intensityNorm = Phaser.Math.Clamp((impactFxIntensity - 0.2) / 2.8, 0, 1);
         const intensityCapMul = Phaser.Math.Linear(0.9, 1.32, intensityNorm);
+        const now = this.time.now || 0;
+        const windowMs = Math.max(8, Number(this.fxSpawnWindowMs) || 16);
+        if ((now - (this.fxSpawnWindowStart || 0)) > windowMs) {
+            this.fxSpawnWindowStart = now;
+            this.fxSpawnedInWindow = 0;
+        }
+        const burstBase = Math.max(12, Number(this.runtimeSettings?.walls?.fxBurstCapBase) || 56);
+        const burstMul = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.fxBurstCapMul) || 1, 0.4, 3);
+        const windowCap = Math.max(12, Math.floor(burstBase * (this.fxQualityScale || 1) * burstMul));
+        if ((this.fxSpawnedInWindow || 0) >= windowCap) return null;
         const baseCap = poolKey === 'smoke' ? 230 : 350;
         const cap = Math.max(60, Math.floor(baseCap * (this.fxQualityScale || 1) * intensityCapMul));
         if (activeCount >= cap) return null;
@@ -1466,8 +1512,12 @@ export class GameScene extends Phaser.Scene {
             scaleEnd: Number(options.scaleEnd) || 0,
             alphaStart: Number(options.alphaStart) || 1,
             alphaEnd: Number(options.alphaEnd) || 0,
+            drag: Number.isFinite(Number(options.drag))
+                ? Math.max(0, Number(options.drag))
+                : (poolKey === 'smoke' ? 1.8 : 0),
         };
         this.fxActiveSprites.push(sprite);
+        this.fxSpawnedInWindow = (this.fxSpawnedInWindow || 0) + 1;
         return sprite;
     }
 
@@ -1493,6 +1543,11 @@ export class GameScene extends Phaser.Scene {
             sprite.x += fx.vx * dt;
             sprite.y += fx.vy * dt;
             fx.vy += fx.gravityY * dt;
+            if (fx.drag > 0) {
+                const damp = Math.max(0, 1 - fx.drag * dt);
+                fx.vx *= damp;
+                fx.vy *= damp;
+            }
             sprite.rotation += fx.spin * dt;
             sprite.setScale(Phaser.Math.Linear(fx.scaleStart, fx.scaleEnd, t));
             sprite.setAlpha(Phaser.Math.Linear(fx.alphaStart, fx.alphaEnd, t));

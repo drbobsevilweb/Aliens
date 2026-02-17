@@ -120,12 +120,16 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         wallCollisionHardness: 1,
         ricochetSparkIntensity: 1,
         impactFxIntensity: 1,
+        fxBurstCapBase: 56,
+        fxBurstCapMul: 1,
     }),
     other: Object.freeze({
         uiScale: 1,
         audioBeepVolume: 1,
         cameraShakeMul: 1,
         pauseOnFocusLoss: 0,
+        atmoVignetteBase: 0.18,
+        atmoVignettePressureGain: 0.16,
     }),
     game: Object.freeze({
         globalTimeScale: 1,
@@ -342,11 +346,15 @@ function sanitize(settings) {
     s.walls.wallCollisionHardness = clampNumber(s.walls.wallCollisionHardness, 0, 3, 1);
     s.walls.ricochetSparkIntensity = clampNumber(s.walls.ricochetSparkIntensity, 0, 3, 1);
     s.walls.impactFxIntensity = clampNumber(s.walls.impactFxIntensity, 0.2, 3, 1);
+    s.walls.fxBurstCapBase = clampNumber(s.walls.fxBurstCapBase, 12, 240, 56);
+    s.walls.fxBurstCapMul = clampNumber(s.walls.fxBurstCapMul, 0.4, 3, 1);
 
     s.other.uiScale = clampNumber(s.other.uiScale, 0.5, 2, 1);
     s.other.audioBeepVolume = clampNumber(s.other.audioBeepVolume, 0, 2, 1);
     s.other.cameraShakeMul = clampNumber(s.other.cameraShakeMul, 0, 2, 1);
     s.other.pauseOnFocusLoss = clampNumber(s.other.pauseOnFocusLoss, 0, 1, 0);
+    s.other.atmoVignetteBase = clampNumber(s.other.atmoVignetteBase, 0, 0.6, 0.18);
+    s.other.atmoVignettePressureGain = clampNumber(s.other.atmoVignettePressureGain, 0, 0.8, 0.16);
 
     s.game.globalTimeScale = clampNumber(s.game.globalTimeScale, 0.25, 3, 1);
     s.game.cameraLerp = clampNumber(s.game.cameraLerp, 0.01, 1, 0.1);

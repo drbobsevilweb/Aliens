@@ -223,6 +223,26 @@ export class BootScene extends Phaser.Scene {
         gs.fillCircle(22, 14, 8);
         gs.generateTexture('fx_smoke', 32, 32);
         gs.destroy();
+
+        // Screen-space vignette for atmosphere passes in GameScene.
+        const vignetteKey = 'fx_vignette';
+        if (!this.textures.exists(vignetteKey)) {
+            const size = 512;
+            const tex = this.textures.createCanvas(vignetteKey, size, size);
+            const ctx = tex.getContext();
+            const cx = size / 2;
+            const cy = size / 2;
+            const r = size * 0.64;
+            const grad = ctx.createRadialGradient(cx, cy, size * 0.12, cx, cy, r);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(0.52, 'rgba(0,0,0,0.08)');
+            grad.addColorStop(0.76, 'rgba(0,0,0,0.35)');
+            grad.addColorStop(1, 'rgba(0,0,0,0.88)');
+            ctx.clearRect(0, 0, size, size);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, size);
+            tex.refresh();
+        }
     }
 
     generateWeaponIcons() {
