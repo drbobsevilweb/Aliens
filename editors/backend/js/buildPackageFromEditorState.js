@@ -27,11 +27,19 @@ export function buildPackageFromEditorState(editorState) {
         }))
         : [];
 
+    const directorEvents = Array.isArray(s.directorEvents)
+        ? s.directorEvents.filter((e) => e && typeof e === 'object' && e.id)
+        : [];
+
+    const audioCues = Array.isArray(s.audioCues)
+        ? s.audioCues.filter((c) => c && typeof c === 'object' && c.id)
+        : [];
+
     return normalizeMissionPackage({
         version: '1.0',
         maps,
         missions,
-        directorEvents: [],
-        audioCues: [],
+        directorEvents,
+        audioCues,
     });
 }

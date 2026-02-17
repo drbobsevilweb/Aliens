@@ -186,6 +186,12 @@ function defaultState() {
                 director: { idlePressureBaseMs: 5200, gunfireReinforceBaseMs: 3400, reinforceCap: 28 },
             },
         ],
+        directorEvents: [
+            { id: 'evt_intro_pressure', trigger: 'time:20', action: 'spawn_pack', params: { size: 3, type: 'warrior' } },
+        ],
+        audioCues: [
+            { id: 'cue_motion_near', textCue: 'BEEP', priority: 5 },
+        ],
     };
 }
 
@@ -211,6 +217,8 @@ function mergeWithDefaults(loaded) {
         animations: Array.isArray(loaded.animations) && loaded.animations.length ? loaded.animations : d.animations,
         tilemaps: Array.isArray(loaded.tilemaps) && loaded.tilemaps.length === 3 ? loaded.tilemaps : d.tilemaps,
         missions: Array.isArray(loaded.missions) && loaded.missions.length === 5 ? loaded.missions : d.missions,
+        directorEvents: Array.isArray(loaded.directorEvents) ? loaded.directorEvents : d.directorEvents,
+        audioCues: Array.isArray(loaded.audioCues) ? loaded.audioCues : d.audioCues,
     };
 }
 
@@ -248,6 +256,8 @@ function applyMissionPackageToState(pkg) {
 
     state.tilemaps = maps;
     state.missions = missions;
+    state.directorEvents = Array.isArray(normalized.directorEvents) ? normalized.directorEvents : [];
+    state.audioCues = Array.isArray(normalized.audioCues) ? normalized.audioCues : [];
 }
 
 function normalizeTilemapShape(mapLike) {
@@ -1003,6 +1013,10 @@ function renderMissionsTab() {
             <p class="small">Five missions mapped across exactly three tilemaps.</p>
             <button id="applyMissionChanges">Apply Mission Changes</button>
             <button id="resetMissionsBtn">Reset Missions</button>
+            <h3>Director Events (JSON array)</h3>
+            <textarea id="directorEventsJson" rows="9">${escapeHtml(JSON.stringify(state.directorEvents || [], null, 2))}</textarea>
+            <h3>Audio Cues (JSON array)</h3>
+            <textarea id="audioCuesJson" rows="9">${escapeHtml(JSON.stringify(state.audioCues || [], null, 2))}</textarea>
         </div>
         <div class="workspace">
             <h2>Campaign Table</h2>
@@ -1027,26 +1041,37 @@ function renderMissionsTab() {
     `;
 
     document.getElementById('applyMissionChanges').addEventListener('click', () => {
-        document.querySelectorAll('[data-mission]').forEach((input) => {
-            const idx = Number(input.dataset.i);
-            const key = input.dataset.mission;
-            const value = key === 'enemyBudget' ? Number(input.value) : input.value;
-            state.missions[idx][key] = value;
-        });
-        document.querySelectorAll('[data-missiondir]').forEach((input) => {
-            const idx = Number(input.dataset.i);
-            const key = input.dataset.missiondir;
-            if (!state.missions[idx].director || typeof state.missions[idx].director !== 'object') {
-                state.missions[idx].director = {};
-            }
-            state.missions[idx].director[key] = Number(input.value);
-        });
-        saveState('Mission table updated');
-        renderMissionsTab();
+        try {
+            document.querySelectorAll('[data-mission]').forEach((input) => {
+                const idx = Number(input.dataset.i);
+                const key = input.dataset.mission;
+                const value = key === 'enemyBudget' ? Number(input.value) : input.value;
+                state.missions[idx][key] = value;
+            });
+            document.querySelectorAll('[data-missiondir]').forEach((input) => {
+                const idx = Number(input.dataset.i);
+                const key = input.dataset.missiondir;
+                if (!state.missions[idx].director || typeof state.missions[idx].director !== 'object') {
+                    state.missions[idx].director = {};
+                }
+                state.missions[idx].director[key] = Number(input.value);
+            });
+            const directorEventsParsed = parseJsonArrayInput(document.getElementById('directorEventsJson').value, 'directorEvents');
+            const audioCuesParsed = parseJsonArrayInput(document.getElementById('audioCuesJson').value, 'audioCues');
+            state.directorEvents = directorEventsParsed;
+            state.audioCues = audioCuesParsed;
+            saveState('Mission table updated');
+            renderMissionsTab();
+        } catch (err) {
+            const detail = err && err.message ? err.message : 'invalid mission planner JSON';
+            setStatus(`Apply failed: ${detail}`);
+        }
     });
 
     document.getElementById('resetMissionsBtn').addEventListener('click', () => {
         state.missions = defaultState().missions;
+        state.directorEvents = defaultState().directorEvents;
+        state.audioCues = defaultState().audioCues;
         saveState('Missions reset');
         renderMissionsTab();
     });
@@ -1062,6 +1087,17 @@ function escapeHtml(s) {
 
 function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
+}
+
+function parseJsonArrayInput(text, fieldLabel = 'json') {
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch {
+        throw new Error(`${fieldLabel} must be valid JSON`);
+    }
+    if (!Array.isArray(parsed)) throw new Error(`${fieldLabel} must be a JSON array`);
+    return parsed;
 }
 
 function refreshPackageValidationSummary() {
