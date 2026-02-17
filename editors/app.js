@@ -1395,6 +1395,11 @@ document.getElementById('validatePackageBtn').addEventListener('click', () => {
         setStatus('Mission package validation failed');
     }
 });
+document.getElementById('clearPackageHistoryBtn').addEventListener('click', () => {
+    localStorage.removeItem(PACKAGE_HISTORY_KEY);
+    renderPackageHistory();
+    setStatus('Cleared package history');
+});
 document.getElementById('publishPackageBtn').addEventListener('click', () => {
     const missionPkg = buildPackageFromEditorState(state);
     const errors = validateMissionPackageShape(missionPkg);
