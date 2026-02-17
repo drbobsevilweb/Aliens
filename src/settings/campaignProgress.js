@@ -79,3 +79,13 @@ export function completeCampaignMission(progress, missionId, missionOrder = []) 
         updatedAt: Date.now(),
     };
 }
+
+export function resetCampaignProgress(missionOrder = []) {
+    const order = normalizeMissionOrder(missionOrder);
+    return saveCampaignProgress({
+        unlockedIndex: 0,
+        currentMissionId: order[0] || 'm1',
+        lastCompletedMissionId: null,
+        updatedAt: Date.now(),
+    }, order);
+}

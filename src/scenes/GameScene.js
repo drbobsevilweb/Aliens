@@ -28,7 +28,12 @@ import { MISSION_SET } from '../data/missionData.js';
 import { resolveMissionLayout } from '../map/missionLayout.js';
 import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
-import { loadCampaignProgress, saveCampaignProgress, completeCampaignMission } from '../settings/campaignProgress.js';
+import {
+    loadCampaignProgress,
+    saveCampaignProgress,
+    completeCampaignMission,
+    resetCampaignProgress,
+} from '../settings/campaignProgress.js';
 import {
     getMissionDirectorOverridesForMission,
     getMissionDirectorEventsForMission,
@@ -561,6 +566,9 @@ export class GameScene extends Phaser.Scene {
         this.nextMissionKeyHandler = () => {
             if (this.stageFlow.state === 'victory') this.startNextMissionIfAvailable();
         };
+        this.resetCampaignKeyHandler = () => {
+            this.resetCampaignProgressForDebug();
+        };
         this.toggleDebugHandler = () => {
             if (this.debugOverlay) this.debugOverlay.toggle();
         };
@@ -612,6 +620,7 @@ export class GameScene extends Phaser.Scene {
         if (this.input.keyboard) {
             this.input.keyboard.on('keydown-R', this.restartKeyHandler);
             this.input.keyboard.on('keydown-N', this.nextMissionKeyHandler);
+            this.input.keyboard.on('keydown-F7', this.resetCampaignKeyHandler);
             this.input.keyboard.on('keydown-F3', this.toggleDebugHandler);
             this.input.keyboard.on('keydown-P', this.togglePauseHandler);
             this.input.keyboard.on('keydown-ESC', this.togglePauseHandler);
@@ -627,6 +636,7 @@ export class GameScene extends Phaser.Scene {
             if (this.input.keyboard) {
                 this.input.keyboard.off('keydown-R', this.restartKeyHandler);
                 this.input.keyboard.off('keydown-N', this.nextMissionKeyHandler);
+                this.input.keyboard.off('keydown-F7', this.resetCampaignKeyHandler);
                 this.input.keyboard.off('keydown-F3', this.toggleDebugHandler);
                 this.input.keyboard.off('keydown-P', this.togglePauseHandler);
                 this.input.keyboard.off('keydown-ESC', this.togglePauseHandler);
@@ -1731,6 +1741,13 @@ export class GameScene extends Phaser.Scene {
         const data = { ...(this.launchData || {}), missionId: nextMissionId };
         this.scene.restart(data);
         return true;
+    }
+
+    resetCampaignProgressForDebug() {
+        if (!Array.isArray(this.campaignMissionOrder) || this.campaignMissionOrder.length === 0) return;
+        this.campaignProgress = resetCampaignProgress(this.campaignMissionOrder);
+        const first = this.campaignMissionOrder[0] || 'm1';
+        this.showFloatingText(this.leader.x, this.leader.y - 34, `CAMPAIGN RESET -> ${first.toUpperCase()}`, '#ffd7a6');
     }
 
     loadMetaProgress() {
