@@ -55,3 +55,19 @@ export function getMissionPackageMeta() {
         return null;
     }
 }
+
+export function getMissionPackageSummary() {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+        const raw = window.localStorage.getItem(MISSION_PACKAGE_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const maps = Array.isArray(parsed?.maps) ? parsed.maps.length : 0;
+        const missions = Array.isArray(parsed?.missions) ? parsed.missions.length : 0;
+        const directorEvents = Array.isArray(parsed?.directorEvents) ? parsed.directorEvents.length : 0;
+        const audioCues = Array.isArray(parsed?.audioCues) ? parsed.audioCues.length : 0;
+        return { maps, missions, directorEvents, audioCues };
+    } catch {
+        return null;
+    }
+}

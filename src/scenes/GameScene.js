@@ -27,7 +27,11 @@ import { MEDKIT_HEAL_AMOUNT, MEDKIT_WAVE_SPAWNS, AMMO_WAVE_SPAWNS, AMMO_PICKUP_V
 import { resolveMissionLayout } from '../map/missionLayout.js';
 import { MissionFlow } from '../systems/MissionFlow.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
-import { getMissionDirectorOverridesForMission, getMissionPackageMeta } from '../settings/missionPackageRuntime.js';
+import {
+    getMissionDirectorOverridesForMission,
+    getMissionPackageMeta,
+    getMissionPackageSummary,
+} from '../settings/missionPackageRuntime.js';
 import { CombatDirector } from '../systems/CombatDirector.js';
 
 const TEAM_SPEED_SCALE = 1.5;
@@ -363,6 +367,7 @@ export class GameScene extends Phaser.Scene {
         const scriptBase = this.runtimeSettings?.scripting || {};
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
         this.missionPackageMeta = getMissionPackageMeta();
+        this.missionPackageSummary = getMissionPackageSummary();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -1635,9 +1640,16 @@ export class GameScene extends Phaser.Scene {
 
     getMissionPackageMetaDebugSuffix() {
         const meta = this.missionPackageMeta;
-        if (!meta || !meta.publishedAt) return '';
+        const summary = this.missionPackageSummary;
+        if (!meta || !meta.publishedAt) {
+            if (!summary) return '';
+            return ` | Pkg:${summary.maps}/${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`;
+        }
         const ageSec = Math.max(0, Math.floor((Date.now() - meta.publishedAt) / 1000));
-        return ` | PkgAge:${ageSec}s`;
+        const counts = summary
+            ? ` map:${summary.maps} mis:${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`
+            : '';
+        return ` | PkgAge:${ageSec}s${counts}`;
     }
 
     updateCombatFeedback(time) {
