@@ -66,6 +66,8 @@ export class SquadSystem {
         this.roleTasks = new Map();
         this.externalHoldRoles = new Set();
         this.slotScalePx = CONFIG.TILE_SIZE;
+        this.snakeStaggerMinMs = 500;
+        this.snakeStaggerMaxMs = 1000;
         this.diamondSlots = DIAMOND_SLOT_LAYOUT.map((s) => ({
             role: s.role,
             x: s.nx * this.slotScalePx,
@@ -74,6 +76,7 @@ export class SquadSystem {
 
         this.createFollowers();
         this.applyBehaviorPreset(this.currentPreset);
+        this.rebuildSnakeStaggerProfile();
     }
 
     createFollowers() {
@@ -96,6 +99,7 @@ export class SquadSystem {
         }
         if (leaderMoving && !this.leaderWasMoving) {
             this.idleFormationTargets.clear();
+            this.rebuildSnakeStaggerProfile();
         }
         if (!leaderMoving && this.shouldRefreshIdleTargets()) {
             this.captureIdleFormationTargets();
@@ -160,7 +164,7 @@ export class SquadSystem {
         for (const follower of this.followers) {
             if (!follower.sprite.alive || !follower.sprite.active) continue;
             if (this.isRoleTaskActive(follower.sprite.roleKey)) continue;
-            const delayMs = Math.max(0, (follower.index + 1) * this.snakeStaggerMs);
+            const delayMs = Math.max(0, Number(follower.staggerDelayMs) || ((follower.index + 1) * this.snakeStaggerMs));
             const target = this.getHistoryPointAtDelay(time, delayMs);
             const targetX = target.x;
             const targetY = target.y;
@@ -195,6 +199,18 @@ export class SquadSystem {
             }
         }
         return candidate || this.history[0];
+    }
+
+    rebuildSnakeStaggerProfile() {
+        const minMs = Math.max(100, Number(this.snakeStaggerMinMs) || 500);
+        const maxMs = Math.max(minMs, Number(this.snakeStaggerMaxMs) || 1000);
+        let cumulative = 0;
+        for (const follower of this.followers) {
+            const gapMs = Phaser.Math.Between(minMs, maxMs);
+            cumulative += gapMs;
+            follower.staggerGapMs = gapMs;
+            follower.staggerDelayMs = cumulative;
+        }
     }
 
     updateDiamondForm(delta, time) {
@@ -483,8 +499,11 @@ export class SquadSystem {
         this.formupSpeed = targetTeamSpeed / 1.1;
         this.snakeCatchupGain = this.runtimeTuning.snakeCatchupGain || DEFAULT_SNAKE_CATCHUP_GAIN;
         this.snakeStaggerMs = this.runtimeTuning.snakeStaggerMs || DEFAULT_SNAKE_STAGGER_MS;
+        this.snakeStaggerMinMs = Number(this.runtimeTuning.snakeStaggerMinMs) || 500;
+        this.snakeStaggerMaxMs = Number(this.runtimeTuning.snakeStaggerMaxMs) || 1000;
         this.minSpacing = this.runtimeTuning.minSpacing || DEFAULT_MIN_SPACING;
         this.snakeStep = preset.snakeStep;
+        this.rebuildSnakeStaggerProfile();
         this.leader.turnSpeedRadPerSec = preset.leaderTurn;
         const followerTurnSpeed = Math.min(6.2, preset.followerTurn * followerTurnMul);
         for (const follower of this.followers) {

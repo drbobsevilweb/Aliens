@@ -181,7 +181,7 @@
         const TEMPLATE = {
             overview: `XENO-PROTO: Corridor Ops\n- Top-down squad tactical shooter (Aliens-inspired action horror).\n- Player wins by controlling space and information.\n- CRT retro sci-fi presentation and rising tension.`,
             movement_pathing: `Core Controls\n- Right-click floor: move leader.\n- Left-click hold: shoot.\n- Leader rotates to mouse.\n- Followers react to leader movement only.`,
-            squad_ai: `Squad\n- Staggered follow delay: ~0.24s.\n- Diamond formation when stopped.\n- Leader ~10% faster than followers.\n- Overlap allowed if space is constrained.`,
+            squad_ai: `Squad\n- Single-file snake while moving.\n- Staggered follow delay per marine: randomized 0.5s to 1.0s.\n- Diamond formation when stopped.\n- Leader ~10% faster than followers.\n- Overlap allowed if space is constrained.`,
             weapons_combat: `Combat & Acid\n- Dead marines stay dead. Leader death = game over.\n- Acid persists ~5s, damages marines, forces reposition.\n- UI/audio emphasize threat escalation.`,
             enemies: `Enemy Gameplay Elements\nWarrior\n- Aggro patrol, swarm/flank behavior.\n- Door pressure behavior.\n\nDrone\n- Assassin role, vent repositioning, unlocked-door opening.\n\nFacehugger\n- Randomized attack vectors, leap + latch pattern.\n\nEggs\n- Cluster spawners, max 2 open at once, proximity trigger.\n\nQueens\n- Lesser Queen: larger elite hunter.\n- Full Queen: can breach all door states including locked/welded.`,
             doors: `Doors\n- RMB once on door: hint popup.\n- RMB twice: full menu.\n- Actions: Open, Close, Hack, Weld, Unweld.\n- Timed specialist tasks are interruptible.\n- Leader side priority regroup before close/weld.`,

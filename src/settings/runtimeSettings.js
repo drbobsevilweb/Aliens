@@ -17,6 +17,8 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         snakeCatchupGain: 1.8,
         formupSpeed: 210,
         snakeStaggerMs: 380,
+        snakeStaggerMinMs: 500,
+        snakeStaggerMaxMs: 1000,
         minSpacing: 40,
     }),
     enemies: Object.freeze({
@@ -208,6 +210,13 @@ function sanitize(settings) {
     s.squad.snakeCatchupGain = clampNumber(s.squad.snakeCatchupGain, 0.1, 6, 1.8);
     s.squad.formupSpeed = clampNumber(s.squad.formupSpeed, 80, 500, 210);
     s.squad.snakeStaggerMs = clampNumber(s.squad.snakeStaggerMs, 0, 2000, 380);
+    s.squad.snakeStaggerMinMs = clampNumber(s.squad.snakeStaggerMinMs, 100, 2000, 500);
+    s.squad.snakeStaggerMaxMs = clampNumber(
+        s.squad.snakeStaggerMaxMs,
+        s.squad.snakeStaggerMinMs,
+        3000,
+        1000
+    );
     s.squad.minSpacing = clampNumber(s.squad.minSpacing, 4, 120, 40);
 
     s.enemies.globalHealthScale = clampNumber(s.enemies.globalHealthScale, 0.1, 3, 0.68);
