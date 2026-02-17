@@ -1627,6 +1627,9 @@ export class GameScene extends Phaser.Scene {
         if ((this.acidHazards?.length || 0) > maxAcid) warnings.push('Acid hazards over cap');
         const totalCap = Number.isFinite(this.reinforceCapEffective) ? this.reinforceCapEffective : this.reinforceCap;
         if (!Number.isFinite(totalCap) || totalCap < 0) warnings.push('Invalid reinforcement cap');
+        const fxActive = this.fxActiveSprites ? this.fxActiveSprites.length : 0;
+        const fxCap = Math.max(40, Math.floor(280 * (this.fxQualityScale || 1)));
+        if (fxActive >= Math.floor(fxCap * 0.94)) warnings.push('FX near saturation cap');
         return warnings;
     }
 
