@@ -336,6 +336,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerCooldownUntil = 0;
         this.nextTrackerBeepAt = 0;
         this.nextAmbientBeepAt = 0;
+        this.nextTrackerWordAt = 0;
         this.nextThreatPulseAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
@@ -1170,7 +1171,7 @@ export class GameScene extends Phaser.Scene {
             this.trackerPulseText.setPosition(cuePos.x, cuePos.y);
         }
         if (swarmHot && time >= this.nextThreatPulseAt) {
-            this.showSquadTrackerBeepWord('SWARM CLOSE', '#ff8d8d');
+            this.showSquadTrackerBeepWord('SWARM CLOSE', '#ff8d8d', time);
             this.nextThreatPulseAt = time + Phaser.Math.Linear(2200, 900, Phaser.Math.Clamp(closeCount / 9, 0, 1));
         }
 
@@ -1178,7 +1179,7 @@ export class GameScene extends Phaser.Scene {
         if (!trackerLocked) {
             if (time < this.nextAmbientBeepAt) return;
             const interval = Phaser.Math.Linear(1300, 220, t);
-            this.showSquadTrackerBeepWord('BEEP', '#9db7ff');
+            this.showSquadTrackerBeepWord('BEEP', '#9db7ff', time);
             if (this.trackerPulseText) {
                 const pct = Math.round(t * 100);
                 this.trackerPulseText.setText(swarmHot ? `SWARM ALERT ${pct}%` : `MOTION ALERT ${pct}%`);
@@ -1191,7 +1192,7 @@ export class GameScene extends Phaser.Scene {
 
         if (time < this.nextTrackerBeepAt) return;
         const interval = Phaser.Math.Linear(1100, 160, t);
-        this.showSquadTrackerBeepWord('BEEP', '#9de7ff');
+        this.showSquadTrackerBeepWord('BEEP', '#9de7ff', time);
         if (this.trackerPulseText) {
             this.trackerPulseText.setText(`TRACKER BEEP ${Math.round(t * 100)}%`);
             this.trackerPulseText.setColor('#9de7ff');
@@ -1222,7 +1223,9 @@ export class GameScene extends Phaser.Scene {
         };
     }
 
-    showSquadTrackerBeepWord(word, color = '#9db7ff') {
+    showSquadTrackerBeepWord(word, color = '#9db7ff', time = this.time.now) {
+        if (time < (this.nextTrackerWordAt || 0)) return;
+        this.nextTrackerWordAt = time + 180;
         const p = this.getSquadTrackerCueScreenPos();
         const msg = this.add.text(
             p.x + Phaser.Math.Between(-10, 10),
