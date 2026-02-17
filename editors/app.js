@@ -192,6 +192,7 @@ function defaultState() {
             { id: 'evt_m2_tracker_check', missionId: 'm2', trigger: 'time:35', action: 'trigger_tracker', params: { role: 'tech' } },
             { id: 'evt_midfight_breach_warning', missionId: 'm3', trigger: 'pressure:0.72', action: 'door_thump', params: { word: 'THUMP!!', dir: 'S' } },
             { id: 'evt_objective_relief', missionId: 'm4', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
+            { id: 'evt_m4_relief_caps', missionId: 'm4', trigger: 'objective:1', action: 'set_reinforce_caps', params: { idle: 4, gunfire: 7 } },
             { id: 'evt_extract_lockdown', missionId: 'm5', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },
             { id: 'evt_m5_queen_reveal', missionId: 'm5', trigger: 'pressure:0.8', action: 'spawn_queen', params: { type: 'queenLesser' } },
         ],

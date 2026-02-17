@@ -100,6 +100,8 @@ export function validateMissionPackageShape(pkg) {
         'set_pressure_grace',
         'door_action',
         'door_state',
+        'set_reinforce_caps',
+        'set_reinforcement_caps',
         'morale_delta',
         'panic_delta',
         'trigger_tracker',
@@ -141,6 +143,16 @@ export function validateMissionPackageShape(pkg) {
         if (action === 'set_pressure_grace') {
             const ms = Number(e?.params?.ms);
             if (!Number.isFinite(ms)) errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
+        }
+        if (action === 'set_reinforce_caps' || action === 'set_reinforcement_caps') {
+            const total = e?.params?.total;
+            const idle = e?.params?.idle;
+            const gunfire = e?.params?.gunfire;
+            const hasAny = total !== undefined || idle !== undefined || gunfire !== undefined;
+            if (!hasAny) errors.push(`directorEvent ${e.id} set_reinforce_caps requires params.total/idle/gunfire.`);
+            if (total !== undefined && !Number.isFinite(Number(total))) errors.push(`directorEvent ${e.id} params.total must be numeric.`);
+            if (idle !== undefined && !Number.isFinite(Number(idle))) errors.push(`directorEvent ${e.id} params.idle must be numeric.`);
+            if (gunfire !== undefined && !Number.isFinite(Number(gunfire))) errors.push(`directorEvent ${e.id} params.gunfire must be numeric.`);
         }
         if (action === 'morale_delta' || action === 'panic_delta') {
             const amount = Number(e?.params?.amount);

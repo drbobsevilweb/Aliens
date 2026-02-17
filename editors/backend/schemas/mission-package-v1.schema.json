@@ -72,6 +72,8 @@
               "set_pressure_grace",
               "door_action",
               "door_state",
+              "set_reinforce_caps",
+              "set_reinforcement_caps",
               "morale_delta",
               "panic_delta",
               "trigger_tracker",

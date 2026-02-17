@@ -1779,6 +1779,8 @@ export class GameScene extends Phaser.Scene {
             'set_pressure_grace',
             'door_action',
             'door_state',
+            'set_reinforce_caps',
+            'set_reinforcement_caps',
             'morale_delta',
             'panic_delta',
             'trigger_tracker',
@@ -1908,6 +1910,26 @@ export class GameScene extends Phaser.Scene {
         }
         if (action === 'door_action' || action === 'door_state') {
             return this.applyDirectorDoorAction(params);
+        }
+        if (action === 'set_reinforce_caps' || action === 'set_reinforcement_caps') {
+            let changed = false;
+            const total = Number(params.total);
+            if (Number.isFinite(total)) {
+                this.reinforceCapEffective = Phaser.Math.Clamp(Math.floor(total), 0, 120);
+                changed = true;
+            }
+            const idle = Number(params.idle);
+            if (Number.isFinite(idle)) {
+                this.reinforceCapIdleEffective = Phaser.Math.Clamp(Math.floor(idle), 0, 120);
+                changed = true;
+            }
+            const gunfire = Number(params.gunfire);
+            if (Number.isFinite(gunfire)) {
+                this.reinforceCapGunfireEffective = Phaser.Math.Clamp(Math.floor(gunfire), 0, 120);
+                changed = true;
+            }
+            if (changed) this.showFloatingText(this.leader.x, this.leader.y - 44, 'DIRECTOR CAP SHIFT', '#9fc7ff');
+            return changed;
         }
         if (action === 'morale_delta' || action === 'panic_delta') {
             const marines = this.squadSystem ? this.squadSystem.getAllMarines() : [this.leader];
