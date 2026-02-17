@@ -116,6 +116,10 @@ export class EnemyManager {
         enemy.dodgeUntil = 0;
         enemy.dodgeAngle = 0;
         enemy.dodgeForwardMul = 0.5;
+        enemy.nextLungeAt = this.scene.time.now + Phaser.Math.Between(520, 1800);
+        enemy.lungeUntil = 0;
+        enemy.lungeAngle = 0;
+        enemy.lungeSpeedMul = 1;
         enemy.setAlpha(0);
         return enemy;
     }
@@ -327,6 +331,37 @@ export class EnemyManager {
         const pressure = Phaser.Math.Clamp(Number(combatMods?.pressure) || 0.3, 0, 1);
         const burstSpeedMul = enemy.enemyType === 'drone' ? 1.26 : 1.16;
         const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+        if (enemy.enemyType === 'drone') {
+            if (time < (enemy.lungeUntil || 0)) {
+                const lungeA = Number(enemy.lungeAngle) || toTarget;
+                const lungeMul = Phaser.Math.Clamp(Number(enemy.lungeSpeedMul) || 1.4, 1.2, 2.2);
+                return {
+                    vx: desired.vx * 0.06 + Math.cos(lungeA) * enemy.stats.speed * lungeMul,
+                    vy: desired.vy * 0.06 + Math.sin(lungeA) * enemy.stats.speed * lungeMul,
+                };
+            }
+            const lungeRangeMin = CONFIG.TILE_SIZE * 1.4;
+            const lungeRangeMax = CONFIG.TILE_SIZE * 4.2;
+            const canLunge = dist >= lungeRangeMin && dist <= lungeRangeMax && time >= (enemy.nextLungeAt || 0);
+            if (canLunge) {
+                const lungeChance = Phaser.Math.Clamp(0.11 + pressure * 0.24, 0.1, 0.42);
+                if (Math.random() < lungeChance) {
+                    const sideOffset = Phaser.Math.FloatBetween(-0.12, 0.12) + (enemy.swarmSide || 1) * Phaser.Math.FloatBetween(0.02, 0.08);
+                    enemy.lungeAngle = toTarget + sideOffset;
+                    enemy.lungeSpeedMul = Phaser.Math.FloatBetween(1.34, 1.82);
+                    enemy.lungeUntil = time + Phaser.Math.Between(130, 220);
+                    enemy.nextLungeAt = time + Phaser.Math.Between(
+                        Math.max(620, Math.floor(1280 - pressure * 420)),
+                        Math.max(900, Math.floor(1860 - pressure * 260))
+                    );
+                    return {
+                        vx: desired.vx * 0.08 + Math.cos(enemy.lungeAngle) * enemy.stats.speed * enemy.lungeSpeedMul,
+                        vy: desired.vy * 0.08 + Math.sin(enemy.lungeAngle) * enemy.stats.speed * enemy.lungeSpeedMul,
+                    };
+                }
+                enemy.nextLungeAt = time + Phaser.Math.Between(420, 860);
+            }
+        }
 
         if (time < (enemy.dodgeUntil || 0)) {
             const lat = enemy.dodgeAngle || (toTarget + Math.PI * 0.5 * (enemy.swarmSide || 1));
