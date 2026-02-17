@@ -295,6 +295,16 @@ export class EnemyManager {
             if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
                 if (this.rollMeleeHit(enemy, target, contactDist)) {
                     this.applyMarineDamage(target, enemy.stats.contactDamage);
+                    if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < 0.48) {
+                        this.scene.showAlienAcidSplash(target.x, target.y);
+                    }
+                    if (this.scene && typeof this.scene.spawnAcidHazard === 'function' && Math.random() < 0.26) {
+                        this.scene.spawnAcidHazard(target.x + Phaser.Math.Between(-8, 8), target.y + Phaser.Math.Between(-8, 8), {
+                            radius: Phaser.Math.Between(12, 20),
+                            duration: Phaser.Math.Between(1600, 3000),
+                            damageScale: Phaser.Math.FloatBetween(0.5, 0.9),
+                        });
+                    }
                 }
                 enemy.nextAttackAt = time + enemy.stats.attackCooldownMs;
             }
@@ -690,6 +700,9 @@ export class EnemyManager {
 
             if (time >= enemy.nextLatchTickAt) {
                 this.applyMarineDamage(host, enemy.stats.latchDamage);
+                if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < 0.34) {
+                    this.scene.showAlienAcidSplash(host.x, host.y);
+                }
                 enemy.nextLatchTickAt = time + enemy.stats.latchTickMs;
             }
             if (time >= enemy.latchUntil) {

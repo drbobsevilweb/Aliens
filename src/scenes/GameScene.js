@@ -478,6 +478,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerPulseText.setVisible(false);
         this.gunFlashLights = [];
         this.sparkLights = [];
+        this.acidHazards = [];
         this.initFxEmitters();
 
         this.extractionWorldPos = this.pathGrid.tileToWorld(missionLayout.extractionTile.x, missionLayout.extractionTile.y);
@@ -595,6 +596,12 @@ export class GameScene extends Phaser.Scene {
                 for (const sprite of this.fxSmokePool) sprite.destroy();
             }
             this.fxActiveSprites = [];
+            if (this.acidHazards) {
+                for (const hazard of this.acidHazards) {
+                    if (hazard.ring) hazard.ring.destroy();
+                }
+                this.acidHazards = [];
+            }
         });
     }
 
@@ -698,6 +705,7 @@ export class GameScene extends Phaser.Scene {
         const threat = this.enemyManager.getPriorityThreat(this.leader.x, this.leader.y, this.inputHandler.isFiring);
         this.squadSystem.update(delta, time, { threat });
         marines = this.squadSystem.getAllMarines();
+        this.updateAcidHazards(time, delta, marines);
         this.updateFollowerCombat(time, delta, marines);
         this.updateMarineRadioChatter(time, marines);
         this.updateAtmosphereIncidents(time, marines);
@@ -1155,8 +1163,12 @@ export class GameScene extends Phaser.Scene {
         const t = Phaser.Math.Clamp(1 - (near.dist / 920), 0, 1);
         const closeCount = this.countCloseEnemiesToTeam(260);
         const swarmHot = closeCount >= 4 && t >= 0.38;
+        const cuePos = this.getSquadTrackerCueScreenPos();
+        if (this.trackerPulseText) {
+            this.trackerPulseText.setPosition(cuePos.x, cuePos.y);
+        }
         if (swarmHot && time >= this.nextThreatPulseAt) {
-            this.showEdgeWordCue('SWARM CLOSE', near.enemy.x, near.enemy.y, '#ff8d8d');
+            this.showSquadTrackerBeepWord('SWARM CLOSE', '#ff8d8d');
             this.nextThreatPulseAt = time + Phaser.Math.Linear(2200, 900, Phaser.Math.Clamp(closeCount / 9, 0, 1));
         }
 
@@ -1164,7 +1176,7 @@ export class GameScene extends Phaser.Scene {
         if (!trackerLocked) {
             if (time < this.nextAmbientBeepAt) return;
             const interval = Phaser.Math.Linear(1300, 220, t);
-            this.showEdgeWordCue('BEEP', near.enemy.x, near.enemy.y, '#9db7ff');
+            this.showSquadTrackerBeepWord('BEEP', '#9db7ff');
             if (this.trackerPulseText) {
                 const pct = Math.round(t * 100);
                 this.trackerPulseText.setText(swarmHot ? `SWARM ALERT ${pct}%` : `MOTION ALERT ${pct}%`);
@@ -1177,13 +1189,66 @@ export class GameScene extends Phaser.Scene {
 
         if (time < this.nextTrackerBeepAt) return;
         const interval = Phaser.Math.Linear(1100, 160, t);
-        this.showEdgeWordCue('BEEP', near.enemy.x, near.enemy.y, '#9de7ff');
+        this.showSquadTrackerBeepWord('BEEP', '#9de7ff');
         if (this.trackerPulseText) {
             this.trackerPulseText.setText(`TRACKER BEEP ${Math.round(t * 100)}%`);
             this.trackerPulseText.setColor('#9de7ff');
             this.trackerPulseText.setVisible(true);
         }
         this.nextTrackerBeepAt = time + interval;
+    }
+
+    getSquadTrackerCueScreenPos() {
+        const marines = this.squadSystem ? this.squadSystem.getAllMarines() : [this.leader];
+        let sx = 0;
+        let sy = 0;
+        let n = 0;
+        for (const m of marines) {
+            if (!m || m.active === false || m.alive === false) continue;
+            sx += m.x;
+            sy += m.y;
+            n++;
+        }
+        const wx = n > 0 ? (sx / n) : this.leader.x;
+        const wy = n > 0 ? (sy / n) : this.leader.y;
+        const cam = this.cameras.main;
+        const screenX = cam ? (wx - cam.scrollX) : wx;
+        const screenY = cam ? (wy - cam.scrollY) : wy;
+        return {
+            x: Phaser.Math.Clamp(screenX, 120, CONFIG.GAME_WIDTH - 120),
+            y: Phaser.Math.Clamp(screenY - 96, 32, CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT - 62),
+        };
+    }
+
+    showSquadTrackerBeepWord(word, color = '#9db7ff') {
+        const p = this.getSquadTrackerCueScreenPos();
+        const msg = this.add.text(
+            p.x + Phaser.Math.Between(-10, 10),
+            p.y - 20 + Phaser.Math.Between(-3, 3),
+            word,
+            {
+                fontSize: '20px',
+                fontFamily: 'Impact, "Arial Black", sans-serif',
+                fontStyle: 'bold',
+                color,
+                backgroundColor: '#11212b',
+                padding: { left: 8, right: 8, top: 3, bottom: 3 },
+            }
+        );
+        msg.setOrigin(0.5);
+        msg.setStroke('#001018', 4);
+        msg.setShadow(2, 2, '#000000', 0.75, false, true);
+        msg.setDepth(242);
+        msg.setScrollFactor(0);
+        this.tweens.add({
+            targets: msg,
+            y: msg.y - 18,
+            alpha: 0,
+            scale: 1.06,
+            duration: 460,
+            ease: 'Cubic.out',
+            onComplete: () => msg.destroy(),
+        });
     }
     emitWeaponFlashAndStimulus(x, y, angle, time, weaponKey = 'pulseRifle', options = {}) {
         const stimulusMul = Number(options.stimulusMul) || 1;
@@ -1936,7 +2001,7 @@ export class GameScene extends Phaser.Scene {
 
     showImpactEffect(x, y, color = 0xdddddd) {
         const sparkIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.ricochetSparkIntensity) || 1, 0.4, 2.2);
-        const fxBoost = 1.45;
+        const fxBoost = 2.05;
         const coreQty = Math.max(3, Math.round((5 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1956,7 +2021,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        const sparkQty = Math.max(7, Math.round((13 + Phaser.Math.Between(0, 8)) * this.fxQualityScale * sparkIntensity * fxBoost));
+        const sparkQty = Math.max(12, Math.round((18 + Phaser.Math.Between(0, 12)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < sparkQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const speed = Phaser.Math.FloatBetween(200, 560) * sparkIntensity;
@@ -1975,7 +2040,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
 
-        if (Math.random() < 0.7 * this.fxQualityScale) {
+        if (Math.random() < 0.92 * this.fxQualityScale) {
             const steamQty = Math.max(2, Math.round((4 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * fxBoost));
             for (let i = 0; i < steamQty; i++) {
                 this.spawnFxSprite('smoke', x + Phaser.Math.Between(-3, 3), y + Phaser.Math.Between(-3, 3), {
@@ -1994,14 +2059,24 @@ export class GameScene extends Phaser.Scene {
         }
         if (Math.random() < this.fxQualityScale) {
             this.addSparkLight(x, y, this.time.now, {
-                duration: Phaser.Math.Between(78, 140),
-                rangeMin: 28 * sparkIntensity,
-                rangeBoost: 62 * sparkIntensity,
+                duration: Phaser.Math.Between(96, 190),
+                rangeMin: 34 * sparkIntensity,
+                rangeBoost: 84 * sparkIntensity,
             });
+        }
+        if (Math.random() < 0.52 * this.fxQualityScale) {
+            this.addSparkLight(x, y, this.time.now, {
+                duration: Phaser.Math.Between(60, 130),
+                rangeMin: 24 * sparkIntensity,
+                rangeBoost: 66 * sparkIntensity,
+            });
+        }
+        if (Math.random() < 0.22) {
+            this.cameras.main.shake(45, 0.0018 + sparkIntensity * 0.0006, true);
         }
     }
 
-    showAlienAcidSplash(x, y) {
+    showAlienAcidSplash(x, y, options = {}) {
         const acidPalette = [0x79ff76, 0x9aff90, 0xc5ff80, 0x7de6a5];
         const fxBoost = 1.5;
         const sprayQty = Math.max(10, Math.round((16 + Phaser.Math.Between(0, 8)) * this.fxQualityScale * fxBoost));
@@ -2061,6 +2136,69 @@ export class GameScene extends Phaser.Scene {
                 rangeMin: 28,
                 rangeBoost: 78,
             });
+        }
+        const allowPool = options.spawnPool !== false;
+        if (allowPool && Math.random() < 0.42) {
+            this.spawnAcidHazard(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), {
+                radius: Phaser.Math.Between(16, 28),
+                duration: Phaser.Math.Between(2200, 4600),
+                damageScale: Phaser.Math.FloatBetween(0.55, 1.0),
+            });
+        }
+    }
+
+    spawnAcidHazard(x, y, options = {}) {
+        if (!this.acidHazards) this.acidHazards = [];
+        const ring = this.add.circle(x, y, Number(options.radius) || 20, 0x9aff90, 0.16);
+        ring.setStrokeStyle(2, 0x7de6a5, 0.8);
+        ring.setDepth(10);
+        const now = this.time.now;
+        const duration = Math.max(400, Number(options.duration) || 2600);
+        this.acidHazards.push({
+            x,
+            y,
+            radius: Math.max(8, Number(options.radius) || 20),
+            bornAt: now,
+            expireAt: now + duration,
+            nextTickAt: now + 240,
+            damageScale: Phaser.Math.Clamp(Number(options.damageScale) || 1, 0.2, 2),
+            ring,
+        });
+    }
+
+    updateAcidHazards(time, _delta, marines) {
+        if (!this.acidHazards || this.acidHazards.length === 0) return;
+        const dps = Math.max(0, Number(this.runtimeSettings?.objects?.acidDamagePerSec) || 10);
+        for (let i = this.acidHazards.length - 1; i >= 0; i--) {
+            const h = this.acidHazards[i];
+            if (!h || time >= h.expireAt) {
+                if (h?.ring) h.ring.destroy();
+                this.acidHazards.splice(i, 1);
+                continue;
+            }
+            const lifeT = Phaser.Math.Clamp((time - h.bornAt) / Math.max(1, (h.expireAt - h.bornAt)), 0, 1);
+            if (h.ring) {
+                h.ring.setAlpha(Phaser.Math.Linear(0.24, 0.04, lifeT));
+                h.ring.setScale(Phaser.Math.Linear(1, 1.18, lifeT));
+            }
+            if (time < h.nextTickAt || dps <= 0) continue;
+            const list = Array.isArray(marines) && marines.length > 0 ? marines : [this.leader];
+            for (const marine of list) {
+                if (!marine || marine.active === false || marine.alive === false) continue;
+                const dist = Phaser.Math.Distance.Between(h.x, h.y, marine.x, marine.y);
+                if (dist > h.radius) continue;
+                const dmg = Math.max(1, Math.round((dps * 0.24) * h.damageScale));
+                if (typeof marine.takeDamage === 'function') marine.takeDamage(dmg);
+                if (typeof this.onMarineDamaged === 'function') this.onMarineDamaged(marine, dmg, time);
+                if (Math.random() < 0.24 * this.fxQualityScale) {
+                    this.showAlienAcidSplash(
+                        marine.x + Phaser.Math.Between(-6, 6),
+                        marine.y + Phaser.Math.Between(-6, 6),
+                        { spawnPool: false }
+                    );
+                }
+            }
+            h.nextTickAt = time + Phaser.Math.Between(220, 320);
         }
     }
 

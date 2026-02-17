@@ -13,8 +13,8 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
         this.body.enable = true;
         this.body.checkCollision.none = false;
         this.setActive(true);
-        this.setVisible(true);
-        this.setAlpha(0.92);
+        this.setVisible(false);
+        this.setAlpha(0);
         this.setTexture(weaponDef.bulletTexture);
         this.body.setCircle(weaponDef.bulletSize);
         this.setDepth(14);
