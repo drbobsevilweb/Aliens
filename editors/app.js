@@ -189,6 +189,7 @@ function defaultState() {
         directorEvents: [
             { id: 'evt_intro_pressure', missionId: 'm1', trigger: 'time:20', action: 'spawn_pack', params: { size: 3, type: 'warrior', source: 'idle', textCue: 'CONTACT INBOUND' } },
             { id: 'evt_wave2_push', missionId: 'm2', trigger: 'wave:2', action: 'spawn_pack', params: { size: 4, source: 'gunfire' } },
+            { id: 'evt_m2_tracker_check', missionId: 'm2', trigger: 'time:35', action: 'trigger_tracker', params: { role: 'tech' } },
             { id: 'evt_midfight_breach_warning', missionId: 'm3', trigger: 'pressure:0.72', action: 'door_thump', params: { word: 'THUMP!!', dir: 'S' } },
             { id: 'evt_objective_relief', missionId: 'm4', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
             { id: 'evt_extract_lockdown', missionId: 'm5', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },

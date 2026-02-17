@@ -74,6 +74,8 @@
               "door_state",
               "morale_delta",
               "panic_delta",
+              "trigger_tracker",
+              "start_tracker",
               "spawn_queen",
               "spawn_boss"
             ]

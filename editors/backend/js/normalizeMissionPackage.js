@@ -102,6 +102,8 @@ export function validateMissionPackageShape(pkg) {
         'door_state',
         'morale_delta',
         'panic_delta',
+        'trigger_tracker',
+        'start_tracker',
         'spawn_queen',
         'spawn_boss',
     ]);
@@ -143,6 +145,12 @@ export function validateMissionPackageShape(pkg) {
         if (action === 'morale_delta' || action === 'panic_delta') {
             const amount = Number(e?.params?.amount);
             if (!Number.isFinite(amount)) errors.push(`directorEvent ${e.id} params.amount must be numeric.`);
+        }
+        if (action === 'trigger_tracker' || action === 'start_tracker') {
+            const role = String(e?.params?.role || 'tech').toLowerCase();
+            if (!['tech', 'medic', 'heavy', 'leader'].includes(role)) {
+                errors.push(`directorEvent ${e.id} params.role must be tech/medic/heavy/leader.`);
+            }
         }
         if (action === 'door_action' || action === 'door_state') {
             const op = String(e?.params?.op || e?.params?.state || e?.params?.action || '').toLowerCase().trim();

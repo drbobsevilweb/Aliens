@@ -1780,6 +1780,8 @@ export class GameScene extends Phaser.Scene {
             'door_state',
             'morale_delta',
             'panic_delta',
+            'trigger_tracker',
+            'start_tracker',
             'spawn_queen',
             'spawn_boss',
         ]);
@@ -1915,6 +1917,12 @@ export class GameScene extends Phaser.Scene {
             const color = amount > 0 ? '#b8ffc7' : '#ffb1b1';
             this.showFloatingText(this.leader.x, this.leader.y - 44, label, color);
             return true;
+        }
+        if (action === 'trigger_tracker' || action === 'start_tracker') {
+            const preferredRole = String(params.role || 'tech').toLowerCase();
+            const ok = this.startMotionTrackerScan(time, preferredRole === 'leader' ? 'leader' : preferredRole);
+            if (ok) this.showFloatingText(this.leader.x, this.leader.y - 44, 'MOTION TRACKER CHECK', '#9de7ff');
+            return ok;
         }
         if (action === 'spawn_queen' || action === 'spawn_boss') {
             const queenType = String(params.type || '').toLowerCase().trim();
