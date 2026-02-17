@@ -330,9 +330,11 @@ function applyMissionPackageToState(pkg) {
         throw new Error(shapeErrors[0]);
     }
 
-    const maps = normalized.maps.slice(0, 3).map(normalizeTilemapShape);
-    while (maps.length < 3) {
-        maps.push(clone(d.tilemaps[maps.length]));
+    const maps = normalized.maps.map(normalizeTilemapShape);
+    if (maps.length === 0) {
+        for (const fallbackMap of d.tilemaps) {
+            maps.push(clone(fallbackMap));
+        }
     }
 
     const missions = normalized.missions.slice(0, 5).map((m, idx) => ({
@@ -358,6 +360,7 @@ function applyMissionPackageToState(pkg) {
     state.missions = missions;
     state.directorEvents = Array.isArray(normalized.directorEvents) ? normalized.directorEvents : [];
     state.audioCues = Array.isArray(normalized.audioCues) ? normalized.audioCues : [];
+    activeMapIndex = clamp(activeMapIndex, 0, Math.max(0, state.tilemaps.length - 1));
 }
 
 function normalizeTilemapShape(mapLike) {
@@ -938,7 +941,7 @@ function renderTilemapTab() {
             </div>
             <h3>Legend</h3>
             <div id="layerLegend" class="frame-strip"></div>
-            <div class="small">Three map slots cover all five missions.</div>
+            <div class="small">Maps are reusable across all missions (default campaign uses five base maps).</div>
         </div>
         <div class="workspace">
             <h2>${state.tilemaps[activeMapIndex].name}</h2>
