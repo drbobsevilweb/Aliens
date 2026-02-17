@@ -1708,8 +1708,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     buildMissionEndPrompt(result = 'defeat') {
-        if (result === 'victory' && this.getNextCampaignMissionId()) {
-            return 'Press N for next mission, or click/press R to replay';
+        if (result === 'victory') {
+            const nextMissionId = this.getNextCampaignMissionId();
+            if (nextMissionId) {
+                const nextName = this.getMissionNameById(nextMissionId);
+                return `Press N for ${nextName}, or click/press R to replay`;
+            }
         }
         return 'Click or press R to restart';
     }
@@ -1720,6 +1724,11 @@ export class GameScene extends Phaser.Scene {
         const idx = order.indexOf(this.activeMission.id);
         if (idx < 0 || idx >= (order.length - 1)) return null;
         return order[idx + 1];
+    }
+
+    getMissionNameById(missionId = '') {
+        const found = MISSION_SET.find((m) => m && String(m.id) === String(missionId));
+        return found && found.name ? found.name : String(missionId || 'next mission');
     }
 
     updateCampaignProgressOnVictory() {
