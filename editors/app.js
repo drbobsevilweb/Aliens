@@ -187,11 +187,12 @@ function defaultState() {
             },
         ],
         directorEvents: [
-            { id: 'evt_intro_pressure', trigger: 'time:20', action: 'spawn_pack', params: { size: 3, type: 'warrior', source: 'idle', textCue: 'CONTACT INBOUND' } },
-            { id: 'evt_wave2_push', trigger: 'wave:2', action: 'spawn_pack', params: { size: 4, source: 'gunfire' } },
-            { id: 'evt_midfight_breach_warning', trigger: 'pressure:0.72', action: 'door_thump', params: { word: 'THUMP!!', dir: 'S' } },
-            { id: 'evt_objective_relief', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
-            { id: 'evt_extract_lockdown', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },
+            { id: 'evt_intro_pressure', missionId: 'm1', trigger: 'time:20', action: 'spawn_pack', params: { size: 3, type: 'warrior', source: 'idle', textCue: 'CONTACT INBOUND' } },
+            { id: 'evt_wave2_push', missionId: 'm2', trigger: 'wave:2', action: 'spawn_pack', params: { size: 4, source: 'gunfire' } },
+            { id: 'evt_midfight_breach_warning', missionId: 'm3', trigger: 'pressure:0.72', action: 'door_thump', params: { word: 'THUMP!!', dir: 'S' } },
+            { id: 'evt_objective_relief', missionId: 'm4', trigger: 'objective:1', action: 'set_pressure_grace', params: { ms: 1800 } },
+            { id: 'evt_extract_lockdown', missionId: 'm5', trigger: 'stage:extract', action: 'door_action', params: { op: 'weld', dir: 'N' } },
+            { id: 'evt_m5_queen_reveal', missionId: 'm5', trigger: 'pressure:0.8', action: 'spawn_queen', params: { type: 'queenLesser' } },
         ],
         audioCues: [
             { id: 'cue_motion_near', textCue: 'BEEP', priority: 5 },
