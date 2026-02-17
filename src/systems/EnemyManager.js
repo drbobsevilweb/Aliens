@@ -101,6 +101,7 @@ export class EnemyManager {
         this.scene.physics.add.collider(enemy, this.wallLayer);
         this.scene.physics.add.collider(enemy, this.doorGroup, null, this.shouldCollideWithDoor);
         enemy.visibleUntil = 0;
+        enemy.fullVisibleUntil = 0;
         enemy.revealCharge = 0;
         enemy.lastRevealTickAt = this.scene.time.now || 0;
         enemy.intent = 'assault';
@@ -852,8 +853,8 @@ export class EnemyManager {
         this.motionContacts = [];
         const trackerActive = options.trackerActive === true;
         const camera = options.camera || this.scene.cameras.main;
-        const memoryMs = Math.max(2000, Number(this.visibilitySettings.spottedMemoryMs) || this.spottedMemoryMs);
-        const fullVisibleMs = memoryMs;
+        const holdVisibleMs = 2000;
+        const fadeMemoryMs = Math.max(400, Number(this.visibilitySettings.spottedMemoryMs) || this.spottedMemoryMs);
         const trackerRange = Number(this.visibilitySettings.trackerRange) || this.trackerRange;
         const view = camera ? camera.worldView : null;
         const leader = lightSources[0];
@@ -875,25 +876,26 @@ export class EnemyManager {
             if (litNow) {
                 enemy.revealCharge = 1;
                 enemy.lastSeenAt = time;
-                enemy.fullVisibleUntil = time + fullVisibleMs;
+                enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
             }
             const trackerReveal = trackerActive && view && Phaser.Geom.Rectangle.Contains(view, enemy.x, enemy.y);
             if (trackerReveal) {
                 enemy.revealCharge = 1;
                 enemy.lastSeenAt = time;
+                enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
             }
             const holdVisible = !litNow && !trackerReveal && time <= (enemy.fullVisibleUntil || 0);
             const visibleNow = litNow || holdVisible || trackerReveal;
             if (visibleNow) {
-                const inRate = dt / Math.max(70, memoryMs * 0.22);
+                const inRate = dt / Math.max(60, fadeMemoryMs * 0.18);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge + inRate, 0, 1);
             } else {
-                const outRate = dt / Math.max(260, memoryMs);
+                const outRate = dt / Math.max(220, fadeMemoryMs * 0.8);
                 enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge - outRate, 0, 1);
             }
 
             const visible = enemy.revealCharge > 0.03;
-            const ghostMin = 0.24;
+            const ghostMin = 0.34;
             const ghostMax = 1;
             const alpha = visible
                 ? Phaser.Math.Clamp(ghostMin + enemy.revealCharge * (ghostMax - ghostMin), ghostMin, ghostMax)
@@ -1034,6 +1036,11 @@ export class EnemyManager {
 
     handleBulletHit(enemy, damage, projectile = null) {
         if (!enemy || !enemy.active) return false;
+        const now = this.scene?.time?.now || 0;
+        enemy.lastSeenAt = now;
+        enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, now + 2000);
+        enemy.revealCharge = Math.max(enemy.revealCharge || 0, 0.65);
+        enemy.lastRevealTickAt = now;
         const killed = enemy.takeDamage(damage);
         if (!killed && projectile && enemy.body) {
             const key = projectile.weaponKey || 'pulseRifle';

@@ -31,6 +31,7 @@ import {
     getMissionDirectorOverridesForMission,
     getMissionPackageMeta,
     getMissionPackageSummary,
+    isMissionPackageMetaStale,
 } from '../settings/missionPackageRuntime.js';
 import { CombatDirector } from '../systems/CombatDirector.js';
 
@@ -368,6 +369,7 @@ export class GameScene extends Phaser.Scene {
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
         this.missionPackageMeta = getMissionPackageMeta();
         this.missionPackageSummary = getMissionPackageSummary();
+        this.missionPackageMetaStale = isMissionPackageMetaStale();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -1381,7 +1383,9 @@ export class GameScene extends Phaser.Scene {
         if (fps < 38) this.fxQualityScale = 0.4;
         else if (fps < 46) this.fxQualityScale = 0.58;
         else if (fps < 53) this.fxQualityScale = 0.78;
-        else if (fps > 58) this.fxQualityScale = 1;
+        else if (fps < 58) this.fxQualityScale = 0.98;
+        else if (fps < 62) this.fxQualityScale = 1.1;
+        else this.fxQualityScale = 1.2;
     }
 
     buildMarineLightSources(marines) {
@@ -1635,21 +1639,23 @@ export class GameScene extends Phaser.Scene {
         const fxActive = this.fxActiveSprites ? this.fxActiveSprites.length : 0;
         const fxCap = Math.max(40, Math.floor(280 * (this.fxQualityScale || 1)));
         if (fxActive >= Math.floor(fxCap * 0.94)) warnings.push('FX near saturation cap');
+        if (this.missionPackageMetaStale) warnings.push('Mission package checksum stale');
         return warnings;
     }
 
     getMissionPackageMetaDebugSuffix() {
         const meta = this.missionPackageMeta;
         const summary = this.missionPackageSummary;
+        const stale = this.missionPackageMetaStale ? ' STALE' : '';
         if (!meta || !meta.publishedAt) {
             if (!summary) return '';
-            return ` | Pkg:${summary.maps}/${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`;
+            return ` | Pkg:${summary.maps}/${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}${stale}`;
         }
         const ageSec = Math.max(0, Math.floor((Date.now() - meta.publishedAt) / 1000));
         const counts = summary
             ? ` map:${summary.maps} mis:${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`
             : '';
-        return ` | PkgAge:${ageSec}s${counts}`;
+        return ` | PkgAge:${ageSec}s${counts}${stale}`;
     }
 
     updateCombatFeedback(time) {

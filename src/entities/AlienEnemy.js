@@ -74,11 +74,11 @@ export class AlienEnemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     getBaseTint(enemyType) {
-        if (enemyType === 'drone') return 0xa3d2bf;
-        if (enemyType === 'facehugger') return 0xc8e7d2;
-        if (enemyType === 'queenLesser') return 0x8fc5b5;
-        if (enemyType === 'queen') return 0x84b5a8;
-        return 0x9dcbb9;
+        if (enemyType === 'drone') return 0xbfeada;
+        if (enemyType === 'facehugger') return 0xd5f5e3;
+        if (enemyType === 'queenLesser') return 0x9ad2c3;
+        if (enemyType === 'queen') return 0x8ec8ba;
+        return 0xb0dfcf;
     }
 
     takeDamage(amount) {

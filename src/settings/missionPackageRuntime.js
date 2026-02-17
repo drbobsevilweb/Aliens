@@ -71,3 +71,27 @@ export function getMissionPackageSummary() {
         return null;
     }
 }
+
+export function isMissionPackageMetaStale() {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    try {
+        const rawPkg = window.localStorage.getItem(MISSION_PACKAGE_STORAGE_KEY);
+        const rawMeta = window.localStorage.getItem(MISSION_PACKAGE_META_STORAGE_KEY);
+        if (!rawPkg || !rawMeta) return false;
+        const meta = JSON.parse(rawMeta);
+        const expected = Number(meta?.checksum);
+        if (!Number.isFinite(expected)) return false;
+        return checksumString(rawPkg) !== expected;
+    } catch {
+        return false;
+    }
+}
+
+function checksumString(s) {
+    let hash = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        hash ^= s.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+}
