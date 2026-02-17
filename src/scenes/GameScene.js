@@ -1596,9 +1596,10 @@ export class GameScene extends Phaser.Scene {
     getMissionPackageHudStatusLine() {
         const events = Array.isArray(this.missionDirectorEvents) ? this.missionDirectorEvents.length : 0;
         const fired = this.countMissionDirectorEventsFired();
-        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${fired}/${events}`;
+        const issues = Array.isArray(this.missionDirectorEventIssues) ? this.missionDirectorEventIssues.length : 0;
+        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${fired}/${events}${issues > 0 ? ` | ISS:${issues}` : ''}`;
         const tag = this.missionPackageMetaStale ? 'STALE' : 'OK';
-        return `PKG: ${tag} | EVT:${fired}/${events}`;
+        return `PKG: ${tag} | EVT:${fired}/${events}${issues > 0 ? ` | ISS:${issues}` : ''}`;
     }
 
     countMissionDirectorEventsFired() {
