@@ -1902,6 +1902,25 @@ export class GameScene extends Phaser.Scene {
         if (action === 'door_action' || action === 'door_state') {
             return this.applyDirectorDoorAction(params);
         }
+        if (action === 'spawn_queen' || action === 'spawn_boss') {
+            const queenType = String(params.type || '').toLowerCase().trim();
+            if (queenType === 'queenlesser' || queenType === 'lesser' || queenType === 'queen_lesser') {
+                const world = this.pickIdlePressureSpawnWorld(this.cameras.main?.worldView || null, this.squadSystem.getAllMarines(), time);
+                const e = world ? this.enemyManager.spawnEnemyAtWorld('queenLesser', world.x, world.y, this.stageFlow.currentWave || 1) : null;
+                if (e) {
+                    e.dynamicReinforcement = true;
+                    e.reinforcementSource = 'gunfire';
+                    e.alertUntil = Math.max(e.alertUntil, time + 6000);
+                    this.noteReinforcementTypeSpawn('queenLesser', time);
+                    this.showFloatingText(this.leader.x, this.leader.y - 44, 'ELITE CONTACT INBOUND', '#ffb8b8');
+                    return true;
+                }
+                return false;
+            }
+            this.spawnMissionQueen();
+            this.showFloatingText(this.leader.x, this.leader.y - 44, 'QUEEN SIGNATURE DETECTED', '#ff9fa6');
+            return true;
+        }
         return false;
     }
 

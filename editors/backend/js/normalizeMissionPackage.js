@@ -100,6 +100,8 @@ export function validateMissionPackageShape(pkg) {
         'set_pressure_grace',
         'door_action',
         'door_state',
+        'spawn_queen',
+        'spawn_boss',
     ]);
     const allowedStages = new Set(['combat', 'intermission', 'extract', 'victory', 'defeat']);
 
