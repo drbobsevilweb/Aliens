@@ -385,6 +385,7 @@ export class GameScene extends Phaser.Scene {
         this.idlePressureIntervalMs = Math.max(idleMinMs, Math.round(idleBaseMs * missionPressureScale));
         this.lastActionAt = this.time.now;
         this.nextIdlePressureAt = this.time.now + this.idlePressureIntervalMs;
+        this.nextReinforcementSpawnAt = this.time.now + 600;
         this.gunfireReinforceCooldownMs = Math.max(gunfireMinMs, Math.round(gunfireBaseMs * missionPressureScale));
         this.nextGunfireReinforceAt = this.time.now + 2000;
         this.reinforceCap = Math.max(0, Math.floor(Number(script.reinforceCap) || 16));
@@ -2844,6 +2845,7 @@ export class GameScene extends Phaser.Scene {
     tryGunfireReinforcement(time, sourceX, sourceY, marines) {
         if (!this.enemyManager || !this.doorManager || this.stageFlow.isEnded()) return;
         if (time < this.nextGunfireReinforceAt) return;
+        if (time < (this.nextReinforcementSpawnAt || 0)) return;
         if (time < this.pressureGraceUntil) return;
         if (this.stageFlow.state === 'intermission') return;
         const aliveNow = this.enemyManager.getAliveCount();
@@ -2867,6 +2869,7 @@ export class GameScene extends Phaser.Scene {
             ? (time + effectiveCd)
             : (time + Math.min(1200, Math.max(450, Math.floor(effectiveCd * 0.35))));
         if (spawned > 0) {
+            this.noteReinforcementSpawn(time, 'gunfire', spawned);
             this.showFloatingText(this.leader.x, this.leader.y - 34, 'ALIENS STIRRING BEHIND DOORS', '#99bbff');
         }
     }
@@ -3080,6 +3083,19 @@ export class GameScene extends Phaser.Scene {
         return totalSlots;
     }
 
+    noteReinforcementSpawn(time = this.time.now, source = 'idle', spawned = 1) {
+        if (spawned <= 0) return;
+        const pressure = this.getCombatPressure();
+        const state = this.getDirectorState();
+        const baseGap = source === 'gunfire' ? 620 : 900;
+        const pressureMul = Phaser.Math.Linear(1.24, 0.72, pressure);
+        const stateMul = state === 'peak' ? 0.8 : (state === 'release' ? 1.08 : 1);
+        const burstMul = (source === 'gunfire' && this.isGunfireBurstActive(time)) ? 0.86 : 1;
+        const sizeMul = Phaser.Math.Clamp(1 + (spawned - 1) * 0.12, 1, 1.6);
+        const gap = Math.max(340, Math.floor(baseGap * pressureMul * stateMul * burstMul * sizeMul));
+        this.nextReinforcementSpawnAt = Math.max(this.nextReinforcementSpawnAt || 0, time + gap);
+    }
+
     pickSpawnBehindDoor(doorGroup, center, marines) {
         if (!doorGroup || !center || !this.pathGrid) return null;
         const vertical = doorGroup.doors.length < 2 || doorGroup.doors[0].tileX === doorGroup.doors[1].tileX;
@@ -3215,6 +3231,7 @@ export class GameScene extends Phaser.Scene {
         if (!this.enemyManager || this.stageFlow.isEnded()) return;
         if (this.getAvailableReinforcementSlots('idle') <= 0) return;
         if (time < this.nextIdlePressureAt) return;
+        if (time < (this.nextReinforcementSpawnAt || 0)) return;
         if (time < this.pressureGraceUntil) return;
         const aliveNow = this.enemyManager.getAliveCount();
         const softCap = this.getDynamicAliveSoftCap(marines);
@@ -3235,6 +3252,7 @@ export class GameScene extends Phaser.Scene {
         this.nextIdlePressureAt = time + adaptiveIdleMs;
         if (spawned > 0) {
             this.markCombatAction(time);
+            this.noteReinforcementSpawn(time, 'idle', spawned);
             this.showFloatingText(this.leader.x, this.leader.y - 28, 'CONTACT: NEW HOSTILES', '#99ddff');
         }
     }
