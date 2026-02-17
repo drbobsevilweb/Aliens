@@ -337,6 +337,8 @@ export class GameScene extends Phaser.Scene {
         this.nextTrackerBeepAt = 0;
         this.nextAmbientBeepAt = 0;
         this.nextTrackerWordAt = 0;
+        this.trackerCueAnchorX = null;
+        this.trackerCueAnchorY = null;
         this.nextThreatPulseAt = 0;
         this.healAction = null;
         this.nextMedicAutoHealAt = 0;
@@ -1218,9 +1220,18 @@ export class GameScene extends Phaser.Scene {
         const cam = this.cameras.main;
         const screenX = cam ? (wx - cam.scrollX) : wx;
         const screenY = cam ? (wy - cam.scrollY) : wy;
+        const targetX = Phaser.Math.Clamp(screenX, 120, CONFIG.GAME_WIDTH - 120);
+        const targetY = Phaser.Math.Clamp(screenY - 96, 32, CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT - 62);
+        if (!Number.isFinite(this.trackerCueAnchorX) || !Number.isFinite(this.trackerCueAnchorY)) {
+            this.trackerCueAnchorX = targetX;
+            this.trackerCueAnchorY = targetY;
+        } else {
+            this.trackerCueAnchorX = Phaser.Math.Linear(this.trackerCueAnchorX, targetX, 0.22);
+            this.trackerCueAnchorY = Phaser.Math.Linear(this.trackerCueAnchorY, targetY, 0.22);
+        }
         return {
-            x: Phaser.Math.Clamp(screenX, 120, CONFIG.GAME_WIDTH - 120),
-            y: Phaser.Math.Clamp(screenY - 96, 32, CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT - 62),
+            x: this.trackerCueAnchorX,
+            y: this.trackerCueAnchorY,
         };
     }
 
