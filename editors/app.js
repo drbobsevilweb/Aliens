@@ -163,27 +163,57 @@ function defaultState() {
             {
                 id: 'm1', name: 'Mission 1: Sweep & Secure', mapId: 'lv1_colony_hub', objective: 'Clear hostiles and extract',
                 difficulty: 'normal', enemyBudget: 20, notes: 'Intro mission with basic doors',
-                director: { idlePressureBaseMs: 7600, gunfireReinforceBaseMs: 5000, reinforceCap: 14 },
+                director: {
+                    idlePressureBaseMs: 7600,
+                    gunfireReinforceBaseMs: 5000,
+                    reinforceCap: 14,
+                    inactivityAmbushMs: 11000,
+                    inactivityAmbushCooldownMs: 15000,
+                },
             },
             {
                 id: 'm2', name: 'Mission 2: Data Retrieval', mapId: 'lv1_colony_hub', objective: 'Reach terminal room and hold',
                 difficulty: 'normal', enemyBudget: 24, notes: 'Adds pressure events',
-                director: { idlePressureBaseMs: 6900, gunfireReinforceBaseMs: 4600, reinforceCap: 16 },
+                director: {
+                    idlePressureBaseMs: 6900,
+                    gunfireReinforceBaseMs: 4600,
+                    reinforceCap: 16,
+                    inactivityAmbushMs: 10000,
+                    inactivityAmbushCooldownMs: 14200,
+                },
             },
             {
                 id: 'm3', name: 'Mission 3: Reactor Access', mapId: 'lv2_reactor_spine', objective: 'Secure 2 reactor valves',
                 difficulty: 'hard', enemyBudget: 30, notes: 'Long corridors and flanks',
-                director: { idlePressureBaseMs: 6200, gunfireReinforceBaseMs: 4200, reinforceCap: 20 },
+                director: {
+                    idlePressureBaseMs: 6200,
+                    gunfireReinforceBaseMs: 4200,
+                    reinforceCap: 20,
+                    inactivityAmbushMs: 9000,
+                    inactivityAmbushCooldownMs: 13000,
+                },
             },
             {
                 id: 'm4', name: 'Mission 4: Purge Nest', mapId: 'lv3_hive_core', objective: 'Destroy egg clusters',
                 difficulty: 'hard', enemyBudget: 36, notes: 'Vertical ambush pressure',
-                director: { idlePressureBaseMs: 5600, gunfireReinforceBaseMs: 3800, reinforceCap: 24 },
+                director: {
+                    idlePressureBaseMs: 5600,
+                    gunfireReinforceBaseMs: 3800,
+                    reinforceCap: 24,
+                    inactivityAmbushMs: 8200,
+                    inactivityAmbushCooldownMs: 11800,
+                },
             },
             {
                 id: 'm5', name: 'Mission 5: Queen Hunt', mapId: 'lv3_hive_core', objective: 'Kill queen and survive extraction',
                 difficulty: 'extreme', enemyBudget: 44, notes: 'Finale with breach threats',
-                director: { idlePressureBaseMs: 5200, gunfireReinforceBaseMs: 3400, reinforceCap: 28 },
+                director: {
+                    idlePressureBaseMs: 5200,
+                    gunfireReinforceBaseMs: 3400,
+                    reinforceCap: 28,
+                    inactivityAmbushMs: 7600,
+                    inactivityAmbushCooldownMs: 10800,
+                },
             },
         ],
         directorEvents: [
@@ -1017,6 +1047,8 @@ function renderMissionsTab() {
             <td><input data-missiondir="idlePressureBaseMs" data-i="${i}" type="number" min="500" value="${m.director?.idlePressureBaseMs ?? ''}"></td>
             <td><input data-missiondir="gunfireReinforceBaseMs" data-i="${i}" type="number" min="500" value="${m.director?.gunfireReinforceBaseMs ?? ''}"></td>
             <td><input data-missiondir="reinforceCap" data-i="${i}" type="number" min="0" value="${m.director?.reinforceCap ?? ''}"></td>
+            <td><input data-missiondir="inactivityAmbushMs" data-i="${i}" type="number" min="1000" value="${m.director?.inactivityAmbushMs ?? ''}"></td>
+            <td><input data-missiondir="inactivityAmbushCooldownMs" data-i="${i}" type="number" min="500" value="${m.director?.inactivityAmbushCooldownMs ?? ''}"></td>
             <td><input data-mission="notes" data-i="${i}" value="${escapeHtml(m.notes)}"></td>
         </tr>
     `).join('');
@@ -1048,6 +1080,8 @@ function renderMissionsTab() {
                         <th>Idle Ms</th>
                         <th>Gunfire Ms</th>
                         <th>Reinforce Cap</th>
+                        <th>Ambush Ms</th>
+                        <th>Ambush CD Ms</th>
                         <th>Notes</th>
                     </tr>
                 </thead>

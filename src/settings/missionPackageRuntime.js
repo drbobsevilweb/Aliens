@@ -12,6 +12,8 @@ const DIRECTOR_KEYS = Object.freeze([
     'doorNoiseMemoryMs',
     'idleSpawnMemoryMs',
     'waveTransitionGraceMs',
+    'inactivityAmbushMs',
+    'inactivityAmbushCooldownMs',
 ]);
 
 export function getMissionDirectorOverridesForMission(missionId = '') {

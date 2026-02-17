@@ -41,7 +41,9 @@
             "properties": {
               "idlePressureBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
               "gunfireReinforceBaseMs": { "type": "number", "minimum": 500, "maximum": 60000 },
-              "reinforceCap": { "type": "integer", "minimum": 0, "maximum": 200 }
+              "reinforceCap": { "type": "integer", "minimum": 0, "maximum": 200 },
+              "inactivityAmbushMs": { "type": "number", "minimum": 1000, "maximum": 120000 },
+              "inactivityAmbushCooldownMs": { "type": "number", "minimum": 500, "maximum": 120000 }
             },
             "additionalProperties": true
           }
