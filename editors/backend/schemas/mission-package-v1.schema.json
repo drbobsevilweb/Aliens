@@ -75,6 +75,7 @@
               "door_state",
               "set_reinforce_caps",
               "set_reinforcement_caps",
+              "set_lighting",
               "morale_delta",
               "panic_delta",
               "trigger_tracker",

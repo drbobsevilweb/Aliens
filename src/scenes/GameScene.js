@@ -1794,6 +1794,7 @@ export class GameScene extends Phaser.Scene {
             'door_state',
             'set_reinforce_caps',
             'set_reinforcement_caps',
+            'set_lighting',
             'morale_delta',
             'panic_delta',
             'trigger_tracker',
@@ -1974,6 +1975,30 @@ export class GameScene extends Phaser.Scene {
                 changed = true;
             }
             if (changed) this.showFloatingText(this.leader.x, this.leader.y - 44, 'DIRECTOR CAP SHIFT', '#9fc7ff');
+            return changed;
+        }
+        if (action === 'set_lighting') {
+            if (!this.runtimeSettings || !this.runtimeSettings.lighting) return false;
+            let changed = false;
+            const darkness = Number(params.ambientDarkness);
+            if (Number.isFinite(darkness)) {
+                this.runtimeSettings.lighting.ambientDarkness = Phaser.Math.Clamp(darkness, 0, 1);
+                changed = true;
+            }
+            const range = Number(params.torchRange);
+            if (Number.isFinite(range)) {
+                this.runtimeSettings.lighting.torchRange = Phaser.Math.Clamp(range, 120, 1800);
+                changed = true;
+            }
+            const halfAngle = Number(params.torchConeHalfAngle);
+            if (Number.isFinite(halfAngle)) {
+                this.runtimeSettings.lighting.torchConeHalfAngle = Phaser.Math.Clamp(halfAngle, 0.1, 1.5);
+                changed = true;
+            }
+            if (changed) {
+                if (this.lightingOverlay) this.lightingOverlay.tuning = this.runtimeSettings.lighting;
+                this.showFloatingText(this.leader.x, this.leader.y - 44, 'LIGHTING SHIFT', '#9dc8ff');
+            }
             return changed;
         }
         if (action === 'morale_delta' || action === 'panic_delta') {

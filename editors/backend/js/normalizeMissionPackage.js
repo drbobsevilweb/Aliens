@@ -103,6 +103,7 @@ export function validateMissionPackageShape(pkg) {
         'door_state',
         'set_reinforce_caps',
         'set_reinforcement_caps',
+        'set_lighting',
         'morale_delta',
         'panic_delta',
         'trigger_tracker',
@@ -166,6 +167,16 @@ export function validateMissionPackageShape(pkg) {
             if (total !== undefined && !Number.isFinite(Number(total))) errors.push(`directorEvent ${e.id} params.total must be numeric.`);
             if (idle !== undefined && !Number.isFinite(Number(idle))) errors.push(`directorEvent ${e.id} params.idle must be numeric.`);
             if (gunfire !== undefined && !Number.isFinite(Number(gunfire))) errors.push(`directorEvent ${e.id} params.gunfire must be numeric.`);
+        }
+        if (action === 'set_lighting') {
+            const darkness = e?.params?.ambientDarkness;
+            const range = e?.params?.torchRange;
+            const cone = e?.params?.torchConeHalfAngle;
+            const hasAny = darkness !== undefined || range !== undefined || cone !== undefined;
+            if (!hasAny) errors.push(`directorEvent ${e.id} set_lighting requires lighting params.`);
+            if (darkness !== undefined && !Number.isFinite(Number(darkness))) errors.push(`directorEvent ${e.id} params.ambientDarkness must be numeric.`);
+            if (range !== undefined && !Number.isFinite(Number(range))) errors.push(`directorEvent ${e.id} params.torchRange must be numeric.`);
+            if (cone !== undefined && !Number.isFinite(Number(cone))) errors.push(`directorEvent ${e.id} params.torchConeHalfAngle must be numeric.`);
         }
         if (action === 'edge_cue') {
             const word = String(e?.params?.word || e?.params?.text || '').trim();
