@@ -1193,6 +1193,10 @@ export class GameScene extends Phaser.Scene {
         const dir = this.getDirectionBucket(near.enemy.x, near.enemy.y);
         const closeCount = this.countCloseEnemiesToTeam(260);
         const swarmHot = closeCount >= 4 && t >= 0.38;
+        const inView = !!(view && Phaser.Geom.Rectangle.Contains(view, near.enemy.x, near.enemy.y));
+        const band = inView
+            ? (t >= 0.7 ? 'contact' : 'nearby')
+            : 'offscreen';
         const cuePos = this.getSquadTrackerCueScreenPos();
         if (this.trackerPulseText) {
             this.trackerPulseText.setPosition(cuePos.x, cuePos.y);
@@ -1205,12 +1209,27 @@ export class GameScene extends Phaser.Scene {
         // Passive proximity beeps (always on), even when tracker is not active.
         if (!trackerLocked) {
             if (time < this.nextAmbientBeepAt) return;
-            const interval = Phaser.Math.Linear(1300, 220, t);
+            const interval = band === 'offscreen'
+                ? Phaser.Math.Linear(1500, 780, t)
+                : (band === 'nearby'
+                    ? Phaser.Math.Linear(960, 340, t)
+                    : Phaser.Math.Linear(600, 220, t));
             this.showSquadTrackerBeepWord(this.getMissionAudioCueText('cue_motion_near', 'BEEP'), '#9db7ff', time);
             if (this.trackerPulseText) {
                 const pct = Math.round(t * 100);
-                this.trackerPulseText.setText(swarmHot ? `SWARM ${dir} ${pct}%` : `MOTION ${dir} ${pct}%`);
-                this.trackerPulseText.setColor(swarmHot ? '#ffb0a6' : '#9db7ff');
+                if (swarmHot) {
+                    this.trackerPulseText.setText(`SWARM ${dir} ${pct}%`);
+                    this.trackerPulseText.setColor('#ffb0a6');
+                } else if (band === 'offscreen') {
+                    this.trackerPulseText.setText(`MOTION ${dir} OFFSCREEN ${pct}%`);
+                    this.trackerPulseText.setColor('#9bb7ff');
+                } else if (band === 'nearby') {
+                    this.trackerPulseText.setText(`MOTION ${dir} NEARBY ${pct}%`);
+                    this.trackerPulseText.setColor('#9fd6ff');
+                } else {
+                    this.trackerPulseText.setText(`MOTION ${dir} CONTACT ${pct}%`);
+                    this.trackerPulseText.setColor('#a6f0ff');
+                }
                 this.trackerPulseText.setVisible(true);
                 this.pulseTrackerCueVisual();
             }
@@ -1219,11 +1238,24 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (time < this.nextTrackerBeepAt) return;
-        const interval = Phaser.Math.Linear(1100, 160, t);
+        const interval = band === 'offscreen'
+            ? Phaser.Math.Linear(1200, 520, t)
+            : (band === 'nearby'
+                ? Phaser.Math.Linear(820, 260, t)
+                : Phaser.Math.Linear(560, 150, t));
         this.showSquadTrackerBeepWord(this.getMissionAudioCueText('cue_tracker_active', 'BEEP'), '#9de7ff', time);
         if (this.trackerPulseText) {
-            this.trackerPulseText.setText(`TRACKER ${dir} ${Math.round(t * 100)}%`);
-            this.trackerPulseText.setColor('#9de7ff');
+            const pct = Math.round(t * 100);
+            if (band === 'offscreen') {
+                this.trackerPulseText.setText(`TRACKER ${dir} OFFSCREEN ${pct}%`);
+                this.trackerPulseText.setColor('#9dc6ff');
+            } else if (band === 'nearby') {
+                this.trackerPulseText.setText(`TRACKER ${dir} NEARBY ${pct}%`);
+                this.trackerPulseText.setColor('#9de7ff');
+            } else {
+                this.trackerPulseText.setText(`TRACKER ${dir} CONTACT ${pct}%`);
+                this.trackerPulseText.setColor('#b7f8ff');
+            }
             this.trackerPulseText.setVisible(true);
             this.pulseTrackerCueVisual();
         }
