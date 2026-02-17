@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { MISSION_SET } from '../data/missionData.js';
-import { loadCampaignProgress } from '../settings/campaignProgress.js';
+import { loadCampaignProgress, resetCampaignProgress } from '../settings/campaignProgress.js';
 import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
 
 export class BootScene extends Phaser.Scene {
@@ -21,9 +21,14 @@ export class BootScene extends Phaser.Scene {
         const missionOrder = MISSION_SET.map((m) => m.id);
         const missionLookup = new Set(missionOrder);
         const explicitMission = String(params.get('mission') || '').trim();
+        const resetCampaign = String(params.get('resetCampaign') || '').trim() === '1';
         let missionId = explicitMission || undefined;
         const runtimeSettings = loadRuntimeSettings();
         const autoSaveMissions = (Number(runtimeSettings?.scripting?.autoSaveBetweenMissions) || 0) > 0;
+        if (resetCampaign && autoSaveMissions) {
+            const reset = resetCampaignProgress(missionOrder);
+            missionId = missionId || reset.currentMissionId || missionOrder[0] || undefined;
+        }
         if (!missionId && autoSaveMissions) {
             const progress = loadCampaignProgress(missionOrder);
             missionId = progress.currentMissionId || missionOrder[0] || undefined;
