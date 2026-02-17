@@ -72,6 +72,8 @@
               "set_pressure_grace",
               "door_action",
               "door_state",
+              "morale_delta",
+              "panic_delta",
               "spawn_queen",
               "spawn_boss"
             ]

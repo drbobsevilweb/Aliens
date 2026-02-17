@@ -1778,6 +1778,10 @@ export class GameScene extends Phaser.Scene {
             'set_pressure_grace',
             'door_action',
             'door_state',
+            'morale_delta',
+            'panic_delta',
+            'spawn_queen',
+            'spawn_boss',
         ]);
         for (const e of events || []) {
             const id = String(e?.id || '?');
@@ -1901,6 +1905,16 @@ export class GameScene extends Phaser.Scene {
         }
         if (action === 'door_action' || action === 'door_state') {
             return this.applyDirectorDoorAction(params);
+        }
+        if (action === 'morale_delta' || action === 'panic_delta') {
+            const marines = this.squadSystem ? this.squadSystem.getAllMarines() : [this.leader];
+            const amount = Phaser.Math.Clamp(Number(params.amount) || 0, -40, 40);
+            if (Math.abs(amount) < 0.001) return false;
+            this.applyTeamMoraleDelta(marines, amount);
+            const label = amount > 0 ? `MORALE +${Math.round(amount)}` : `PANIC +${Math.round(Math.abs(amount))}`;
+            const color = amount > 0 ? '#b8ffc7' : '#ffb1b1';
+            this.showFloatingText(this.leader.x, this.leader.y - 44, label, color);
+            return true;
         }
         if (action === 'spawn_queen' || action === 'spawn_boss') {
             const queenType = String(params.type || '').toLowerCase().trim();

@@ -100,6 +100,8 @@ export function validateMissionPackageShape(pkg) {
         'set_pressure_grace',
         'door_action',
         'door_state',
+        'morale_delta',
+        'panic_delta',
         'spawn_queen',
         'spawn_boss',
     ]);
@@ -137,6 +139,10 @@ export function validateMissionPackageShape(pkg) {
         if (action === 'set_pressure_grace') {
             const ms = Number(e?.params?.ms);
             if (!Number.isFinite(ms)) errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
+        }
+        if (action === 'morale_delta' || action === 'panic_delta') {
+            const amount = Number(e?.params?.amount);
+            if (!Number.isFinite(amount)) errors.push(`directorEvent ${e.id} params.amount must be numeric.`);
         }
         if (action === 'door_action' || action === 'door_state') {
             const op = String(e?.params?.op || e?.params?.state || e?.params?.action || '').toLowerCase().trim();
