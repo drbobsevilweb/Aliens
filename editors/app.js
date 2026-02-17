@@ -4,6 +4,8 @@ import { normalizeMissionPackage, validateMissionPackageShape } from './backend/
 const STORAGE_KEY = 'aliens_dev_editors_v1';
 const PACKAGE_STORAGE_KEY = 'aliens_mission_package_v1';
 const PACKAGE_META_STORAGE_KEY = 'aliens_mission_package_meta_v1';
+const PACKAGE_HISTORY_KEY = 'aliens_mission_package_history_v1';
+const PACKAGE_HISTORY_MAX = 16;
 
 const TILE_VALUES = {
     terrain: [
@@ -392,6 +394,7 @@ const state = loadState();
 
 const statusEl = document.getElementById('status');
 const validationEl = document.getElementById('packageValidation');
+const packageHistoryEl = document.getElementById('packageHistory');
 const tabRoot = document.getElementById('tabs');
 const panels = {
     sprite: document.getElementById('tab-sprite'),
@@ -1290,6 +1293,99 @@ function refreshPackageValidationSummary() {
     validationEl.textContent = `Mission Package: ${errors.length} issue(s)\n- ${errors.join('\n- ')}\n${publishedLine}`;
 }
 
+function loadPackageHistory() {
+    try {
+        const raw = localStorage.getItem(PACKAGE_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function savePackageHistory(entries) {
+    const compact = (Array.isArray(entries) ? entries : [])
+        .filter((e) => e && typeof e === 'object' && typeof e.payload === 'string')
+        .slice(0, PACKAGE_HISTORY_MAX);
+    localStorage.setItem(PACKAGE_HISTORY_KEY, JSON.stringify(compact));
+}
+
+function pushPackageHistory(payload, source = 'publish') {
+    const entries = loadPackageHistory();
+    entries.unshift({
+        source: String(source || 'publish'),
+        ts: Date.now(),
+        sizeBytes: payload.length,
+        checksum: checksumString(payload),
+        payload,
+    });
+    savePackageHistory(entries);
+}
+
+function publishPackagePayload(payload, source = 'publish') {
+    localStorage.setItem(PACKAGE_STORAGE_KEY, payload);
+    localStorage.setItem(PACKAGE_META_STORAGE_KEY, JSON.stringify({
+        publishedAt: Date.now(),
+        sizeBytes: payload.length,
+        checksum: checksumString(payload),
+    }));
+    pushPackageHistory(payload, source);
+}
+
+function renderPackageHistory() {
+    if (!packageHistoryEl) return;
+    const entries = loadPackageHistory();
+    if (entries.length === 0) {
+        packageHistoryEl.textContent = 'Package History: none';
+        return;
+    }
+    const top = entries.slice(0, 8);
+    packageHistoryEl.innerHTML = `
+        <div>Package History (${entries.length})</div>
+        ${top.map((e, i) => {
+            const when = new Date(Number(e.ts) || Date.now()).toLocaleString();
+            const src = String(e.source || 'publish').toUpperCase();
+            const size = Number(e.sizeBytes) || 0;
+            return `
+                <div class="history-row">
+                    <span>${i + 1}. ${src} ${size}B @ ${when}</span>
+                    <button data-hist-load="${i}">Load</button>
+                    <button data-hist-pub="${i}">Publish</button>
+                </div>
+            `;
+        }).join('')}
+    `;
+
+    packageHistoryEl.querySelectorAll('[data-hist-load]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const idx = Number(btn.dataset.histLoad);
+            const item = top[idx];
+            if (!item || typeof item.payload !== 'string') return;
+            try {
+                const parsed = JSON.parse(item.payload);
+                applyMissionPackageToState(parsed);
+                saveState('Loaded package history snapshot');
+                renderAll();
+                setStatus('Loaded package snapshot into editor');
+            } catch {
+                setStatus('History load failed: invalid snapshot');
+            }
+        });
+    });
+    packageHistoryEl.querySelectorAll('[data-hist-pub]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const idx = Number(btn.dataset.histPub);
+            const item = top[idx];
+            if (!item || typeof item.payload !== 'string') return;
+            publishPackagePayload(item.payload, 'republish');
+            refreshPackageValidationSummary();
+            renderPackageHistory();
+            setStatus('Published package snapshot to game storage');
+        });
+    });
+}
+
 document.getElementById('saveAllBtn').addEventListener('click', () => saveState('Saved all sections'));
 document.getElementById('validatePackageBtn').addEventListener('click', () => {
     refreshPackageValidationSummary();
@@ -1308,14 +1404,10 @@ document.getElementById('publishPackageBtn').addEventListener('click', () => {
         return;
     }
     const payload = JSON.stringify(missionPkg);
-    localStorage.setItem(PACKAGE_STORAGE_KEY, payload);
-    localStorage.setItem(PACKAGE_META_STORAGE_KEY, JSON.stringify({
-        publishedAt: Date.now(),
-        sizeBytes: payload.length,
-        checksum: checksumString(payload),
-    }));
+    publishPackagePayload(payload, 'publish');
     setStatus('Mission package published to game storage');
     refreshPackageValidationSummary();
+    renderPackageHistory();
 });
 
 function checksumString(s) {
@@ -1382,7 +1474,9 @@ document.getElementById('importPackageFile').addEventListener('change', async (e
         const parsed = JSON.parse(text);
         applyMissionPackageToState(parsed);
         saveState('Imported mission package');
+        pushPackageHistory(JSON.stringify(buildPackageFromEditorState(state)), 'import');
         renderAll();
+        renderPackageHistory();
     } catch (err) {
         const detail = err && err.message ? err.message : 'invalid package';
         setStatus(`Mission package import failed: ${detail}`);
@@ -1395,6 +1489,7 @@ function renderAll() {
     renderTilemapTab();
     renderMissionsTab();
     refreshPackageValidationSummary();
+    renderPackageHistory();
 }
 
 window.addEventListener('keydown', (ev) => {

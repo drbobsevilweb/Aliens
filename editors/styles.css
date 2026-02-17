@@ -94,6 +94,30 @@ button.active { border-color: var(--accent); color: var(--accent); }
     white-space: pre-wrap;
 }
 
+.history-box {
+    margin-top: 10px;
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0f202b;
+    padding: 8px;
+    font: 12px "IBM Plex Mono", monospace;
+    color: var(--muted);
+}
+
+.history-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.history-row button {
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
 .validation-box.ok {
     border-color: #3b7a60;
     color: #9ee2bd;
