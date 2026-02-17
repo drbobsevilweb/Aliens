@@ -408,6 +408,7 @@ export class GameScene extends Phaser.Scene {
         this.nextBurstEligibleAt = this.time.now + 2000;
         this.recentIdleSpawnPoints = [];
         this.idleSpawnMemoryMs = Math.max(2000, Number(script.idleSpawnMemoryMs) || 9000);
+        this.lastReinforcementSpawnTypeAt = {};
         this.nextDoorThumpCueAt = 0;
         this.fxQualityScale = 1;
         this.nextFxQualityEvalAt = 0;
@@ -2964,9 +2965,10 @@ export class GameScene extends Phaser.Scene {
             const c = selected[i];
             const spawnWorld = this.pickSpawnBehindDoor(c.group, c.center, marList);
             if (!spawnWorld) continue;
-            const type = this.pickIdlePressureType(i + 1);
+            const type = this.pickReinforcementType('gunfire', i + 1, time);
             const enemy = this.enemyManager.spawnEnemyAtWorld(type, spawnWorld.x, spawnWorld.y, this.stageFlow.currentWave || 1);
             if (!enemy) continue;
+            this.noteReinforcementTypeSpawn(type, time);
             enemy.dynamicReinforcement = true;
             enemy.reinforcementSource = 'gunfire';
             enemy.alertUntil = Math.max(enemy.alertUntil, time + 4200);
@@ -3311,9 +3313,10 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < packSize; i++) {
             const world = this.pickIdlePressureSpawnWorld(view, marines, _time);
             if (!world) continue;
-            const type = this.pickIdlePressureType(i);
+            const type = this.pickReinforcementType('idle', i, _time);
             const enemy = this.enemyManager.spawnEnemyAtWorld(type, world.x, world.y, this.stageFlow.currentWave || 1);
             if (enemy) {
+                this.noteReinforcementTypeSpawn(type, _time);
                 enemy.dynamicReinforcement = true;
                 enemy.reinforcementSource = 'idle';
                 const marList = Array.isArray(marines) && marines.length > 0 ? marines : [leader];
@@ -3358,14 +3361,54 @@ export class GameScene extends Phaser.Scene {
         return best;
     }
 
-    pickIdlePressureType(index = 0) {
+    pickReinforcementType(source = 'idle', index = 0, time = this.time.now) {
         if (this.warriorOnlyTesting) return 'warrior';
         const missionId = this.activeMission?.id || 'm1';
-        if (missionId === 'm1') return index % 5 === 0 ? 'drone' : 'warrior';
-        if (missionId === 'm2') return index % 4 === 0 ? 'facehugger' : (index % 3 === 0 ? 'drone' : 'warrior');
-        if (missionId === 'm3' || missionId === 'm4') return index % 3 === 0 ? 'drone' : (index % 2 === 0 ? 'facehugger' : 'warrior');
-        if (missionId === 'm5') return index % 3 === 0 ? 'drone' : (index % 2 === 0 ? 'facehugger' : 'warrior');
-        return 'warrior';
+        const pressure = this.getCombatPressure();
+        const sourceMul = source === 'gunfire' ? 1.2 : 1;
+        const droneReady = this.isReinforcementTypeReady('drone', time, 4200);
+        const facehuggerReady = this.isReinforcementTypeReady('facehugger', time, 3200);
+        const lesserQueenReady = this.isReinforcementTypeReady('queenLesser', time, 26000);
+
+        if (missionId === 'm1') {
+            if ((index % 6 === 0 || pressure > 0.74) && droneReady && Math.random() < (0.16 * sourceMul)) return 'drone';
+            return 'warrior';
+        }
+        if (missionId === 'm2') {
+            if ((index % 5 === 0 || pressure > 0.68) && facehuggerReady && Math.random() < (0.18 * sourceMul)) return 'facehugger';
+            if ((index % 4 === 0 || pressure > 0.62) && droneReady && Math.random() < (0.2 * sourceMul)) return 'drone';
+            return 'warrior';
+        }
+        if (missionId === 'm3') {
+            if ((index % 3 === 0 || pressure > 0.58) && droneReady && Math.random() < (0.26 * sourceMul)) return 'drone';
+            if ((index % 2 === 0 || pressure > 0.66) && facehuggerReady && Math.random() < (0.22 * sourceMul)) return 'facehugger';
+            return 'warrior';
+        }
+        if (missionId === 'm4' || missionId === 'm5') {
+            const lesserQueenAlive = this.enemyManager?.getAliveCountByType?.('queenLesser') || 0;
+            if (
+                lesserQueenAlive < 1 &&
+                lesserQueenReady &&
+                pressure > 0.72 &&
+                source === 'gunfire' &&
+                Math.random() < 0.14
+            ) return 'queenLesser';
+            if ((index % 3 === 0 || pressure > 0.56) && droneReady && Math.random() < (0.28 * sourceMul)) return 'drone';
+            if ((index % 2 === 0 || pressure > 0.64) && facehuggerReady && Math.random() < (0.24 * sourceMul)) return 'facehugger';
+            return 'warrior';
+        }
+        return (droneReady && Math.random() < 0.22) ? 'drone' : 'warrior';
+    }
+
+    noteReinforcementTypeSpawn(type, time = this.time.now) {
+        if (!type) return;
+        if (!this.lastReinforcementSpawnTypeAt) this.lastReinforcementSpawnTypeAt = {};
+        this.lastReinforcementSpawnTypeAt[type] = time;
+    }
+
+    isReinforcementTypeReady(type, time = this.time.now, cooldownMs = 3000) {
+        const lastAt = Number(this.lastReinforcementSpawnTypeAt?.[type]) || -100000;
+        return (time - lastAt) >= cooldownMs;
     }
 
     isMotionTrackerRiskLocked(time) {
