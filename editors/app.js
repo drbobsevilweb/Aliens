@@ -312,11 +312,27 @@ function loadState() {
 
 function mergeWithDefaults(loaded) {
     const d = defaultState();
+    const tilemaps = Array.isArray(loaded.tilemaps) && loaded.tilemaps.length > 0
+        ? loaded.tilemaps.map(normalizeTilemapShape)
+        : d.tilemaps.map((m) => clone(m));
+    const mapIdSet = new Set(tilemaps.map((m) => String(m.id)));
+    const fallbackMapId = tilemaps[0]?.id || d.tilemaps[0].id;
+    const missions = Array.isArray(loaded.missions) && loaded.missions.length > 0
+        ? loaded.missions.map((m, idx) => {
+            const base = d.missions[idx % d.missions.length];
+            const mapId = mapIdSet.has(String(m?.mapId)) ? String(m.mapId) : fallbackMapId;
+            return {
+                ...base,
+                ...(m || {}),
+                mapId,
+            };
+        })
+        : d.missions.map((m) => clone(m));
     return {
         sprite: { ...d.sprite, ...(loaded.sprite || {}) },
         animations: Array.isArray(loaded.animations) && loaded.animations.length ? loaded.animations : d.animations,
-        tilemaps: Array.isArray(loaded.tilemaps) && loaded.tilemaps.length > 0 ? loaded.tilemaps : d.tilemaps,
-        missions: Array.isArray(loaded.missions) && loaded.missions.length > 0 ? loaded.missions : d.missions,
+        tilemaps,
+        missions,
         directorEvents: Array.isArray(loaded.directorEvents) ? loaded.directorEvents : d.directorEvents,
         audioCues: Array.isArray(loaded.audioCues) ? loaded.audioCues : d.audioCues,
     };
