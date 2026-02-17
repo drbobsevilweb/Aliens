@@ -3862,21 +3862,21 @@ export class GameScene extends Phaser.Scene {
         const cooldownMs = Number(visibility.trackerCooldownMs) || CONFIG.MOTION_TRACKER_COOLDOWN_MS;
         if (this.healAction) {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER BLOCKED: HEAL ACTIVE', '#ffcc88');
-            return;
+            return false;
         }
         if (this.isMotionTrackerRiskLocked(time)) {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER IN PROGRESS', '#ffcc88');
-            return;
+            return false;
         }
         if (!force && time < this.trackerCooldownUntil) {
             const remain = ((this.trackerCooldownUntil - time) / 1000).toFixed(1);
             this.showFloatingText(this.leader.x, this.leader.y - 24, `TRACKER COOL ${remain}s`, '#88ffaa');
-            return;
+            return false;
         }
         const operator = this.pickTrackerOperator(preferredRoleKey);
         if (!operator || !operator.actor) {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'SELECTED TRACKER OPERATOR UNAVAILABLE', '#ff9999');
-            return;
+            return false;
         }
 
         this.trackerOperator = {
@@ -3891,6 +3891,7 @@ export class GameScene extends Phaser.Scene {
         this.trackerRiskUntil = this.trackerScanUntil;
         this.trackerCooldownUntil = time + cooldownMs;
         this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER ACTIVATING', '#88ffaa');
+        return true;
     }
 
     cancelMotionTrackerScan(attacked = false) {
