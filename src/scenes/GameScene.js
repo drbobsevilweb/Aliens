@@ -694,11 +694,11 @@ export class GameScene extends Phaser.Scene {
         const trackerActive = this.isMotionTrackerActive(time);
         const trackerRiskLocked = this.isMotionTrackerRiskLocked(time);
         this.motionTracker.setState(trackerActive);
-        const trackerLeaderBusy = this.isTrackerLeaderBusy(time);
-        const healLeaderBusy = this.isLeaderHealBusy(time);
         this.resolveActionLockConflicts(time);
         this.updateTrackerOperatorLock(time, trackerRiskLocked);
         this.updateHealActionLock(time);
+        const trackerLeaderBusy = this.isTrackerLeaderBusy(time);
+        const healLeaderBusy = this.isLeaderHealBusy(time);
 
         const pointer = this.inputHandler.getPointerWorldPosition();
         this.leader.facePosition(pointer.worldX, pointer.worldY);
