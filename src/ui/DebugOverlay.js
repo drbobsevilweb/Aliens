@@ -59,6 +59,10 @@ export class DebugOverlay {
                 `A* exp/gen: ${path.lastExpanded}/${path.lastGenerated}`
             );
         }
+        if (Array.isArray(snapshot.warnings) && snapshot.warnings.length > 0) {
+            lines.push(`Warnings: ${snapshot.warnings.length}`);
+            for (const w of snapshot.warnings.slice(0, 3)) lines.push(`- ${w}`);
+        }
         this.text.setText(lines.join('\n'));
     }
 

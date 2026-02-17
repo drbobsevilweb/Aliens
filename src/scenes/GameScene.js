@@ -1593,7 +1593,24 @@ export class GameScene extends Phaser.Scene {
             paused: this.isPaused,
             kills: this.totalKills,
             pathStats: this.pathPlanner && this.pathPlanner.getStats ? this.pathPlanner.getStats() : null,
+            warnings: this.collectLogicWarnings(time),
         });
+    }
+
+    collectLogicWarnings(time = this.time.now) {
+        const warnings = [];
+        if (this.healAction && this.isMotionTrackerRiskLocked(time) && this.trackerOperator) {
+            const h = this.healAction;
+            const t = this.trackerOperator;
+            const sameActor = t.actor && (t.actor === h.operator || t.actor === h.target);
+            const sameRole = !!(t.roleKey && (t.roleKey === h.operatorRoleKey || t.roleKey === h.targetRoleKey));
+            if (sameActor || sameRole) warnings.push('Tracker/Heal lock overlap');
+        }
+        const maxAcid = Math.max(0, Math.floor(Number(this.runtimeSettings?.objects?.acidHazardMaxActive) || 16));
+        if ((this.acidHazards?.length || 0) > maxAcid) warnings.push('Acid hazards over cap');
+        const totalCap = Number.isFinite(this.reinforceCapEffective) ? this.reinforceCapEffective : this.reinforceCap;
+        if (!Number.isFinite(totalCap) || totalCap < 0) warnings.push('Invalid reinforcement cap');
+        return warnings;
     }
 
     updateCombatFeedback(time) {
