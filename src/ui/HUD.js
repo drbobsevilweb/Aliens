@@ -93,6 +93,14 @@ export class HUD {
             hr.setScrollFactor(0);
             hr.setDepth(202);
 
+            const status = this.scene.add.text(x + 8, y + 92, 'STATUS: --', {
+                fontSize: '10px',
+                fontFamily: 'monospace',
+                color: '#9fc1d4',
+            });
+            status.setScrollFactor(0);
+            status.setDepth(202);
+
             const buttonW = 132;
             const buttonH = 22;
             const buttonX = x + cardW - 8 - buttonW / 2;
@@ -185,6 +193,7 @@ export class HUD {
                 ammo,
                 hp,
                 hr,
+                status,
                 healButtonBg,
                 healButtonText,
                 trackerButtonBg,
@@ -278,6 +287,7 @@ export class HUD {
 
             const healAction = this.scene.healAction || null;
             const trackerBusy = this.scene.isMarineTrackerBusy ? this.scene.isMarineTrackerBusy(marine, time) : false;
+            const healBusy = this.scene.isMarineHealBusy ? this.scene.isMarineHealBusy(marine, time) : false;
             const healTargeted = !!(healAction
                 && ((card.def.roleKey && healAction.targetRoleKey === card.def.roleKey)
                     || (!card.def.roleKey && healAction.target === this.scene.leader)));
@@ -302,6 +312,44 @@ export class HUD {
             card.healButtonBg.setFillStyle(canOrderHeal ? 0x204226 : 0x26322a, 0.95);
             card.healButtonBg.disableInteractive();
             if (canOrderHeal) card.healButtonBg.setInteractive({ useHandCursor: true });
+
+            const isFollower = !!card.def.roleKey;
+            const roleState = isFollower && this.scene.getFollowerCombatState
+                ? this.scene.getFollowerCombatState(card.def.roleKey)
+                : null;
+            const jammed = !!(isFollower && roleState && time < (Number(roleState.jamUntil) || 0));
+            const hostileCount = this.scene.enemyManager && this.scene.enemyManager.getAliveCount
+                ? this.scene.enemyManager.getAliveCount()
+                : 0;
+            const panicPct = Math.round(Phaser.Math.Clamp(-(Number(marine?.morale) || 0), 0, 100));
+            let statusText = 'STATUS: READY';
+            let statusColor = '#9fc1d4';
+            if (!alive) {
+                statusText = 'STATUS: KIA';
+                statusColor = '#8b8b8b';
+            } else if (healTargeted || healOperator || healBusy) {
+                statusText = 'STATUS: HEALING';
+                statusColor = '#8df5b1';
+            } else if (trackerBusy) {
+                statusText = 'STATUS: TRACKING';
+                statusColor = '#8fd9ff';
+            } else if (jammed) {
+                statusText = 'STATUS: JAMMED';
+                statusColor = '#ffb09a';
+            } else if (panicPct >= 60) {
+                statusText = `STATUS: PANIC ${panicPct}%`;
+                statusColor = '#ff9b9b';
+            } else if (hostileCount > 0) {
+                statusText = 'STATUS: ENGAGED';
+                statusColor = '#ffd08f';
+            }
+            card.status.setText(statusText);
+            card.status.setColor(statusColor);
+            card.avatar.setAlpha(alive ? 1 : 0.45);
+            if (!alive) card.bg.setStrokeStyle(1, 0x4a4a4a, 0.8);
+            else if (statusText.includes('PANIC') || statusText.includes('JAMMED')) card.bg.setStrokeStyle(1, 0x8d4e4e, 0.95);
+            else if (statusText.includes('TRACKING') || statusText.includes('HEALING')) card.bg.setStrokeStyle(1, 0x4f8eb0, 0.95);
+            else card.bg.setStrokeStyle(1, 0x2b4a64, 0.9);
         }
     }
 
