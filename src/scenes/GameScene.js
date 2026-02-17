@@ -2255,6 +2255,7 @@ export class GameScene extends Phaser.Scene {
     spawnAcidHazard(x, y, options = {}) {
         if (!this.acidHazards) this.acidHazards = [];
         const maxActive = Math.max(0, Math.floor(Number(this.runtimeSettings?.objects?.acidHazardMaxActive) || 16));
+        if (maxActive <= 0) return null;
         if (this.acidHazards.length >= maxActive) {
             const oldest = this.acidHazards.shift();
             if (oldest?.ring) oldest.ring.destroy();
