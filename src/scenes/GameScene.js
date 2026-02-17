@@ -477,15 +477,15 @@ export class GameScene extends Phaser.Scene {
         this.lowHealthText.setScrollFactor(0);
         this.lowHealthText.setVisible(false);
         this.trackerPulseText = this.add.text(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - CONFIG.HUD_HEIGHT - 16, '', {
-            fontSize: '22px',
+            fontSize: '26px',
             fontFamily: 'Impact, "Arial Black", sans-serif',
             fontStyle: 'bold',
             color: '#88ffcc',
             backgroundColor: '#11212b',
-            padding: { left: 10, right: 10, top: 5, bottom: 4 },
+            padding: { left: 12, right: 12, top: 6, bottom: 5 },
         });
         this.trackerPulseText.setOrigin(0.5);
-        this.trackerPulseText.setStroke('#001018', 4);
+        this.trackerPulseText.setStroke('#001018', 5);
         this.trackerPulseText.setShadow(2, 2, '#000000', 0.7, false, true);
         this.trackerPulseText.setDepth(243);
         this.trackerPulseText.setScrollFactor(0);
@@ -1176,6 +1176,7 @@ export class GameScene extends Phaser.Scene {
             return;
         }
         const t = Phaser.Math.Clamp(1 - (near.dist / 920), 0, 1);
+        const dir = this.getDirectionBucket(near.enemy.x, near.enemy.y);
         const closeCount = this.countCloseEnemiesToTeam(260);
         const swarmHot = closeCount >= 4 && t >= 0.38;
         const cuePos = this.getSquadTrackerCueScreenPos();
@@ -1194,9 +1195,10 @@ export class GameScene extends Phaser.Scene {
             this.showSquadTrackerBeepWord('BEEP', '#9db7ff', time);
             if (this.trackerPulseText) {
                 const pct = Math.round(t * 100);
-                this.trackerPulseText.setText(swarmHot ? `SWARM ALERT ${pct}%` : `MOTION ALERT ${pct}%`);
+                this.trackerPulseText.setText(swarmHot ? `SWARM ${dir} ${pct}%` : `MOTION ${dir} ${pct}%`);
                 this.trackerPulseText.setColor(swarmHot ? '#ffb0a6' : '#9db7ff');
                 this.trackerPulseText.setVisible(true);
+                this.pulseTrackerCueVisual();
             }
             this.nextAmbientBeepAt = time + interval;
             return;
@@ -1206,11 +1208,24 @@ export class GameScene extends Phaser.Scene {
         const interval = Phaser.Math.Linear(1100, 160, t);
         this.showSquadTrackerBeepWord('BEEP', '#9de7ff', time);
         if (this.trackerPulseText) {
-            this.trackerPulseText.setText(`TRACKER BEEP ${Math.round(t * 100)}%`);
+            this.trackerPulseText.setText(`TRACKER ${dir} ${Math.round(t * 100)}%`);
             this.trackerPulseText.setColor('#9de7ff');
             this.trackerPulseText.setVisible(true);
+            this.pulseTrackerCueVisual();
         }
         this.nextTrackerBeepAt = time + interval;
+    }
+
+    pulseTrackerCueVisual() {
+        if (!this.trackerPulseText) return;
+        this.tweens.killTweensOf(this.trackerPulseText);
+        this.trackerPulseText.setScale(1.06);
+        this.tweens.add({
+            targets: this.trackerPulseText,
+            scale: 1,
+            duration: 120,
+            ease: 'Cubic.out',
+        });
     }
 
     getSquadTrackerCueScreenPos() {
