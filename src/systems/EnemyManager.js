@@ -299,7 +299,7 @@ export class EnemyManager {
             const meleeMax = CONFIG.TILE_SIZE * 1.18;
             if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
                 if (this.rollMeleeHit(enemy, target, contactDist)) {
-                    this.applyMarineDamage(target, enemy.stats.contactDamage);
+                    this.applyMarineDamage(target, enemy.stats.contactDamage, enemy);
                     const objTune = this.scene?.runtimeSettings?.objects || {};
                     const splashChance = Phaser.Math.Clamp(Number(objTune.acidMeleeSplashChance) || 0.48, 0, 1);
                     const poolChance = Phaser.Math.Clamp(Number(objTune.acidMeleePoolChance) || 0.26, 0, 1);
@@ -417,7 +417,7 @@ export class EnemyManager {
         return best || marines[0] || null;
     }
 
-    applyMarineDamage(target, amount) {
+    applyMarineDamage(target, amount, attacker = null) {
         if (!target || amount <= 0) return;
         const tuning = this.scene?.runtimeSettings?.marines || {};
         const maxHp = Math.max(1, Number(target.maxHealth) || 100);
@@ -462,6 +462,13 @@ export class EnemyManager {
         if (hpPct < 0.2) dmg *= 0.86;
         dmg = Math.max(1, Math.min(maxHit, Math.round(dmg)));
 
+        const attackerRef = attacker && attacker.active ? attacker : null;
+        if (attackerRef) {
+            target.lastThreatX = attackerRef.x;
+            target.lastThreatY = attackerRef.y;
+            target.lastThreatAt = now;
+            target.lastThreatType = attackerRef.enemyType || 'xeno';
+        }
         if (typeof target.takeDamage === 'function') {
             target.takeDamage(dmg);
             if (this.scene && typeof this.scene.onMarineDamaged === 'function') {
@@ -746,7 +753,7 @@ export class EnemyManager {
             enemy.setRotation(Phaser.Math.Angle.Between(enemy.x, enemy.y, host.x, host.y));
 
             if (time >= enemy.nextLatchTickAt) {
-                this.applyMarineDamage(host, enemy.stats.latchDamage);
+                this.applyMarineDamage(host, enemy.stats.latchDamage, enemy);
                 const latchSplashChance = Phaser.Math.Clamp(
                     Number(this.scene?.runtimeSettings?.objects?.acidLatchSplashChance) || 0.34,
                     0,

@@ -2264,21 +2264,27 @@ export class GameScene extends Phaser.Scene {
     }
 
     showFloatingText(x, y, text, color) {
+        const len = String(text || '').length;
+        const fontPx = len > 34 ? 14 : (len > 22 ? 15 : 16);
         const msg = this.add.text(x, y, text, {
-            fontSize: '11px',
-            fontFamily: 'monospace',
+            fontSize: `${fontPx}px`,
+            fontFamily: 'Impact, "Arial Black", sans-serif',
+            fontStyle: 'bold',
             color,
-            backgroundColor: '#111111',
-            padding: { left: 3, right: 3, top: 1, bottom: 1 },
+            backgroundColor: '#0f1a22',
+            padding: { left: 6, right: 6, top: 3, bottom: 3 },
         });
         msg.setOrigin(0.5);
+        msg.setStroke('#03080d', 4);
+        msg.setShadow(2, 2, '#000000', 0.75, false, true);
         msg.setDepth(235);
         this.tweens.add({
             targets: msg,
-            y: y - 18,
+            y: y - 22,
+            scale: 1.04,
             alpha: 0,
-            duration: 750,
-            ease: 'Quad.out',
+            duration: 820,
+            ease: 'Cubic.out',
             onComplete: () => msg.destroy(),
         });
     }
@@ -3006,10 +3012,11 @@ export class GameScene extends Phaser.Scene {
         }
 
         const enemies = this.enemyManager.getDetectedEnemies() || [];
+        const allEnemies = this.enemyManager.getAliveEnemies() || [];
         const lighting = this.runtimeSettings?.lighting || {};
         const halfAngle = lighting.torchConeHalfAngle ?? CONFIG.TORCH_CONE_HALF_ANGLE;
         const range = lighting.torchRange ?? CONFIG.TORCH_RANGE;
-        const canSee = (marine, enemy) => {
+        const canAcquire = (marine, enemy, allowAllAround = false) => {
             if (!enemy || !enemy.active) return false;
             const source = {
                 x: marine.x,
@@ -3018,9 +3025,14 @@ export class GameScene extends Phaser.Scene {
                 halfAngle,
                 range,
             };
-            if (!this.enemyManager.isInLightCone(source, enemy)) return false;
+            if (!allowAllAround && !this.enemyManager.isInLightCone(source, enemy)) return false;
+            if (allowAllAround) {
+                const dist = Phaser.Math.Distance.Between(source.x, source.y, enemy.x, enemy.y);
+                if (dist > source.range) return false;
+            }
             return this.enemyManager.hasLineOfSight(source.x, source.y, enemy.x, enemy.y, source.range);
         };
+        const canSee = (marine, enemy) => canAcquire(marine, enemy, false);
         const now = time;
         const sharedContact = this.sharedMarineContact
             && (now - this.sharedMarineContact.at <= 3000)
@@ -3094,7 +3106,7 @@ export class GameScene extends Phaser.Scene {
                 let closeThreatDist = Infinity;
                 const closeSupportDist = CONFIG.TILE_SIZE * 1.9;
                 for (const enemy of enemies) {
-                    if (!canSee(follower, enemy)) continue;
+                    if (!canAcquire(follower, enemy, false)) continue;
                     const d = Phaser.Math.Distance.Between(follower.x, follower.y, enemy.x, enemy.y);
                     if (d <= closeSupportDist && d < closeThreatDist) {
                         closeThreat = enemy;
@@ -3112,7 +3124,7 @@ export class GameScene extends Phaser.Scene {
 
                 if (!best && selfRecentlyAttacked) {
                     const shared = this.enemyManager.getPriorityThreat(follower.x, follower.y, true);
-                    if (shared && canSee(follower, shared)) {
+                    if (shared && canAcquire(follower, shared, true)) {
                         best = shared;
                         bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
                     }
@@ -3120,18 +3132,38 @@ export class GameScene extends Phaser.Scene {
 
                 if (!best && teammateRecentlyAttacked) {
                     const shared = this.enemyManager.getPriorityThreat(follower.x, follower.y, true);
-                    if (shared && canSee(follower, shared)) {
+                    if (shared && canAcquire(follower, shared, true)) {
                         best = shared;
                         bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
+                    }
+                }
+
+                if (!best && selfRecentlyAttacked) {
+                    const threatAt = Number(follower.lastThreatAt) || -100000;
+                    if ((time - threatAt) <= 2400 && Number.isFinite(follower.lastThreatX) && Number.isFinite(follower.lastThreatY)) {
+                        let bestThreat = null;
+                        let bestThreatScore = Infinity;
+                        for (const enemy of allEnemies) {
+                            if (!canAcquire(follower, enemy, true)) continue;
+                            const dThreat = Phaser.Math.Distance.Between(enemy.x, enemy.y, follower.lastThreatX, follower.lastThreatY);
+                            if (dThreat < bestThreatScore) {
+                                bestThreat = enemy;
+                                bestThreatScore = dThreat;
+                            }
+                        }
+                        if (bestThreat && bestThreatScore <= CONFIG.TILE_SIZE * 3.4) {
+                            best = bestThreat;
+                            bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
+                        }
                     }
                 }
 
                 if (!best && threatenedAlly && threatenedAlly !== follower) {
                     let bestThreat = null;
                     let bestThreatDist = Infinity;
-                    for (const enemy of enemies) {
+                    for (const enemy of allEnemies) {
                         if (!enemy || !enemy.active) continue;
-                        if (!canSee(follower, enemy)) continue;
+                        if (!canAcquire(follower, enemy, true)) continue;
                         const dAlly = Phaser.Math.Distance.Between(enemy.x, enemy.y, threatenedAlly.x, threatenedAlly.y);
                         if (dAlly < bestThreatDist) {
                             bestThreatDist = dAlly;
@@ -3157,7 +3189,7 @@ export class GameScene extends Phaser.Scene {
                     assistDelayMs = Phaser.Math.Clamp(assistDelayMs, 620, 1300);
                     if ((now - state.assistNoticedAt) >= assistDelayMs) {
                         const assistEnemy = sharedContact.enemy;
-                        if (assistEnemy && assistEnemy.active && canSee(follower, assistEnemy)) {
+                        if (assistEnemy && assistEnemy.active && canAcquire(follower, assistEnemy, true)) {
                             best = assistEnemy;
                             bestDist = Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y);
                         }
@@ -3165,7 +3197,7 @@ export class GameScene extends Phaser.Scene {
                 } else {
                     state.assistNoticedAt = 0;
                 }
-            } else if (best && !canSee(follower, best)) {
+            } else if (best && !canAcquire(follower, best, true)) {
                 state.lastKnownX = best.x;
                 state.lastKnownY = best.y;
                 state.lastKnownAt = time;
