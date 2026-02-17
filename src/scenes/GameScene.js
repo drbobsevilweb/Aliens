@@ -370,6 +370,7 @@ export class GameScene extends Phaser.Scene {
         this.missionPackageMeta = getMissionPackageMeta();
         this.missionPackageSummary = getMissionPackageSummary();
         this.missionPackageMetaStale = isMissionPackageMetaStale();
+        this.nextMissionPackageMetaRefreshAt = this.time.now + 2000;
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -632,6 +633,7 @@ export class GameScene extends Phaser.Scene {
 
         this.inputHandler.update();
         this.updateCursorState();
+        this.refreshMissionPackageRuntimeMeta(time);
         this.updateFxQualityBudget(time);
         this.updateFxSprites(delta);
         const trackerActive = this.isMotionTrackerActive(time);
@@ -1678,6 +1680,14 @@ export class GameScene extends Phaser.Scene {
             ? ` map:${summary.maps} mis:${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`
             : '';
         return ` | PkgAge:${ageSec}s${counts}${stale}`;
+    }
+
+    refreshMissionPackageRuntimeMeta(time = this.time.now) {
+        if (time < (this.nextMissionPackageMetaRefreshAt || 0)) return;
+        this.nextMissionPackageMetaRefreshAt = time + 2000;
+        this.missionPackageMeta = getMissionPackageMeta();
+        this.missionPackageSummary = getMissionPackageSummary();
+        this.missionPackageMetaStale = isMissionPackageMetaStale();
     }
 
     updateCombatFeedback(time) {
