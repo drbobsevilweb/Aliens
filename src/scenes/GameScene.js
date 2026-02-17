@@ -404,6 +404,9 @@ export class GameScene extends Phaser.Scene {
         this.lastActionAt = this.time.now;
         this.nextIdlePressureAt = this.time.now + this.idlePressureIntervalMs;
         this.nextReinforcementSpawnAt = this.time.now + 600;
+        this.inactivityAmbushDelayMs = Math.max(4000, Number(script.inactivityAmbushMs) || 10000);
+        this.inactivityAmbushCooldownMs = Math.max(2500, Number(script.inactivityAmbushCooldownMs) || 14000);
+        this.nextInactivityAmbushAt = this.time.now + this.inactivityAmbushDelayMs;
         this.gunfireReinforceCooldownMs = Math.max(gunfireMinMs, Math.round(gunfireBaseMs * missionPressureScale));
         this.nextGunfireReinforceAt = this.time.now + 2000;
         this.reinforceCap = Math.max(0, Math.floor(Number(script.reinforceCap) || 16));
@@ -751,6 +754,7 @@ export class GameScene extends Phaser.Scene {
         this.motionTracker.update(this.leader.x, this.leader.y, this.enemyManager.getMotionContacts(), time, marines);
         this.updateTrackerAudioCue(time);
         this.updateIdlePressureSpawns(time, marines);
+        this.updateInactivityAmbush(time, marines);
         this.updateCombatBurstState(time);
         this.updateMissionDirectorEvents(time, marines);
 
@@ -3445,6 +3449,10 @@ export class GameScene extends Phaser.Scene {
     markCombatAction(time = this.time.now) {
         this.lastActionAt = time;
         this.nextIdlePressureAt = Math.max(this.nextIdlePressureAt, time + this.getAdaptiveIdleIntervalMs());
+        this.nextInactivityAmbushAt = Math.max(
+            this.nextInactivityAmbushAt || 0,
+            time + Math.max(1200, this.inactivityAmbushDelayMs || 10000)
+        );
     }
 
     noteGunfireEvent(time = this.time.now) {
@@ -3896,6 +3904,54 @@ export class GameScene extends Phaser.Scene {
             this.noteReinforcementSpawn(time, 'idle', spawned);
             this.showFloatingText(this.leader.x, this.leader.y - 28, 'CONTACT: NEW HOSTILES', '#99ddff');
         }
+    }
+
+    updateInactivityAmbush(time, marines) {
+        if (!this.enemyManager || this.stageFlow.isEnded()) return;
+        if (this.stageFlow.state === 'intermission') return;
+        if (time < (this.nextInactivityAmbushAt || 0)) return;
+        if ((time - this.lastActionAt) < (this.inactivityAmbushDelayMs || 10000)) return;
+        if (time < (this.nextReinforcementSpawnAt || 0)) return;
+        if (time < this.pressureGraceUntil) return;
+        if (this.getAvailableReinforcementSlots('idle') <= 0) {
+            this.nextInactivityAmbushAt = time + 1400;
+            return;
+        }
+        if (this.shouldApplySurvivalRelief(marines)) {
+            this.nextInactivityAmbushAt = time + Math.max(1800, Math.floor((this.inactivityAmbushCooldownMs || 14000) * 0.55));
+            return;
+        }
+        const aliveNow = this.enemyManager.getAliveCount();
+        const softCap = this.getDynamicAliveSoftCap(marines);
+        if (aliveNow >= softCap) {
+            this.nextInactivityAmbushAt = time + 1400;
+            return;
+        }
+        const onScreen = this.enemyManager.getOnScreenHostileCount(this.cameras.main);
+        if (onScreen >= 4) {
+            this.nextInactivityAmbushAt = time + 1200;
+            return;
+        }
+
+        const pressure = this.getCombatPressure();
+        const dirs = ['N', 'E', 'S', 'W'];
+        const bestDir = dirs.reduce((best, dir) => {
+            const score = this.getDoorNoisePenalty(dir, time) + Phaser.Math.Between(0, 140);
+            if (!best || score < best.score) return { dir, score };
+            return best;
+        }, null);
+        const dir = (bestDir && bestDir.dir) || Phaser.Utils.Array.GetRandom(dirs);
+        const size = Math.max(1, Math.min(5, Math.round(2 + pressure * 2.6)));
+        const spawned = this.spawnDirectorPack({ size, source: 'idle', dir }, time, marines);
+        if (spawned > 0) {
+            const cue = this.buildMissionCueWorldFromDir(dir);
+            this.showEdgeWordCue(this.getMissionAudioCueText('cue_motion_near', 'MOVEMENT'), cue.x, cue.y, '#9fc6ff');
+            this.showFloatingText(this.leader.x, this.leader.y - 34, `QUIET BROKEN: CONTACT ${dir}`, '#a9d8ff');
+            this.markCombatAction(time);
+            this.nextInactivityAmbushAt = time + Math.max(2600, this.inactivityAmbushCooldownMs || 14000);
+            return;
+        }
+        this.nextInactivityAmbushAt = time + 1200;
     }
 
     spawnIdlePressureWave(_time, marines) {
