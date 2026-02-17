@@ -295,10 +295,13 @@ export class EnemyManager {
             if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
                 if (this.rollMeleeHit(enemy, target, contactDist)) {
                     this.applyMarineDamage(target, enemy.stats.contactDamage);
-                    if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < 0.48) {
+                    const objTune = this.scene?.runtimeSettings?.objects || {};
+                    const splashChance = Phaser.Math.Clamp(Number(objTune.acidMeleeSplashChance) || 0.48, 0, 1);
+                    const poolChance = Phaser.Math.Clamp(Number(objTune.acidMeleePoolChance) || 0.26, 0, 1);
+                    if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < splashChance) {
                         this.scene.showAlienAcidSplash(target.x, target.y);
                     }
-                    if (this.scene && typeof this.scene.spawnAcidHazard === 'function' && Math.random() < 0.26) {
+                    if (this.scene && typeof this.scene.spawnAcidHazard === 'function' && Math.random() < poolChance) {
                         this.scene.spawnAcidHazard(target.x + Phaser.Math.Between(-8, 8), target.y + Phaser.Math.Between(-8, 8), {
                             radius: Phaser.Math.Between(12, 20),
                             duration: Phaser.Math.Between(1600, 3000),
@@ -700,7 +703,12 @@ export class EnemyManager {
 
             if (time >= enemy.nextLatchTickAt) {
                 this.applyMarineDamage(host, enemy.stats.latchDamage);
-                if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < 0.34) {
+                const latchSplashChance = Phaser.Math.Clamp(
+                    Number(this.scene?.runtimeSettings?.objects?.acidLatchSplashChance) || 0.34,
+                    0,
+                    1
+                );
+                if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < latchSplashChance) {
                     this.scene.showAlienAcidSplash(host.x, host.y);
                 }
                 enemy.nextLatchTickAt = time + enemy.stats.latchTickMs;

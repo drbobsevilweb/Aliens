@@ -106,6 +106,11 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     objects: Object.freeze({
         acidDurationMs: 5000,
         acidDamagePerSec: 10,
+        acidHazardMaxActive: 16,
+        acidPoolChanceOnSplash: 0.42,
+        acidMeleeSplashChance: 0.48,
+        acidMeleePoolChance: 0.26,
+        acidLatchSplashChance: 0.34,
         pickupRespawnMs: 0,
         doorHintWindowMs: 800,
     }),
@@ -114,6 +119,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         lightPenetrationPct: 0.25,
         wallCollisionHardness: 1,
         ricochetSparkIntensity: 1,
+        impactFxIntensity: 1,
     }),
     other: Object.freeze({
         uiScale: 1,
@@ -320,6 +326,11 @@ function sanitize(settings) {
 
     s.objects.acidDurationMs = clampNumber(s.objects.acidDurationMs, 100, 30000, 5000);
     s.objects.acidDamagePerSec = clampNumber(s.objects.acidDamagePerSec, 0, 100, 10);
+    s.objects.acidHazardMaxActive = clampNumber(s.objects.acidHazardMaxActive, 0, 80, 16);
+    s.objects.acidPoolChanceOnSplash = clampNumber(s.objects.acidPoolChanceOnSplash, 0, 1, 0.42);
+    s.objects.acidMeleeSplashChance = clampNumber(s.objects.acidMeleeSplashChance, 0, 1, 0.48);
+    s.objects.acidMeleePoolChance = clampNumber(s.objects.acidMeleePoolChance, 0, 1, 0.26);
+    s.objects.acidLatchSplashChance = clampNumber(s.objects.acidLatchSplashChance, 0, 1, 0.34);
     s.objects.pickupRespawnMs = clampNumber(s.objects.pickupRespawnMs, 0, 120000, 0);
     s.objects.doorHintWindowMs = clampNumber(s.objects.doorHintWindowMs, 150, 2500, 800);
 
@@ -327,6 +338,7 @@ function sanitize(settings) {
     s.walls.lightPenetrationPct = clampNumber(s.walls.lightPenetrationPct, 0, 0.8, 0.25);
     s.walls.wallCollisionHardness = clampNumber(s.walls.wallCollisionHardness, 0, 3, 1);
     s.walls.ricochetSparkIntensity = clampNumber(s.walls.ricochetSparkIntensity, 0, 3, 1);
+    s.walls.impactFxIntensity = clampNumber(s.walls.impactFxIntensity, 0.2, 3, 1);
 
     s.other.uiScale = clampNumber(s.other.uiScale, 0.5, 2, 1);
     s.other.audioBeepVolume = clampNumber(s.other.audioBeepVolume, 0, 2, 1);

@@ -2002,7 +2002,8 @@ export class GameScene extends Phaser.Scene {
 
     showImpactEffect(x, y, color = 0xdddddd) {
         const sparkIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.ricochetSparkIntensity) || 1, 0.4, 2.2);
-        const fxBoost = 2.05;
+        const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const fxBoost = 2.05 * impactFxIntensity;
         const coreQty = Math.max(3, Math.round((5 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -2139,7 +2140,8 @@ export class GameScene extends Phaser.Scene {
             });
         }
         const allowPool = options.spawnPool !== false;
-        if (allowPool && Math.random() < 0.42) {
+        const poolChance = Phaser.Math.Clamp(Number(this.runtimeSettings?.objects?.acidPoolChanceOnSplash) || 0.42, 0, 1);
+        if (allowPool && Math.random() < poolChance) {
             this.spawnAcidHazard(x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), {
                 radius: Phaser.Math.Between(16, 28),
                 duration: Phaser.Math.Between(2200, 4600),
@@ -2150,6 +2152,11 @@ export class GameScene extends Phaser.Scene {
 
     spawnAcidHazard(x, y, options = {}) {
         if (!this.acidHazards) this.acidHazards = [];
+        const maxActive = Math.max(0, Math.floor(Number(this.runtimeSettings?.objects?.acidHazardMaxActive) || 16));
+        if (this.acidHazards.length >= maxActive) {
+            const oldest = this.acidHazards.shift();
+            if (oldest?.ring) oldest.ring.destroy();
+        }
         const ring = this.add.circle(x, y, Number(options.radius) || 20, 0x9aff90, 0.16);
         ring.setStrokeStyle(2, 0x7de6a5, 0.8);
         ring.setDepth(10);
