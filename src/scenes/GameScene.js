@@ -1298,6 +1298,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     spawnFxSprite(poolKey, x, y, options = {}) {
+        const activeCount = this.fxActiveSprites ? this.fxActiveSprites.length : 0;
+        const baseCap = poolKey === 'smoke' ? 180 : 280;
+        const cap = Math.max(40, Math.floor(baseCap * (this.fxQualityScale || 1)));
+        if (activeCount >= cap) return null;
         const sprite = this.acquireFxSprite(poolKey);
         if (!sprite) return null;
         const life = Math.max(1, Number(options.life) || 80);
