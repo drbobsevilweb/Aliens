@@ -34,11 +34,26 @@ export function normalizeMissionPackage(input) {
         : [];
 
     const directorEvents = Array.isArray(src.directorEvents)
-        ? src.directorEvents.filter((e) => e && typeof e === 'object' && e.id)
+        ? src.directorEvents
+            .filter((e) => e && typeof e === 'object' && e.id)
+            .map((e) => ({
+                id: String(e.id),
+                trigger: String(e.trigger || ''),
+                action: String(e.action || ''),
+                params: e.params && typeof e.params === 'object' ? { ...e.params } : {},
+                ...(e.missionId ? { missionId: String(e.missionId) } : {}),
+                ...(Array.isArray(e.missionIds) ? { missionIds: e.missionIds.map((v) => String(v)) } : {}),
+            }))
         : [];
 
     const audioCues = Array.isArray(src.audioCues)
-        ? src.audioCues.filter((c) => c && typeof c === 'object' && c.id)
+        ? src.audioCues
+            .filter((c) => c && typeof c === 'object' && c.id)
+            .map((c) => ({
+                id: String(c.id),
+                textCue: String(c.textCue || ''),
+                ...(Number.isFinite(Number(c.priority)) ? { priority: Math.max(0, Math.min(10, Math.floor(Number(c.priority)))) } : {}),
+            }))
         : [];
 
     return { version, maps, missions, directorEvents, audioCues };
@@ -71,6 +86,55 @@ export function validateMissionPackageShape(pkg) {
             for (const [k, v] of Object.entries(m.director)) {
                 if (!Number.isFinite(Number(v))) errors.push(`Mission ${m.id} director.${k} must be numeric.`);
             }
+        }
+    }
+
+    const allowedTriggers = new Set(['time', 'wave', 'pressure', 'kills', 'stage', 'objective', 'always']);
+    const allowedActions = new Set(['spawn_pack', 'text_cue', 'cue_text', 'show_text', 'door_thump', 'thump', 'set_pressure_grace']);
+    const allowedStages = new Set(['combat', 'intermission', 'extract', 'victory', 'defeat']);
+
+    for (const e of pkg?.directorEvents || []) {
+        if (!e || typeof e !== 'object') continue;
+        if (!String(e.id || '').trim()) errors.push('directorEvent id is required.');
+        const trigger = String(e.trigger || '').trim().toLowerCase();
+        const action = String(e.action || '').trim().toLowerCase();
+        if (!trigger) errors.push(`directorEvent ${e.id} trigger is required.`);
+        if (!action) errors.push(`directorEvent ${e.id} action is required.`);
+        if (trigger) {
+            const [kindRaw, valueRaw = ''] = trigger.split(':', 2);
+            const kind = String(kindRaw || '').trim();
+            const value = String(valueRaw || '').trim();
+            if (!allowedTriggers.has(kind)) errors.push(`directorEvent ${e.id} trigger kind "${kind}" is unsupported.`);
+            if (kind === 'time' || kind === 'wave' || kind === 'kills' || kind === 'objective') {
+                if (!Number.isFinite(Number(value))) errors.push(`directorEvent ${e.id} trigger value must be numeric.`);
+            }
+            if (kind === 'pressure') {
+                const p = Number(value);
+                if (!Number.isFinite(p) || p < 0 || p > 1) errors.push(`directorEvent ${e.id} pressure trigger must be between 0 and 1.`);
+            }
+            if (kind === 'stage' && !allowedStages.has(value)) {
+                errors.push(`directorEvent ${e.id} stage trigger "${value}" is invalid.`);
+            }
+        }
+        if (action && !allowedActions.has(action)) errors.push(`directorEvent ${e.id} action "${action}" is unsupported.`);
+        if (e.params && typeof e.params !== 'object') errors.push(`directorEvent ${e.id} params must be an object.`);
+        if (action === 'spawn_pack') {
+            const size = Number(e?.params?.size);
+            if (Number.isFinite(size) && (size < 1 || size > 16)) errors.push(`directorEvent ${e.id} params.size must be 1-16.`);
+        }
+        if (action === 'set_pressure_grace') {
+            const ms = Number(e?.params?.ms);
+            if (!Number.isFinite(ms)) errors.push(`directorEvent ${e.id} params.ms must be numeric.`);
+        }
+    }
+
+    for (const c of pkg?.audioCues || []) {
+        if (!c || typeof c !== 'object') continue;
+        if (!String(c.id || '').trim()) errors.push('audioCue id is required.');
+        if (!String(c.textCue || '').trim()) errors.push(`audioCue ${c.id} textCue is required.`);
+        if (c.priority !== undefined) {
+            const p = Number(c.priority);
+            if (!Number.isFinite(p) || p < 0 || p > 10) errors.push(`audioCue ${c.id} priority must be 0-10.`);
         }
     }
     return errors;
