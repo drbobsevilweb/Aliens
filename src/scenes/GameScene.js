@@ -30,6 +30,7 @@ import { loadRuntimeSettings } from '../settings/runtimeSettings.js';
 import {
     getMissionDirectorOverridesForMission,
     getMissionDirectorEventsForMission,
+    getMissionAudioCuesForMission,
     getMissionPackageMeta,
     getMissionPackageSummary,
     isMissionPackageMetaStale,
@@ -377,6 +378,9 @@ export class GameScene extends Phaser.Scene {
             ? getMissionDirectorEventsForMission(this.activeMission?.id || '')
             : [];
         this.missionDirectorEventState = new Map();
+        this.missionAudioCueMap = this.useMissionPackageDirector
+            ? this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''))
+            : new Map();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
             : null;
@@ -1194,7 +1198,7 @@ export class GameScene extends Phaser.Scene {
             this.trackerPulseText.setPosition(cuePos.x, cuePos.y);
         }
         if (swarmHot && time >= this.nextThreatPulseAt) {
-            this.showSquadTrackerBeepWord('SWARM CLOSE', '#ff8d8d', time);
+            this.showSquadTrackerBeepWord(this.getMissionAudioCueText('cue_swarm_close', 'SWARM CLOSE'), '#ff8d8d', time);
             this.nextThreatPulseAt = time + Phaser.Math.Linear(2200, 900, Phaser.Math.Clamp(closeCount / 9, 0, 1));
         }
 
@@ -1202,7 +1206,7 @@ export class GameScene extends Phaser.Scene {
         if (!trackerLocked) {
             if (time < this.nextAmbientBeepAt) return;
             const interval = Phaser.Math.Linear(1300, 220, t);
-            this.showSquadTrackerBeepWord('BEEP', '#9db7ff', time);
+            this.showSquadTrackerBeepWord(this.getMissionAudioCueText('cue_motion_near', 'BEEP'), '#9db7ff', time);
             if (this.trackerPulseText) {
                 const pct = Math.round(t * 100);
                 this.trackerPulseText.setText(swarmHot ? `SWARM ${dir} ${pct}%` : `MOTION ${dir} ${pct}%`);
@@ -1216,7 +1220,7 @@ export class GameScene extends Phaser.Scene {
 
         if (time < this.nextTrackerBeepAt) return;
         const interval = Phaser.Math.Linear(1100, 160, t);
-        this.showSquadTrackerBeepWord('BEEP', '#9de7ff', time);
+        this.showSquadTrackerBeepWord(this.getMissionAudioCueText('cue_tracker_active', 'BEEP'), '#9de7ff', time);
         if (this.trackerPulseText) {
             this.trackerPulseText.setText(`TRACKER ${dir} ${Math.round(t * 100)}%`);
             this.trackerPulseText.setColor('#9de7ff');
@@ -1706,10 +1710,27 @@ export class GameScene extends Phaser.Scene {
         this.missionPackageMetaStale = isMissionPackageMetaStale();
         if (this.useMissionPackageDirector) {
             this.missionDirectorEvents = getMissionDirectorEventsForMission(this.activeMission?.id || '');
+            this.missionAudioCueMap = this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''));
             this.ensureMissionDirectorEventState();
         } else {
             this.missionDirectorEvents = [];
+            this.missionAudioCueMap = new Map();
         }
+    }
+
+    buildMissionAudioCueMap(cues = []) {
+        const map = new Map();
+        for (const cue of cues || []) {
+            if (!cue || !cue.id || !cue.textCue) continue;
+            map.set(String(cue.id), String(cue.textCue));
+        }
+        return map;
+    }
+
+    getMissionAudioCueText(id, fallback = '') {
+        if (!id) return fallback;
+        const text = this.missionAudioCueMap && this.missionAudioCueMap.get(String(id));
+        return text ? String(text) : fallback;
     }
 
     ensureMissionDirectorEventState() {
@@ -3387,7 +3408,9 @@ export class GameScene extends Phaser.Scene {
     reportDoorThump(worldX, worldY, time = this.time.now, breached = false) {
         if (time < this.nextDoorThumpCueAt) return;
         this.nextDoorThumpCueAt = time + 280;
-        this.showEdgeWordCue(breached ? 'BREACH!!' : 'THUMP!!', worldX, worldY, breached ? '#ff7f7f' : '#ffb0a8');
+        const thumpWord = this.getMissionAudioCueText('cue_door_thump', 'THUMP!!');
+        const breachWord = this.getMissionAudioCueText('cue_door_breach', 'BREACH!!');
+        this.showEdgeWordCue(breached ? breachWord : thumpWord, worldX, worldY, breached ? '#ff7f7f' : '#ffb0a8');
     }
 
     showEdgeWordCue(word, worldX, worldY, color = '#ffffff') {

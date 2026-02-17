@@ -70,6 +70,39 @@ export function getMissionDirectorEventsForMission(missionId = '') {
     }
 }
 
+export function getMissionAudioCuesForMission(missionId = '') {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    try {
+        const raw = window.localStorage.getItem(MISSION_PACKAGE_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        const cues = Array.isArray(parsed?.audioCues) ? parsed.audioCues : [];
+        const out = [];
+        for (const c of cues) {
+            if (!c || typeof c !== 'object') continue;
+            const id = String(c.id || '').trim();
+            const textCue = String(c.textCue || '').trim();
+            if (!id || !textCue) continue;
+            const scopedMission = c.missionId || c.mission || null;
+            const scopedList = Array.isArray(c.missionIds) ? c.missionIds.map((v) => String(v)) : null;
+            const include = !missionId
+                || (!scopedMission && !scopedList)
+                || (scopedMission && String(scopedMission) === String(missionId))
+                || (scopedList && scopedList.includes(String(missionId)));
+            if (!include) continue;
+            out.push({
+                id,
+                textCue,
+                priority: Number.isFinite(Number(c.priority)) ? Number(c.priority) : 0,
+            });
+        }
+        out.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        return out;
+    } catch {
+        return [];
+    }
+}
+
 export function getMissionPackageMeta() {
     if (typeof window === 'undefined' || !window.localStorage) return null;
     try {
