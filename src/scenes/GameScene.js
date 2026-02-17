@@ -1745,15 +1745,18 @@ export class GameScene extends Phaser.Scene {
         const meta = this.missionPackageMeta;
         const summary = this.missionPackageSummary;
         const stale = this.missionPackageMetaStale ? ' STALE' : '';
+        const fired = this.countMissionDirectorEventsFired();
+        const totalEvents = Array.isArray(this.missionDirectorEvents) ? this.missionDirectorEvents.length : 0;
+        const evtProgress = totalEvents > 0 ? ` evtRun:${fired}/${totalEvents}` : '';
         if (!meta || !meta.publishedAt) {
             if (!summary) return '';
-            return ` | Pkg:${summary.maps}/${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}${stale}`;
+            return ` | Pkg:${summary.maps}/${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}${stale}${evtProgress}`;
         }
         const ageSec = Math.max(0, Math.floor((Date.now() - meta.publishedAt) / 1000));
         const counts = summary
             ? ` map:${summary.maps} mis:${summary.missions} evt:${summary.directorEvents} cue:${summary.audioCues}`
             : '';
-        return ` | PkgAge:${ageSec}s${counts}${stale}`;
+        return ` | PkgAge:${ageSec}s${counts}${stale}${evtProgress}`;
     }
 
     refreshMissionPackageRuntimeMeta(time = this.time.now) {
