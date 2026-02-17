@@ -379,8 +379,12 @@ export class GameScene extends Phaser.Scene {
             : [];
         this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
         this.missionDirectorEventState = new Map();
+        this.missionAudioCues = this.useMissionPackageDirector
+            ? getMissionAudioCuesForMission(this.activeMission?.id || '')
+            : [];
+        this.missionAudioCueIssues = this.validateMissionAudioCues(this.missionAudioCues);
         this.missionAudioCueMap = this.useMissionPackageDirector
-            ? this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''))
+            ? this.buildMissionAudioCueMap(this.missionAudioCues)
             : new Map();
         const missionDirectorOverrides = useMissionPackageDirector
             ? getMissionDirectorOverridesForMission(this.activeMission?.id || '')
@@ -1597,9 +1601,11 @@ export class GameScene extends Phaser.Scene {
         const events = Array.isArray(this.missionDirectorEvents) ? this.missionDirectorEvents.length : 0;
         const fired = this.countMissionDirectorEventsFired();
         const issues = Array.isArray(this.missionDirectorEventIssues) ? this.missionDirectorEventIssues.length : 0;
-        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${fired}/${events}${issues > 0 ? ` | ISS:${issues}` : ''}`;
+        const cueIssues = Array.isArray(this.missionAudioCueIssues) ? this.missionAudioCueIssues.length : 0;
+        const issueLabel = `${issues > 0 ? ` | ISS:${issues}` : ''}${cueIssues > 0 ? ` | CUE:${cueIssues}` : ''}`;
+        if (!this.useMissionPackageDirector) return `PKG: OFF | EVT:${fired}/${events}${issueLabel}`;
         const tag = this.missionPackageMetaStale ? 'STALE' : 'OK';
-        return `PKG: ${tag} | EVT:${fired}/${events}${issues > 0 ? ` | ISS:${issues}` : ''}`;
+        return `PKG: ${tag} | EVT:${fired}/${events}${issueLabel}`;
     }
 
     countMissionDirectorEventsFired() {
@@ -1729,6 +1735,8 @@ export class GameScene extends Phaser.Scene {
         if (fxActive >= Math.floor(fxCap * 0.94)) warnings.push('FX near saturation cap');
         const evtIssues = Array.isArray(this.missionDirectorEventIssues) ? this.missionDirectorEventIssues.length : 0;
         if (evtIssues > 0) warnings.push(`Director event issues: ${evtIssues}`);
+        const cueIssues = Array.isArray(this.missionAudioCueIssues) ? this.missionAudioCueIssues.length : 0;
+        if (cueIssues > 0) warnings.push(`Audio cue issues: ${cueIssues}`);
         if (this.missionPackageMetaStale) warnings.push('Mission package checksum stale');
         return warnings;
     }
@@ -1757,11 +1765,15 @@ export class GameScene extends Phaser.Scene {
         if (this.useMissionPackageDirector) {
             this.missionDirectorEvents = getMissionDirectorEventsForMission(this.activeMission?.id || '');
             this.missionDirectorEventIssues = this.validateMissionDirectorEvents(this.missionDirectorEvents);
-            this.missionAudioCueMap = this.buildMissionAudioCueMap(getMissionAudioCuesForMission(this.activeMission?.id || ''));
+            this.missionAudioCues = getMissionAudioCuesForMission(this.activeMission?.id || '');
+            this.missionAudioCueIssues = this.validateMissionAudioCues(this.missionAudioCues);
+            this.missionAudioCueMap = this.buildMissionAudioCueMap(this.missionAudioCues);
             this.ensureMissionDirectorEventState();
         } else {
             this.missionDirectorEvents = [];
             this.missionDirectorEventIssues = [];
+            this.missionAudioCues = [];
+            this.missionAudioCueIssues = [];
             this.missionAudioCueMap = new Map();
         }
     }
@@ -1795,6 +1807,23 @@ export class GameScene extends Phaser.Scene {
             const triggerKind = trigger ? String(trigger.split(':', 1)[0]).trim() : '';
             if (!triggerKind || !allowedTriggers.has(triggerKind)) issues.push(`Director event ${id} has unsupported trigger`);
             if (!action || !allowedActions.has(action)) issues.push(`Director event ${id} has unsupported action`);
+        }
+        return issues;
+    }
+
+    validateMissionAudioCues(cues = []) {
+        const issues = [];
+        const seen = new Set();
+        for (const cue of cues || []) {
+            const id = String(cue?.id || '').trim();
+            const textCue = String(cue?.textCue || '').trim();
+            if (!id) {
+                issues.push('Audio cue missing id');
+                continue;
+            }
+            if (seen.has(id)) issues.push(`Duplicate audio cue id: ${id}`);
+            seen.add(id);
+            if (!textCue) issues.push(`Audio cue ${id} missing textCue`);
         }
         return issues;
     }
