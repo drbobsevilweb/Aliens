@@ -1303,8 +1303,8 @@ export class GameScene extends Phaser.Scene {
             }
         };
 
-        addPoolSprites(this.fxDotPool, 'fx_dot', 260, 231, Phaser.BlendModes.ADD);
-        addPoolSprites(this.fxSmokePool, 'fx_smoke', 160, 232, Phaser.BlendModes.SCREEN);
+        addPoolSprites(this.fxDotPool, 'fx_dot', 320, 231, Phaser.BlendModes.ADD);
+        addPoolSprites(this.fxSmokePool, 'fx_smoke', 220, 232, Phaser.BlendModes.SCREEN);
     }
 
     acquireFxSprite(poolKey) {
@@ -1319,8 +1319,11 @@ export class GameScene extends Phaser.Scene {
 
     spawnFxSprite(poolKey, x, y, options = {}) {
         const activeCount = this.fxActiveSprites ? this.fxActiveSprites.length : 0;
-        const baseCap = poolKey === 'smoke' ? 180 : 280;
-        const cap = Math.max(40, Math.floor(baseCap * (this.fxQualityScale || 1)));
+        const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const intensityNorm = Phaser.Math.Clamp((impactFxIntensity - 0.2) / 2.8, 0, 1);
+        const intensityCapMul = Phaser.Math.Linear(0.9, 1.32, intensityNorm);
+        const baseCap = poolKey === 'smoke' ? 230 : 350;
+        const cap = Math.max(60, Math.floor(baseCap * (this.fxQualityScale || 1) * intensityCapMul));
         if (activeCount >= cap) return null;
         const sprite = this.acquireFxSprite(poolKey);
         if (!sprite) return null;
@@ -1638,7 +1641,10 @@ export class GameScene extends Phaser.Scene {
         const totalCap = Number.isFinite(this.reinforceCapEffective) ? this.reinforceCapEffective : this.reinforceCap;
         if (!Number.isFinite(totalCap) || totalCap < 0) warnings.push('Invalid reinforcement cap');
         const fxActive = this.fxActiveSprites ? this.fxActiveSprites.length : 0;
-        const fxCap = Math.max(40, Math.floor(280 * (this.fxQualityScale || 1)));
+        const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        const intensityNorm = Phaser.Math.Clamp((impactFxIntensity - 0.2) / 2.8, 0, 1);
+        const intensityCapMul = Phaser.Math.Linear(0.9, 1.32, intensityNorm);
+        const fxCap = Math.max(60, Math.floor(420 * (this.fxQualityScale || 1) * intensityCapMul));
         if (fxActive >= Math.floor(fxCap * 0.94)) warnings.push('FX near saturation cap');
         if (this.missionPackageMetaStale) warnings.push('Mission package checksum stale');
         return warnings;
