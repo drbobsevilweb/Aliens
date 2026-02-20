@@ -19,7 +19,7 @@ export const ENEMIES = Object.freeze({
         doorAttackCooldownMs: 430,
         canOpenUnlockedDoors: false,
         canBreachAnyDoor: false,
-        sizeScale: 1.0,
+        sizeScale: 1.18,
     }),
     drone: Object.freeze({
         key: 'drone',
@@ -41,7 +41,7 @@ export const ENEMIES = Object.freeze({
         ventMaxDist: 460,
         canOpenUnlockedDoors: true,
         canBreachAnyDoor: false,
-        sizeScale: 1.0,
+        sizeScale: 1.25,
     }),
     facehugger: Object.freeze({
         key: 'facehugger',
@@ -67,7 +67,7 @@ export const ENEMIES = Object.freeze({
         latchDamage: 4,
         canOpenUnlockedDoors: false,
         canBreachAnyDoor: false,
-        sizeScale: 0.8,
+        sizeScale: 1.05,
     }),
     queenLesser: Object.freeze({
         key: 'queenLesser',
@@ -88,7 +88,7 @@ export const ENEMIES = Object.freeze({
         doorDamage: 2,
         doorAttackCooldownMs: 520,
         canBreachAnyDoor: false,
-        sizeScale: 1.35,
+        sizeScale: 1.45,
     }),
     queen: Object.freeze({
         key: 'queen',
@@ -109,7 +109,7 @@ export const ENEMIES = Object.freeze({
         doorDamage: 3,
         doorAttackCooldownMs: 420,
         canBreachAnyDoor: true,
-        sizeScale: 1.62,
+        sizeScale: 1.8,
     }),
 });
 

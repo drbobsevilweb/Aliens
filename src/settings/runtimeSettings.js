@@ -10,7 +10,7 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         startHealth: 100,
     }),
     squad: Object.freeze({
-        reactionDelayMs: 90,
+        reactionDelayMs: 70,
         followLerp: 0.1,
         followerTurnMultiplier: 1,
         snakeBaseSpeed: 280,
@@ -46,19 +46,33 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         pistol: Object.freeze({ damageMultiplier: 1, speedMultiplier: 1, fireRateMultiplier: 1 }),
     }),
     lighting: Object.freeze({
-        ambientDarkness: 0.5,
-        torchRange: 330,
-        torchConeHalfAngle: 0.6,
-        softRadius: 110,
-        coreAlpha: 0.42,
+        ambientDarkness: 0.52,
+        torchRange: 470,
+        torchConeHalfAngle: 0.65,
+        softRadius: 125,
+        coreAlpha: 0.62,
+    }),
+    graphics: Object.freeze({
+        tiltShift: 1,
+        tiltShiftStrength: 0.9,
+        tiltShiftRange: 0.32,
+        tiltShiftFocus: 0.52,
+        scanline: 0,
+        scanlineStrength: 0.08,
+        filmGrain: 0.05,
     }),
     visibility: Object.freeze({
         spottedMemoryMs: 2000,
-        trackerScanMs: 2000,
-        trackerRiskMs: 6000,
+        trackerScanMs: 10000,
+        trackerRiskMs: 10000,
         trackerCooldownMs: 30000,
         trackerRange: 420,
         alienContrastBoost: 1.15,
+        ghostAlphaMin: 0.62,
+        ghostAlphaPulse: 0.09,
+        ghostAlphaMax: 0.82,
+        ghostScaleMul: 1.06,
+        ghostBlueMix: 86,
     }),
     doors: Object.freeze({
         integrityHits: 10,
@@ -67,15 +81,15 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         unweldDurationMs: 3000,
     }),
     marines: Object.freeze({
-        heavyAccuracyMul: 1.1,
-        techAccuracyMul: 1.0,
-        medicAccuracyMul: 0.85,
-        heavyReactionMs: 260,
-        techReactionMs: 420,
-        medicReactionMs: 560,
-        heavyJamSensitivity: 0.7,
-        techJamSensitivity: 0.9,
-        medicJamSensitivity: 1.1,
+        heavyAccuracyMul: 1.15,
+        techAccuracyMul: 1.06,
+        medicAccuracyMul: 0.92,
+        heavyReactionMs: 220,
+        techReactionMs: 340,
+        medicReactionMs: 460,
+        heavyJamSensitivity: 0.62,
+        techJamSensitivity: 0.78,
+        medicJamSensitivity: 0.95,
         moraleKillGain: 5,
         moraleDamageLoss: 10,
         moraleRecoverMinMs: 30000,
@@ -87,13 +101,13 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         panicAllyHitLoss: 3,
         panicLowHealthPerSec: 9,
         panicSwarmPerSec: 6,
-        supportSuppressWindowMs: 900,
-        incomingDamageMul: 0.84,
+        supportSuppressWindowMs: 760,
+        incomingDamageMul: 0.82,
         leaderIncomingDamageMul: 0.9,
         heavyIncomingDamageMul: 0.82,
         techIncomingDamageMul: 0.96,
         medicIncomingDamageMul: 0.98,
-        focusFireGraceMs: 900,
+        focusFireGraceMs: 1000,
         focusFireGraceMul: 0.62,
         maxHitPctOfMaxHp: 0.16,
         lowHpMitigationStartPct: 0.35,
@@ -120,8 +134,8 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         lightPenetrationPct: 0.25,
         wallCollisionHardness: 1,
         ricochetSparkIntensity: 1,
-        impactFxIntensity: 1,
-        fxBurstCapBase: 56,
+        impactFxIntensity: 1.5,
+        fxBurstCapBase: 88,
         fxBurstCapMul: 1,
     }),
     other: Object.freeze({
@@ -148,15 +162,15 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         directorEnabled: 1,
         useMissionPackageDirector: 0,
         eventTickMs: 80,
-        aiThinkIntervalMs: 120,
+        aiThinkIntervalMs: 100,
         autoSaveBetweenMissions: 1,
-        idlePressureBaseMs: 7000,
-        idlePressureMinMs: 3500,
-        gunfireReinforceBaseMs: 4500,
-        gunfireReinforceMinMs: 2200,
-        reinforceCap: 16,
-        reinforceCapIdle: 6,
-        reinforceCapGunfire: 10,
+        idlePressureBaseMs: 6000,
+        idlePressureMinMs: 3000,
+        gunfireReinforceBaseMs: 3900,
+        gunfireReinforceMinMs: 1900,
+        reinforceCap: 18,
+        reinforceCapIdle: 7,
+        reinforceCapGunfire: 11,
         doorNoiseMemoryMs: 16000,
         idleSpawnMemoryMs: 9000,
         waveTransitionGraceMs: 2600,
@@ -171,13 +185,21 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     }),
     director: Object.freeze({
         enabled: 1,
-        pressureRiseRate: 1.25,
-        pressureFallRate: 0.55,
-        peakEnterPressure: 0.74,
-        releaseEnterPressure: 0.46,
-        peakMaxMs: 9500,
-        buildMinMs: 2600,
-        releaseMinMs: 2200,
+        pressureRiseRate: 1.4,
+        pressureFallRate: 0.62,
+        noDecayWhileEngaged: 1,
+        comfortHealthThreshold: 0.5,
+        comfortPressureGate: 0.58,
+        comfortReliefMul: 0.82,
+        peakEnterPressure: 0.7,
+        releaseEnterPressure: 0.42,
+        buildEnterPressure: 0.26,
+        peakMaxMs: 8400,
+        peakMinMs: 3000,
+        peakHoldMinMs: 3000,
+        peakHoldMaxMs: 5000,
+        buildMinMs: 2100,
+        releaseMinMs: 1800,
     }),
     editor: Object.freeze({
         spriteStorageKey: 'aliens_dev_editors_v1',
@@ -268,31 +290,44 @@ function sanitize(settings) {
         s.weapons[key] = w;
     }
 
-    s.lighting.ambientDarkness = clampNumber(s.lighting.ambientDarkness, 0, 1, 0.5);
-    s.lighting.torchRange = clampNumber(s.lighting.torchRange, 80, 1200, 330);
+    s.lighting.ambientDarkness = clampNumber(s.lighting.ambientDarkness, 0, 1, 0.76);
+    s.lighting.torchRange = clampNumber(s.lighting.torchRange, 80, 1200, 420);
     s.lighting.torchConeHalfAngle = clampNumber(s.lighting.torchConeHalfAngle, 0.1, 1.57, 0.6);
     s.lighting.softRadius = clampNumber(s.lighting.softRadius, 10, 600, 110);
-    s.lighting.coreAlpha = clampNumber(s.lighting.coreAlpha, 0, 1, 0.42);
+    s.lighting.coreAlpha = clampNumber(s.lighting.coreAlpha, 0, 1, 0.58);
+    s.graphics = s.graphics || {};
+    s.graphics.tiltShift = clampNumber(s.graphics.tiltShift, 0, 1, 1);
+    s.graphics.tiltShiftStrength = clampNumber(s.graphics.tiltShiftStrength, 0, 3, 0.9);
+    s.graphics.tiltShiftRange = clampNumber(s.graphics.tiltShiftRange, 0.05, 0.9, 0.32);
+    s.graphics.tiltShiftFocus = clampNumber(s.graphics.tiltShiftFocus, 0, 1, 0.52);
+    s.graphics.scanline = clampNumber(s.graphics.scanline, 0, 1, 0);
+    s.graphics.scanlineStrength = clampNumber(s.graphics.scanlineStrength, 0, 0.5, 0.08);
+    s.graphics.filmGrain = clampNumber(s.graphics.filmGrain, 0, 0.3, 0.05);
 
     s.visibility.spottedMemoryMs = clampNumber(s.visibility.spottedMemoryMs, 250, 10000, 2000);
-    s.visibility.trackerScanMs = clampNumber(s.visibility.trackerScanMs, 1000, 12000, 2000);
-    s.visibility.trackerRiskMs = clampNumber(s.visibility.trackerRiskMs, 1000, 20000, 6000);
+    s.visibility.trackerScanMs = clampNumber(s.visibility.trackerScanMs, 1000, 20000, 10000);
+    s.visibility.trackerRiskMs = clampNumber(s.visibility.trackerRiskMs, 1000, 24000, 10000);
     s.visibility.trackerCooldownMs = clampNumber(s.visibility.trackerCooldownMs, 1000, 120000, 30000);
     s.visibility.trackerRange = clampNumber(s.visibility.trackerRange, 120, 1600, 420);
     s.visibility.alienContrastBoost = clampNumber(s.visibility.alienContrastBoost, 0.6, 2, 1.15);
+    s.visibility.ghostAlphaMin = clampNumber(s.visibility.ghostAlphaMin, 0.1, 0.9, 0.62);
+    s.visibility.ghostAlphaPulse = clampNumber(s.visibility.ghostAlphaPulse, 0, 0.2, 0.09);
+    s.visibility.ghostAlphaMax = clampNumber(s.visibility.ghostAlphaMax, s.visibility.ghostAlphaMin, 1, 0.82);
+    s.visibility.ghostScaleMul = clampNumber(s.visibility.ghostScaleMul, 1, 1.25, 1.06);
+    s.visibility.ghostBlueMix = clampNumber(s.visibility.ghostBlueMix, 0, 100, 86);
 
     s.doors.integrityHits = clampNumber(s.doors.integrityHits, 1, 20, 10);
     s.doors.hackDurationMs = clampNumber(s.doors.hackDurationMs, 100, 20000, 3000);
     s.doors.weldDurationMs = clampNumber(s.doors.weldDurationMs, 100, 20000, 4000);
     s.doors.unweldDurationMs = clampNumber(s.doors.unweldDurationMs, 100, 20000, 3000);
 
-    s.marines.heavyAccuracyMul = clampNumber(s.marines.heavyAccuracyMul, 0.2, 3, 1.1);
-    s.marines.techAccuracyMul = clampNumber(s.marines.techAccuracyMul, 0.2, 3, 1);
-    s.marines.medicAccuracyMul = clampNumber(s.marines.medicAccuracyMul, 0.2, 3, 0.85);
-    s.marines.heavyReactionMs = clampNumber(s.marines.heavyReactionMs, 50, 2000, 260);
-    s.marines.techReactionMs = clampNumber(s.marines.techReactionMs, 50, 3000, 420);
-    s.marines.medicReactionMs = clampNumber(s.marines.medicReactionMs, 50, 4000, 560);
-    s.marines.heavyJamSensitivity = clampNumber(s.marines.heavyJamSensitivity, 0.1, 3, 0.7);
+    s.marines.heavyAccuracyMul = clampNumber(s.marines.heavyAccuracyMul, 0.2, 3, 1.15);
+    s.marines.techAccuracyMul = clampNumber(s.marines.techAccuracyMul, 0.2, 3, 1.06);
+    s.marines.medicAccuracyMul = clampNumber(s.marines.medicAccuracyMul, 0.2, 3, 0.92);
+    s.marines.heavyReactionMs = clampNumber(s.marines.heavyReactionMs, 50, 2000, 220);
+    s.marines.techReactionMs = clampNumber(s.marines.techReactionMs, 50, 3000, 340);
+    s.marines.medicReactionMs = clampNumber(s.marines.medicReactionMs, 50, 4000, 460);
+    s.marines.heavyJamSensitivity = clampNumber(s.marines.heavyJamSensitivity, 0.1, 3, 0.62);
     s.marines.techJamSensitivity = clampNumber(s.marines.techJamSensitivity, 0.1, 3, 0.9);
     s.marines.medicJamSensitivity = clampNumber(s.marines.medicJamSensitivity, 0.1, 3, 1.1);
     s.marines.moraleKillGain = clampNumber(s.marines.moraleKillGain, 0, 30, 5);
@@ -311,13 +346,13 @@ function sanitize(settings) {
     s.marines.panicAllyHitLoss = clampNumber(s.marines.panicAllyHitLoss, 0, 40, 3);
     s.marines.panicLowHealthPerSec = clampNumber(s.marines.panicLowHealthPerSec, 0, 50, 9);
     s.marines.panicSwarmPerSec = clampNumber(s.marines.panicSwarmPerSec, 0, 50, 6);
-    s.marines.supportSuppressWindowMs = clampNumber(s.marines.supportSuppressWindowMs, 200, 3000, 900);
-    s.marines.incomingDamageMul = clampNumber(s.marines.incomingDamageMul, 0.2, 2, 0.84);
+    s.marines.supportSuppressWindowMs = clampNumber(s.marines.supportSuppressWindowMs, 200, 3000, 760);
+    s.marines.incomingDamageMul = clampNumber(s.marines.incomingDamageMul, 0.2, 2, 0.82);
     s.marines.leaderIncomingDamageMul = clampNumber(s.marines.leaderIncomingDamageMul, 0.2, 2, 0.9);
     s.marines.heavyIncomingDamageMul = clampNumber(s.marines.heavyIncomingDamageMul, 0.2, 2, 0.82);
     s.marines.techIncomingDamageMul = clampNumber(s.marines.techIncomingDamageMul, 0.2, 2, 0.96);
     s.marines.medicIncomingDamageMul = clampNumber(s.marines.medicIncomingDamageMul, 0.2, 2, 0.98);
-    s.marines.focusFireGraceMs = clampNumber(s.marines.focusFireGraceMs, 100, 4000, 900);
+    s.marines.focusFireGraceMs = clampNumber(s.marines.focusFireGraceMs, 100, 4000, 1000);
     s.marines.focusFireGraceMul = clampNumber(s.marines.focusFireGraceMul, 0.1, 1, 0.62);
     s.marines.maxHitPctOfMaxHp = clampNumber(s.marines.maxHitPctOfMaxHp, 0.04, 0.5, 0.16);
     s.marines.lowHpMitigationStartPct = clampNumber(s.marines.lowHpMitigationStartPct, 0.1, 0.8, 0.35);
@@ -347,8 +382,8 @@ function sanitize(settings) {
     s.walls.lightPenetrationPct = clampNumber(s.walls.lightPenetrationPct, 0, 0.8, 0.25);
     s.walls.wallCollisionHardness = clampNumber(s.walls.wallCollisionHardness, 0, 3, 1);
     s.walls.ricochetSparkIntensity = clampNumber(s.walls.ricochetSparkIntensity, 0, 3, 1);
-    s.walls.impactFxIntensity = clampNumber(s.walls.impactFxIntensity, 0.2, 3, 1);
-    s.walls.fxBurstCapBase = clampNumber(s.walls.fxBurstCapBase, 12, 240, 56);
+    s.walls.impactFxIntensity = clampNumber(s.walls.impactFxIntensity, 0.2, 3, 1.5);
+    s.walls.fxBurstCapBase = clampNumber(s.walls.fxBurstCapBase, 12, 240, 88);
     s.walls.fxBurstCapMul = clampNumber(s.walls.fxBurstCapMul, 0.4, 3, 1);
 
     s.other.uiScale = clampNumber(s.other.uiScale, 0.5, 2, 1);
@@ -409,9 +444,22 @@ function sanitize(settings) {
     s.director.enabled = clampNumber(s.director.enabled, 0, 1, 1);
     s.director.pressureRiseRate = clampNumber(s.director.pressureRiseRate, 0.1, 5, 1.25);
     s.director.pressureFallRate = clampNumber(s.director.pressureFallRate, 0.05, 5, 0.55);
+    s.director.noDecayWhileEngaged = clampNumber(s.director.noDecayWhileEngaged, 0, 1, 1);
+    s.director.comfortHealthThreshold = clampNumber(s.director.comfortHealthThreshold, 0.1, 1, 0.5);
+    s.director.comfortPressureGate = clampNumber(s.director.comfortPressureGate, 0.1, 0.99, 0.58);
+    s.director.comfortReliefMul = clampNumber(s.director.comfortReliefMul, 0.4, 1.2, 0.82);
     s.director.peakEnterPressure = clampNumber(s.director.peakEnterPressure, 0.1, 0.99, 0.74);
     s.director.releaseEnterPressure = clampNumber(s.director.releaseEnterPressure, 0.05, 0.95, 0.46);
+    s.director.buildEnterPressure = clampNumber(s.director.buildEnterPressure, 0.05, 0.9, 0.26);
     s.director.peakMaxMs = clampNumber(s.director.peakMaxMs, 500, 60000, 9500);
+    s.director.peakMinMs = clampNumber(s.director.peakMinMs, 500, s.director.peakMaxMs, 3000);
+    s.director.peakHoldMinMs = clampNumber(s.director.peakHoldMinMs, 500, s.director.peakMaxMs, 3000);
+    s.director.peakHoldMaxMs = clampNumber(
+        s.director.peakHoldMaxMs,
+        s.director.peakHoldMinMs,
+        s.director.peakMaxMs,
+        5000
+    );
     s.director.buildMinMs = clampNumber(s.director.buildMinMs, 100, 60000, 2600);
     s.director.releaseMinMs = clampNumber(s.director.releaseMinMs, 100, 60000, 2200);
 
