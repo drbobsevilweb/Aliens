@@ -76,47 +76,62 @@ export class BootScene extends Phaser.Scene {
         const size = CONFIG.TILE_SIZE;
         const g = this.add.graphics();
         const drawFloorVariant = (offsetX, palette, hazard = false) => {
-            const centerPx = offsetX + size * 0.5;
             g.fillStyle(palette.bg, 1);
             g.fillRect(offsetX, 0, size, size);
-            g.lineStyle(2, palette.frame, 0.9);
+            g.lineStyle(2, palette.frame, 0.87);
             g.strokeRect(offsetX + 0.5, 0.5, size - 1, size - 1);
 
-            for (let stripe = -2; stripe <= 2; stripe++) {
-                const lineX = centerPx + stripe * (size * 0.12);
-                g.fillStyle(0x11121a, 0.35);
-                g.fillRect(lineX - 2, 3, 4, size - 6);
-                g.fillStyle(palette.stripLight, 0.8);
-                g.fillRect(lineX - 1, 5, 2, size - 10);
+            const walkwayCenter = offsetX + size * 0.5;
+            const walkwayW = Math.floor(size * 0.28);
+            const walkwayLeft = walkwayCenter - walkwayW * 0.5;
+            g.fillStyle(palette.walkway, 1);
+            g.fillRect(walkwayLeft, 3, walkwayW, size - 6);
+            g.lineStyle(1, palette.walkwayLine, 0.9);
+            g.beginPath();
+            g.moveTo(walkwayLeft + 1, 4);
+            g.lineTo(walkwayLeft + walkwayW - 1, 4);
+            g.moveTo(walkwayLeft + 1, size - 4);
+            g.lineTo(walkwayLeft + walkwayW - 1, size - 4);
+            g.strokePath();
+            g.lineStyle(1, palette.walkwayAccent, 0.75);
+            for (let step = 0; step < 5; step++) {
+                const y = 8 + step * 6;
+                g.strokeLineShape(new Phaser.Geom.Line(walkwayLeft + 2, y, walkwayLeft + walkwayW - 2, y + 1));
             }
 
-            g.fillStyle(palette.inner, 1);
-            g.fillRoundedRect(offsetX + 6, 5, size - 12, size - 10, 6);
-            g.lineStyle(1, palette.innerLine, 0.35);
-            g.strokeRoundedRect(offsetX + 6.5, 5.5, size - 13, size - 11, 6);
+            const railOffset = Math.floor(size * 0.08);
+            g.lineStyle(3, palette.rail, 0.92);
+            g.lineBetween(offsetX + railOffset, 4, offsetX + railOffset, size - 5);
+            g.lineBetween(offsetX + size - railOffset, 4, offsetX + size - railOffset, size - 5);
+            g.lineStyle(1, palette.railAccent, 0.78);
+            g.lineBetween(offsetX + railOffset + 4, 6, offsetX + railOffset + 4, size - 7);
+            g.lineBetween(offsetX + size - railOffset - 4, 6, offsetX + size - railOffset - 4, size - 7);
 
-            for (let band = 0; band < 3; band++) {
-                const bandHeight = 4;
-                const bandY = 8 + band * 6;
-                g.fillStyle(palette.halo, 0.22 + band * 0.06);
-                g.fillRect(offsetX + 4, bandY, size - 8, bandHeight);
+            for (let gridY = 6; gridY < size - 5; gridY += 5) {
+                g.lineStyle(1, palette.gridLine, 0.4);
+                g.lineBetween(offsetX + 6, gridY, offsetX + size - 6, gridY);
+            }
+            for (let gridX = offsetX + 6; gridX < offsetX + size - 6; gridX += 6) {
+                g.lineStyle(1, palette.gridLine, 0.4);
+                g.lineBetween(gridX, 6, gridX, size - 6);
             }
 
-            g.lineStyle(1, palette.gridLine, 0.4);
-            for (let x = offsetX + 8; x < offsetX + size - 8; x += 6) {
-                g.lineBetween(x, 7, x, size - 7);
+            g.fillStyle(palette.rivet, 0.8);
+            for (let x = offsetX + 8; x < offsetX + size; x += 10) {
+                g.fillCircle(x, 5, 1.4);
+                g.fillCircle(x, size - 5, 1.4);
             }
-            for (let y = 10; y < size - 7; y += 5) {
-                g.lineBetween(offsetX + 8, y, offsetX + size - 8, y);
+            g.fillStyle(palette.rivet, 0.6);
+            for (let y = 8; y < size - 8; y += 10) {
+                g.fillCircle(offsetX + 4, y, 1.1);
+                g.fillCircle(offsetX + size - 4, y, 1.1);
             }
-
-            g.fillStyle(palette.accent, 0.18);
-            g.fillRect(offsetX + 2, 2, size - 4, 2);
-            g.fillRect(offsetX + 2, size - 4, size - 4, 2);
 
             if (hazard) {
-                g.fillStyle(0xf5b330, 0.45);
-                g.fillRect(offsetX + 4, size - 9, size - 8, 4);
+                const stripeW = Math.floor(size * 0.15);
+                g.fillStyle(0xf59d1d, 0.65);
+                g.fillRect(offsetX + 3, size * 0.25, stripeW, size * 0.5);
+                g.fillRect(offsetX + size - 3 - stripeW, size * 0.25, stripeW, size * 0.5);
             }
         };
 
