@@ -126,6 +126,19 @@ const RADIO_STATIC_INCIDENTS = Object.freeze([
     'This place is alive, keep moving.',
 ]);
 
+const OFFSCREEN_INCIDENTS = Object.freeze([
+    'Movement in the vents.',
+    'Motion on the flank.',
+    'Tracker chirping hard.',
+    'Something is circling us.',
+    'Contact just outside beam.',
+]);
+const COMBAT_TELEMETRY_STORAGE_KEY = 'aliens_combat_telemetry_v1';
+const COMBAT_TELEMETRY_SAMPLE_MS = 1000;
+const COMBAT_TELEMETRY_MAX_SAMPLES = 360;
+const MISSION_BALANCE_HISTORY_KEY = 'aliens_mission_balance_history_v1';
+const MISSION_BALANCE_HISTORY_MAX = 60;
+
 export class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
@@ -139,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     create() {
         this.runtimeSettings = loadRuntimeSettings();
         const missionLayout = resolveMissionLayout(this.launchData.missionId);
+        this.missionLayout = missionLayout;
         this.activeMission = missionLayout.mission;
         this.activeMissionWaves = missionLayout.missionWaves;
         this.warriorOnlyTesting = missionLayout.warriorOnlyTesting === true;
@@ -154,6 +168,9 @@ export class GameScene extends Phaser.Scene {
         });
         const { wallLayer } = mapBuilder.build();
         this.wallLayer = wallLayer;
+        this.roomProps = [];
+        this.environmentLampLights = [];
+        this.placeRoomProps(missionLayout);
 
         this.pathGrid = new PathGrid(wallLayer, missionLayout.tilemap.width, missionLayout.tilemap.height);
         this.astar = new AStar();
@@ -220,6 +237,7 @@ export class GameScene extends Phaser.Scene {
         this.stageFlow = new StageFlow(this.activeMissionWaves.length);
         this.enemyManager.spawnWave(this.activeMissionWaves[0], 1);
         this.sessionStartTime = this.time.now;
+        this.sessionStartEpochMs = Date.now();
         this.totalKills = 0;
         this.meta = this.loadMetaProgress();
         this.campaignMissionOrder = MISSION_SET.map((m) => m.id);
@@ -237,6 +255,7 @@ export class GameScene extends Phaser.Scene {
         this.contextMenu = new ContextMenu(this);
         this.doorActionSystem = new DoorActionSystem(this, this.pathGrid, this.pathPlanner, this.movementSystem);
         this.combatDirector = new CombatDirector(this.runtimeSettings.director);
+        this.missionBalanceSnapshotRecorded = false;
         this.pickupGroup = this.physics.add.group({ immovable: true, allowGravity: false });
         const shouldCollideWithDoor = (obj, door) => {
             return !!door && !!door.doorGroup && door.doorGroup.state !== 'open';
@@ -354,6 +373,9 @@ export class GameScene extends Phaser.Scene {
         // Keep leader centered in the playable region (screen area above HUD).
         this.cameras.main.setFollowOffset(0, -CONFIG.HUD_HEIGHT * 0.5);
         this.cameras.main.setDeadzone(CONFIG.CAMERA_DEADZONE_WIDTH, CONFIG.CAMERA_DEADZONE_HEIGHT);
+        if (this.game.registry.get('AlienToneSupported')) {
+            this.cameras.main.setPostPipeline('AlienTone');
+        }
         this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
         const gameSpeed = this.runtimeSettings?.game?.gameSpeedMultiplier || 1;
         const globalTimeScale = this.runtimeSettings?.game?.globalTimeScale || 1;
@@ -368,6 +390,7 @@ export class GameScene extends Phaser.Scene {
         this.nextMarineAmbientRadioAt = 0;
         this.nextAtmosphereIncidentAt = 0;
         this.nextLowAmmoCalloutAt = 0;
+        this.lastTeamKillAt = -100000;
         this.lastLowAmmoWeaponKey = '';
         this.lastLowAmmoAmount = -1;
         this.lastDamageCalloutByMarine = new Map();
@@ -397,6 +420,8 @@ export class GameScene extends Phaser.Scene {
         this.directorOverrideMods = null;
         this.directorOverrideUntil = 0;
         this.combatMods = this.combatDirector.getModifiers();
+        this.combatTelemetryMissionId = String(this.activeMission?.id || '');
+        this.nextCombatTelemetrySampleAt = this.time.now + COMBAT_TELEMETRY_SAMPLE_MS;
         const scriptBase = this.runtimeSettings?.scripting || {};
         const useMissionPackageDirector = (Number(scriptBase.useMissionPackageDirector) || 0) > 0;
         this.useMissionPackageDirector = useMissionPackageDirector;
@@ -458,12 +483,22 @@ export class GameScene extends Phaser.Scene {
         this.idleSpawnMemoryMs = Math.max(2000, Number(script.idleSpawnMemoryMs) || 9000);
         this.lastReinforcementSpawnTypeAt = {};
         this.nextDoorThumpCueAt = 0;
+        this.nextAmbientDustAt = 0;
+        this.nextAmbientBokehAt = 0;
+        this.nextAmbientSteamAt = 0;
+        this.nextAmbientZoneSteamAt = 0;
         this.fxQualityScale = 1;
         this.nextFxQualityEvalAt = 0;
         this.fxSpawnWindowStart = 0;
         this.fxSpawnedInWindow = 0;
         this.fxSpawnWindowMs = 16;
+        this.combatExposurePulse = 0;
+        this.tiltShift = null;
+        this.initAtmosphereZones(missionLayout);
+        this.initRouteEventController(missionLayout);
         this.createAtmosphereOverlay();
+        this.initTiltShift();
+        this.initScanline();
         this.debugOverlay = new DebugOverlay(this);
         this.objectivesPanel = new ObjectivesPanel(this);
         this.controlsOverlay = new ControlsOverlay(this);
@@ -662,6 +697,7 @@ export class GameScene extends Phaser.Scene {
             this.input.off('pointerdown', this.restartPointerHandler);
             this.input.off('wheel', this.wheelHandler);
             this.contextMenu.hide();
+            if (this.hud) this.hud.destroy();
             if (this.inputHandler) this.inputHandler.destroy();
             if (this.debugOverlay) this.debugOverlay.destroy();
             if (this.objectivesPanel) this.objectivesPanel.destroy();
@@ -674,6 +710,15 @@ export class GameScene extends Phaser.Scene {
             if (this.fxSmokePool) {
                 for (const sprite of this.fxSmokePool) sprite.destroy();
             }
+            if (this.fxRingPool) {
+                for (const sprite of this.fxRingPool) sprite.destroy();
+            }
+            if (this.fxBokehPool) {
+                for (const sprite of this.fxBokehPool) sprite.destroy();
+            }
+            if (this.fxFlarePool) {
+                for (const sprite of this.fxFlarePool) sprite.destroy();
+            }
             this.fxActiveSprites = [];
             if (this.acidHazards) {
                 for (const hazard of this.acidHazards) {
@@ -681,6 +726,13 @@ export class GameScene extends Phaser.Scene {
                 }
                 this.acidHazards = [];
             }
+            if (this.roomProps) {
+                for (const prop of this.roomProps) {
+                    if (prop?.sprite) prop.sprite.destroy();
+                }
+                this.roomProps = [];
+            }
+            this.environmentLampLights = [];
         });
     }
 
@@ -700,6 +752,7 @@ export class GameScene extends Phaser.Scene {
         this.refreshMissionPackageRuntimeMeta(time);
         this.updateFxQualityBudget(time);
         this.updateFxSprites(delta);
+        this.updateAmbientDust(time);
         const trackerActive = this.isMotionTrackerActive(time);
         const trackerRiskLocked = this.isMotionTrackerRiskLocked(time);
         this.motionTracker.setState(trackerActive);
@@ -809,6 +862,7 @@ export class GameScene extends Phaser.Scene {
             const morale = Number.isFinite(this.leader?.morale) ? this.leader.morale : 0;
             const moralePenalty = Phaser.Math.Clamp(-morale / 100, 0, 1);
             const moraleBoost = Phaser.Math.Clamp(morale / 100, 0, 1);
+            const momentum = this.getKillMomentum(time);
             const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1);
             const jamMul = Phaser.Math.Clamp(Number(this.combatMods?.marineJamMul) || 1, 0.25, 3);
             const weaponKey = this.weaponManager.currentWeaponKey || 'pulseRifle';
@@ -816,12 +870,12 @@ export class GameScene extends Phaser.Scene {
             const overheatThreshold = Math.max(1, Number(weaponDef?.overheatThreshold) || 100);
             const heatNorm = Phaser.Math.Clamp((Number(this.weaponManager.heat) || 0) / overheatThreshold, 0, 1);
             const spreadMul = Phaser.Math.Clamp(
-                1 + moralePenalty * 1.05 - moraleBoost * 0.26 + pressure * 0.05,
+                1 + moralePenalty * 1.05 - moraleBoost * 0.26 + pressure * 0.05 - momentum * 0.18,
                 0.6,
                 2.8
             );
             const fireRateMul = Phaser.Math.Clamp(
-                1 + moralePenalty * 0.36 - moraleBoost * 0.2 + pressure * 0.08,
+                1 + moralePenalty * 0.36 - moraleBoost * 0.2 + pressure * 0.08 - momentum * 0.16,
                 0.62,
                 2.4
             );
@@ -829,7 +883,7 @@ export class GameScene extends Phaser.Scene {
                 ? 0.034
                 : (weaponKey === 'pistol' ? 0.016 : 0.023);
             const jamChance = Phaser.Math.Clamp(
-                (0.01 + moralePenalty * 0.11 + heatNorm * 0.06) * jamMul,
+                (0.01 + moralePenalty * 0.11 + heatNorm * 0.06) * jamMul * (1 - momentum * 0.32),
                 0,
                 0.34
             );
@@ -838,8 +892,8 @@ export class GameScene extends Phaser.Scene {
                 fireRateMul,
                 jamChance,
                 angleJitter: angleJitterBase * spreadMul,
-                jamDurationMinMs: 700,
-                jamDurationMaxMs: 1550,
+                jamDurationMinMs: Math.floor(700 * (1 - momentum * 0.12)),
+                jamDurationMaxMs: Math.floor(1550 * (1 - momentum * 0.12)),
             });
             if (fired) {
                 this.noteGunfireEvent(time);
@@ -871,6 +925,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         const missionState = this.missionFlow.update(time, this.leader, this.enemyManager, stage);
+        this.updateTimedRouteEvents(time, stage, missionState);
         const completedObjectives = this.countCompletedObjectives(missionState);
         if (completedObjectives > this.lastObjectiveProgressCount) {
             const gainStep = Phaser.Math.Clamp(Number(this.runtimeSettings?.marines?.panicObjectiveGain) || 10, 0, 40);
@@ -910,6 +965,7 @@ export class GameScene extends Phaser.Scene {
         this.updateStageUI(stage, missionState);
         this.updateObjectives(missionState);
         this.updateCombatFeedback(time);
+        this.sampleCombatTelemetry(time);
         this.updateAtmosphereOverlay(time);
         this.updateDebugOverlay(time);
         this.updateMoveTargetIcon(time, delta);
@@ -970,6 +1026,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     onEnemyKilled(_enemy, projectile = null, time = this.time.now) {
+        this.lastTeamKillAt = time;
         const owner = projectile && projectile.ownerRoleKey ? projectile.ownerRoleKey : 'leader';
         if (owner === 'leader') {
             this.showFloatingText(this.leader.x, this.leader.y - 20, 'HOSTILE DOWN', '#ffde9a');
@@ -995,6 +1052,12 @@ export class GameScene extends Phaser.Scene {
         return n;
     }
 
+    getKillMomentum(time = this.time.now) {
+        const age = Math.max(0, time - (Number(this.lastTeamKillAt) || -100000));
+        if (age > 2600) return 0;
+        return Phaser.Math.Clamp(1 - age / 2600, 0, 1);
+    }
+
     updateCombatDirector(time, delta, marines) {
         if (!this.combatDirector) return null;
         const scriptEnabled = (Number(this.runtimeSettings?.scripting?.directorEnabled) || 0) > 0;
@@ -1017,17 +1080,22 @@ export class GameScene extends Phaser.Scene {
         }
         this.lastDirectorUpdateAt = time;
         const teamHealth = this.getTeamHealthTotal(marines);
+        const teamHealthPct = this.getTeamHealthPct(marines);
         let recentDamage = 0;
         if ((time - this.lastTeamDamageSampleAt) >= this.teamDamageSampleWindowMs) {
             recentDamage = Math.max(0, this.lastTeamHealthSample - teamHealth);
             this.lastTeamHealthSample = teamHealth;
             this.lastTeamDamageSampleAt = time;
         }
+        const hostilesOnScreen = this.enemyManager.getOnScreenHostileCount(this.cameras.main);
+        const engaged = this.inputHandler.isFiring || hostilesOnScreen > 0 || recentDamage > 0;
         const telemetry = {
-            hostilesOnScreen: this.enemyManager.getOnScreenHostileCount(this.cameras.main),
+            hostilesOnScreen,
             teamDamageRecent: recentDamage,
             doorPressure: this.enemyManager.sampleDoorPressure ? this.enemyManager.sampleDoorPressure(time) : 0,
             firing: this.inputHandler.isFiring,
+            engaged,
+            teamHealthPct,
             avgMorale: this.getAverageMorale(marines),
         };
         const baseMods = this.combatDirector.update(time, delta, telemetry);
@@ -1093,7 +1161,8 @@ export class GameScene extends Phaser.Scene {
             if (action !== 'heal_target') return;
             const ok = this.startHealAction(targetMarine, this.time.now, { auto: false, preferredRoleKey: 'medic' });
             if (!ok) {
-                this.showFloatingText(this.leader.x, this.leader.y - 22, 'NO HEALER AVAILABLE', '#ffb388');
+                const reason = this.lastHealFailReason || 'NO HEALER AVAILABLE';
+                this.showFloatingText(this.leader.x, this.leader.y - 22, reason, '#ffb388');
             }
         });
     }
@@ -1147,15 +1216,37 @@ export class GameScene extends Phaser.Scene {
     }
 
     startHealAction(targetMarine, time = this.time.now, options = {}) {
-        if (!targetMarine || targetMarine.active === false || targetMarine.alive === false) return false;
-        if (this.healAction) return false;
-        if (this.isMarineTrackerBusy(targetMarine, time)) return false;
-        if (targetMarine.roleKey && this.squadSystem && this.squadSystem.isRoleTaskActive(targetMarine.roleKey)) return false;
+        this.lastHealFailReason = '';
+        if (!targetMarine || targetMarine.active === false || targetMarine.alive === false) {
+            this.lastHealFailReason = 'INVALID HEAL TARGET';
+            return false;
+        }
+        if (this.healAction) {
+            this.lastHealFailReason = 'HEAL IN PROGRESS';
+            return false;
+        }
+        if (this.isMarineTrackerBusy(targetMarine, time)) {
+            this.lastHealFailReason = 'TARGET BUSY: TRACKER';
+            return false;
+        }
+        if (targetMarine.roleKey && this.squadSystem && this.squadSystem.isRoleTaskActive(targetMarine.roleKey)) {
+            this.lastHealFailReason = 'TARGET BUSY: TASK';
+            return false;
+        }
         const operatorInfo = this.pickHealOperator(options.preferredRoleKey || 'medic');
-        if (!operatorInfo || !operatorInfo.actor) return false;
+        if (!operatorInfo || !operatorInfo.actor) {
+            this.lastHealFailReason = 'NO HEALER AVAILABLE';
+            return false;
+        }
         const operator = operatorInfo.actor;
-        if (operator.active === false || operator.alive === false) return false;
-        if (this.isMarineTrackerBusy(operator, time)) return false;
+        if (operator.active === false || operator.alive === false) {
+            this.lastHealFailReason = 'HEALER UNAVAILABLE';
+            return false;
+        }
+        if (this.isMarineTrackerBusy(operator, time)) {
+            this.lastHealFailReason = 'HEALER BUSY: TRACKER';
+            return false;
+        }
 
         const isMedic = operatorInfo.roleKey === 'medic';
         const baseDurationMs = 4200;
@@ -1163,7 +1254,10 @@ export class GameScene extends Phaser.Scene {
         const capPct = isMedic ? 0.9 : 0.65;
         const maxHp = Math.max(1, Number(targetMarine.maxHealth) || 100);
         const capHealth = Math.floor(maxHp * capPct);
-        if ((Number(targetMarine.health) || 0) >= capHealth) return false;
+        if ((Number(targetMarine.health) || 0) >= capHealth) {
+            this.lastHealFailReason = isMedic ? 'TARGET ABOVE 90% HP' : 'TARGET ABOVE 65% HP';
+            return false;
+        }
 
         this.healAction = {
             operator,
@@ -1190,6 +1284,7 @@ export class GameScene extends Phaser.Scene {
         const tgtName = this.healAction.targetRoleKey ? this.healAction.targetRoleKey.toUpperCase() : 'LEADER';
         this.showFloatingText(this.leader.x, this.leader.y - 24, `${opName} HEALING ${tgtName}`, '#9fe9ff');
         this.updateHealActionLock(time);
+        this.lastHealFailReason = '';
         return true;
     }
 
@@ -1448,6 +1543,10 @@ export class GameScene extends Phaser.Scene {
         const stimulusMul = Number(options.stimulusMul) || 1;
         this.showMuzzleFlash(x, y, angle, weaponKey);
         this.addGunFlashLight(x, y, angle, time, weaponKey);
+        this.combatExposurePulse = Math.max(
+            this.combatExposurePulse || 0,
+            weaponKey === 'shotgun' ? 0.2 : (weaponKey === 'pistol' ? 0.09 : 0.13)
+        );
         if (this.enemyManager && typeof this.enemyManager.registerLightStimulus === 'function') {
             const basePower = weaponKey === 'shotgun' ? 1.45 : (weaponKey === 'pistol' ? 0.85 : 1.0);
             this.enemyManager.registerLightStimulus(x, y, time, basePower * stimulusMul);
@@ -1457,6 +1556,11 @@ export class GameScene extends Phaser.Scene {
     initFxEmitters() {
         this.fxDotPool = [];
         this.fxSmokePool = [];
+        this.fxRingPool = [];
+        this.fxBokehPool = [];
+        this.fxFlarePool = [];
+        this.fxDebrisPool = [];
+        this.fxEmberPool = [];
         this.fxActiveSprites = [];
 
         const addPoolSprites = (pool, key, count, depth, blendMode) => {
@@ -1471,8 +1575,25 @@ export class GameScene extends Phaser.Scene {
             }
         };
 
-        addPoolSprites(this.fxDotPool, 'fx_dot', 320, 231, Phaser.BlendModes.ADD);
-        addPoolSprites(this.fxSmokePool, 'fx_smoke', 220, 232, Phaser.BlendModes.SCREEN);
+        addPoolSprites(this.fxDotPool, 'fx_dot', 480, 231, Phaser.BlendModes.ADD);
+        addPoolSprites(this.fxSmokePool, 'fx_smoke', 340, 232, Phaser.BlendModes.SCREEN);
+        addPoolSprites(this.fxRingPool, 'fx_ring', 180, 233, Phaser.BlendModes.ADD);
+        addPoolSprites(this.fxBokehPool, 'fx_bokeh', 128, 229, Phaser.BlendModes.SCREEN);
+        addPoolSprites(this.fxFlarePool, 'fx_flare', 68, 234, Phaser.BlendModes.ADD);
+        addPoolSprites(this.fxDebrisPool, 'fx_debris', 120, 231, Phaser.BlendModes.ADD);
+        addPoolSprites(this.fxEmberPool, 'fx_ember', 96, 231, Phaser.BlendModes.ADD);
+
+        // Keyed lookup tables — avoid nested ternary chains in hot paths.
+        this.fxPools = {
+            dot: this.fxDotPool,
+            smoke: this.fxSmokePool,
+            ring: this.fxRingPool,
+            bokeh: this.fxBokehPool,
+            flare: this.fxFlarePool,
+            debris: this.fxDebrisPool,
+            ember: this.fxEmberPool,
+        };
+        this.fxPoolCaps = { smoke: 230, ring: 160, bokeh: 86, flare: 56, debris: 100, ember: 80 };
     }
 
     createAtmosphereOverlay() {
@@ -1492,6 +1613,33 @@ export class GameScene extends Phaser.Scene {
         this.atmoVignette.setAlpha(0.16);
     }
 
+    initTiltShift() {
+        const supported = this.game.registry.get('TiltShiftSupported') === true;
+        const graphics = this.runtimeSettings?.graphics || {};
+        const enabled = supported && (Number(graphics.tiltShift) || 0) > 0;
+        if (!enabled) return;
+        const applied = this.cameras.main.setPostPipeline('TiltShift');
+        const pipeline = Array.isArray(applied) ? applied[0] : applied;
+        if (!pipeline) return;
+        if (pipeline.setFocus) pipeline.setFocus(graphics.tiltShiftFocus ?? 0.52);
+        if (pipeline.setRange) pipeline.setRange(graphics.tiltShiftRange ?? 0.32);
+        if (pipeline.setStrength) pipeline.setStrength(graphics.tiltShiftStrength ?? 0.9);
+        this.tiltShift = pipeline;
+    }
+
+    initScanline() {
+        const supported = this.game.registry.get('ScanlineSupported') === true;
+        const graphics = this.runtimeSettings?.graphics || {};
+        const enabled = supported && (Number(graphics.scanline) || 0) > 0;
+        if (!enabled) return;
+        const applied = this.cameras.main.setPostPipeline('Scanline');
+        const pipeline = Array.isArray(applied) ? applied[0] : applied;
+        if (!pipeline) return;
+        if (pipeline.setGrain) pipeline.setGrain(graphics.filmGrain ?? 0.05);
+        if (pipeline.setScanlines) pipeline.setScanlines(graphics.scanlineStrength ?? 0.08);
+        this.scanline = pipeline;
+    }
+
     updateAtmosphereOverlay(_time = this.time.now) {
         if (!this.atmoVignette) return;
         const pressure = this.getCombatPressure();
@@ -1502,15 +1650,101 @@ export class GameScene extends Phaser.Scene {
         const crowdMul = Phaser.Math.Clamp(onScreen / 8, 0, 1) * 0.08;
         const burstMul = this.isGunfireBurstActive() ? 0.05 : 0;
         const target = Phaser.Math.Clamp(base + pressure * gain + crowdMul + burstMul, 0.08, 0.8);
-        this.atmoVignette.alpha = Phaser.Math.Linear(this.atmoVignette.alpha || target, target, 0.12);
+        this.combatExposurePulse = Phaser.Math.Linear(this.combatExposurePulse || 0, 0, 0.14);
+        const pulseLift = Phaser.Math.Clamp(this.combatExposurePulse || 0, 0, 0.28);
+        const litTarget = Math.max(0.02, target - pulseLift);
+        this.atmoVignette.alpha = Phaser.Math.Linear(this.atmoVignette.alpha || litTarget, litTarget, 0.12);
+    }
+
+    updateAmbientDust(time = this.time.now) {
+        const cam = this.cameras.main;
+        if (!cam) return;
+        const view = cam.worldView;
+        let sprite = null;
+        if (time >= this.nextAmbientDustAt) {
+            const x = view.centerX + Phaser.Math.Between(-180, 180);
+            const y = view.centerY + Phaser.Math.Between(-120, 120);
+            sprite = this.spawnFxSprite('dot', x, y, {
+                life: Phaser.Math.Between(520, 920),
+                vx: Phaser.Math.FloatBetween(-6, 6),
+                vy: -Phaser.Math.FloatBetween(8, 18),
+                drag: 0.9,
+                scaleStart: Phaser.Math.FloatBetween(0.12, 0.2),
+                scaleEnd: 0,
+                alphaStart: 0.18,
+                alphaEnd: 0,
+                tint: 0x9dc7ff,
+            });
+            const cadence = Phaser.Math.Between(80, 150) / (this.fxQualityScale || 1);
+            this.nextAmbientDustAt = time + cadence;
+        }
+        if (time >= this.nextAmbientBokehAt) {
+            this.spawnFxSprite('bokeh', view.centerX + Phaser.Math.Between(-220, 220), view.centerY + Phaser.Math.Between(-150, 140), {
+                life: Phaser.Math.Between(1000, 1800),
+                vx: Phaser.Math.FloatBetween(-5, 5),
+                vy: Phaser.Math.FloatBetween(-8, -2),
+                drag: 0.55,
+                scaleStart: Phaser.Math.FloatBetween(0.16, 0.28),
+                scaleEnd: Phaser.Math.FloatBetween(0.42, 0.7),
+                alphaStart: Phaser.Math.FloatBetween(0.045, 0.085),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0x8fb4d6, 0xa6c4de, 0xc7d9ea]),
+            });
+            this.nextAmbientBokehAt = time + Phaser.Math.Between(340, 620);
+        }
+        if (time >= this.nextAmbientSteamAt) {
+            this.spawnFxSprite('smoke', view.centerX + Phaser.Math.Between(-210, 210), view.bottom - Phaser.Math.Between(10, 80), {
+                life: Phaser.Math.Between(1000, 1800),
+                vx: Phaser.Math.FloatBetween(-10, 10),
+                vy: Phaser.Math.FloatBetween(-22, -12),
+                drag: 0.42,
+                scaleStart: Phaser.Math.FloatBetween(0.08, 0.14),
+                scaleEnd: Phaser.Math.FloatBetween(0.38, 0.68),
+                alphaStart: Phaser.Math.FloatBetween(0.045, 0.085),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0x9db0b7, 0x8a9ca5, 0xb0bec4]),
+            });
+            this.nextAmbientSteamAt = time + Phaser.Math.Between(600, 1100);
+        }
+        if (time >= this.nextAmbientZoneSteamAt && Array.isArray(this.atmoZones) && this.atmoZones.length > 0) {
+            const zone = Phaser.Utils.Array.GetRandom(this.atmoZones);
+            if (zone) {
+                const zx = zone.x + Phaser.Math.Between(-Math.floor(zone.radius * 0.35), Math.floor(zone.radius * 0.35));
+                const zy = zone.y + Phaser.Math.Between(-Math.floor(zone.radius * 0.28), Math.floor(zone.radius * 0.28));
+                this.spawnFxSprite('smoke', zx, zy, {
+                    life: Phaser.Math.Between(900, 1650),
+                    vx: Phaser.Math.FloatBetween(-9, 9),
+                    vy: Phaser.Math.FloatBetween(-24, -10),
+                    drag: 0.46,
+                    scaleStart: Phaser.Math.FloatBetween(0.09, 0.16) * (zone.steamBias || 1),
+                    scaleEnd: Phaser.Math.FloatBetween(0.42, 0.74) * (zone.steamBias || 1),
+                    alphaStart: Phaser.Math.FloatBetween(0.04, 0.08),
+                    alphaEnd: 0,
+                    tint: Phaser.Utils.Array.GetRandom([0x9eb0b8, 0x8899a2, 0xb1bec3]),
+                });
+                if (Math.random() < 0.46) {
+                    this.spawnFxSprite('bokeh', zx + Phaser.Math.Between(-24, 24), zy + Phaser.Math.Between(-20, 20), {
+                        life: Phaser.Math.Between(880, 1460),
+                        vx: Phaser.Math.FloatBetween(-4, 4),
+                        vy: Phaser.Math.FloatBetween(-8, -2),
+                        drag: 0.5,
+                        scaleStart: Phaser.Math.FloatBetween(0.12, 0.2) * (zone.bokehBias || 1),
+                        scaleEnd: Phaser.Math.FloatBetween(0.36, 0.62) * (zone.bokehBias || 1),
+                        alphaStart: Phaser.Math.FloatBetween(0.03, 0.07),
+                        alphaEnd: 0,
+                        tint: Phaser.Utils.Array.GetRandom([0x90b2cb, 0xa8c1d4, 0xbad1e2]),
+                    });
+                }
+            }
+            this.nextAmbientZoneSteamAt = time + Phaser.Math.Between(420, 760);
+        }
+        return sprite;
     }
 
     acquireFxSprite(poolKey) {
-        const pool = poolKey === 'smoke' ? this.fxSmokePool : this.fxDotPool;
-        if (!pool) return null;
+        const pool = this.fxPools[poolKey] || this.fxDotPool;
         for (let i = 0; i < pool.length; i++) {
-            const sprite = pool[i];
-            if (!sprite.active) return sprite;
+            if (!pool[i].active) return pool[i];
         }
         return null;
     }
@@ -1530,7 +1764,7 @@ export class GameScene extends Phaser.Scene {
         const burstMul = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.fxBurstCapMul) || 1, 0.4, 3);
         const windowCap = Math.max(12, Math.floor(burstBase * (this.fxQualityScale || 1) * burstMul));
         if ((this.fxSpawnedInWindow || 0) >= windowCap) return null;
-        const baseCap = poolKey === 'smoke' ? 230 : 350;
+        const baseCap = this.fxPoolCaps[poolKey] || 350;
         const cap = Math.max(60, Math.floor(baseCap * (this.fxQualityScale || 1) * intensityCapMul));
         if (activeCount >= cap) return null;
         const sprite = this.acquireFxSprite(poolKey);
@@ -1609,6 +1843,263 @@ export class GameScene extends Phaser.Scene {
         else this.fxQualityScale = 1.2;
     }
 
+    createSeededRandom(seedText) {
+        const text = String(seedText || 'seed');
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < text.length; i++) {
+            h ^= text.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return function rnd() {
+            h += 0x6D2B79F5;
+            let t = h;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    tileToWorldCenter(tileX, tileY) {
+        return {
+            x: tileX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE * 0.5,
+            y: tileY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE * 0.5,
+        };
+    }
+
+    collectMarkerTiles(markers, markerValue) {
+        if (!Array.isArray(markers)) return [];
+        const out = [];
+        for (let y = 0; y < markers.length; y++) {
+            const row = markers[y];
+            if (!Array.isArray(row)) continue;
+            for (let x = 0; x < row.length; x++) {
+                if ((row[x] | 0) === markerValue) out.push({ x, y });
+            }
+        }
+        return out;
+    }
+
+    initAtmosphereZones(missionLayout) {
+        this.atmoZones = [];
+        const markers = missionLayout?.tilemap?.markers;
+        const zone4 = this.collectMarkerTiles(markers, 4);
+        const zone5 = this.collectMarkerTiles(markers, 5);
+        for (const t of zone4) {
+            const p = this.tileToWorldCenter(t.x, t.y);
+            this.atmoZones.push({ x: p.x, y: p.y, radius: 120, steamBias: 1.1, bokehBias: 0.75 });
+        }
+        for (const t of zone5) {
+            const p = this.tileToWorldCenter(t.x, t.y);
+            this.atmoZones.push({ x: p.x, y: p.y, radius: 138, steamBias: 1.35, bokehBias: 0.95 });
+        }
+    }
+
+    initRouteEventController(missionLayout) {
+        const missionId = String(this.activeMission?.id || '');
+        this.routeEventController = {
+            enabled: false,
+            extractStarted: false,
+            startAt: 0,
+            nextIndex: 0,
+            events: [],
+            missionId,
+        };
+        if (missionId !== 'm4' && missionId !== 'm5') return;
+        const groups = Array.isArray(this.doorManager?.doorGroups) ? this.doorManager.doorGroups : [];
+        if (groups.length <= 0) return;
+        const mapCx = (Number(missionLayout?.tilemap?.width) || 1) * CONFIG.TILE_SIZE * 0.5;
+        const mapCy = (Number(missionLayout?.tilemap?.height) || 1) * CONFIG.TILE_SIZE * 0.5;
+        const ranked = groups.map((group) => {
+            const c = this.getDoorGroupCenter(group);
+            return {
+                group,
+                center: c,
+                centerDist: Phaser.Math.Distance.Between(c.x, c.y, mapCx, mapCy),
+            };
+        });
+        const byCenter = ranked.slice().sort((a, b) => a.centerDist - b.centerDist);
+        const byNorth = ranked.slice().sort((a, b) => a.center.y - b.center.y);
+        const byWest = ranked.slice().sort((a, b) => a.center.x - b.center.x);
+        const byEast = ranked.slice().sort((a, b) => b.center.x - a.center.x);
+        const primary = byCenter[0]?.group || groups[0];
+        const north = byNorth.find((e) => e.group !== primary)?.group || byNorth[0]?.group || primary;
+        const west = byWest.find((e) => e.group !== primary && e.group !== north)?.group || byWest[0]?.group || primary;
+        const east = byEast.find((e) => e.group !== primary && e.group !== north && e.group !== west)?.group || byEast[0]?.group || primary;
+        const events = [];
+        if (missionId === 'm4') {
+            events.push({ delayMs: 5000, action: 'seal', group: primary, text: 'ROUTE SHIFT: CENTRAL BLAST DOORS SEALED', color: '#ffbf99' });
+            events.push({ delayMs: 12500, action: 'open', group: west, text: 'ROUTE SHIFT: MAINTENANCE WEST UNLOCKED', color: '#9fe7ff' });
+            events.push({ delayMs: 19500, action: 'open', group: primary, text: 'ROUTE SHIFT: BLAST DOORS RELEASED', color: '#c4ffcb' });
+        } else {
+            events.push({ delayMs: 4500, action: 'seal', group: north, text: 'QUEEN LOCKDOWN: NORTH HATCH SEALED', color: '#ffb39f' });
+            events.push({ delayMs: 10500, action: 'open', group: west, text: 'QUEEN LOCKDOWN: WEST FLANK OPEN', color: '#9fddff' });
+            events.push({ delayMs: 17500, action: 'seal', group: east, text: 'QUEEN LOCKDOWN: EAST HATCH SEALED', color: '#ffb39f' });
+            events.push({ delayMs: 24500, action: 'open', group: north, text: 'QUEEN LOCKDOWN: NORTH HATCH RELEASED', color: '#c4ffcb' });
+        }
+        this.routeEventController.events = events;
+        this.routeEventController.enabled = events.length > 0;
+    }
+
+    applyRouteDoorAction(action, doorGroup) {
+        if (!doorGroup) return false;
+        const pathGrid = this.pathGrid;
+        const physicsGroup = this.doorManager.physicsGroup;
+        const lightBlockerGrid = this.lightBlockerGrid;
+        const wallLayer = this.wallLayer;
+        if (action === 'seal') {
+            if (doorGroup.state === 'open') {
+                doorGroup.close(pathGrid, physicsGroup, lightBlockerGrid, wallLayer);
+            }
+            doorGroup.weld(pathGrid, physicsGroup, lightBlockerGrid, wallLayer);
+            return true;
+        }
+        if (action === 'open') {
+            doorGroup.forceOpen(pathGrid, physicsGroup, lightBlockerGrid, wallLayer);
+            return true;
+        }
+        return false;
+    }
+
+    updateTimedRouteEvents(time, stage, _missionState = null) {
+        const ctl = this.routeEventController;
+        if (!ctl || ctl.enabled !== true) return;
+        if (!ctl.extractStarted) {
+            if (stage !== 'extract') return;
+            ctl.extractStarted = true;
+            ctl.startAt = time;
+            ctl.nextIndex = 0;
+            this.showFloatingText(this.leader.x, this.leader.y - 30, 'WARNING: ROUTE SYSTEMS CYCLING', '#ffd6a8');
+        }
+        while (ctl.nextIndex < ctl.events.length) {
+            const ev = ctl.events[ctl.nextIndex];
+            if (!ev || time < (ctl.startAt + ev.delayMs)) break;
+            const ok = this.applyRouteDoorAction(ev.action, ev.group);
+            if (ok && ev.text) {
+                this.showFloatingText(this.leader.x, this.leader.y - 32, String(ev.text), String(ev.color || '#a9d8ff'));
+            }
+            ctl.nextIndex++;
+        }
+    }
+
+    placeRoomProps(missionLayout) {
+        if (!missionLayout?.tilemap?.terrain) return;
+        const terrain = missionLayout.tilemap.terrain;
+        const width = missionLayout.tilemap.width;
+        const height = missionLayout.tilemap.height;
+        if (width <= 0 || height <= 0) return;
+        const rnd = this.createSeededRandom(`props:${missionLayout?.mission?.id || 'm'}:${width}x${height}`);
+        const reserved = new Set();
+        const reserve = (x, y, radius = 0) => {
+            for (let oy = -radius; oy <= radius; oy++) {
+                for (let ox = -radius; ox <= radius; ox++) {
+                    const tx = x + ox;
+                    const ty = y + oy;
+                    if (tx < 0 || ty < 0 || tx >= width || ty >= height) continue;
+                    reserved.add(`${tx},${ty}`);
+                }
+            }
+        };
+        reserve(missionLayout.spawnTile.x, missionLayout.spawnTile.y, 2);
+        reserve(missionLayout.extractionTile.x, missionLayout.extractionTile.y, 2);
+        for (const doorDef of missionLayout.doorDefinitions || []) {
+            for (const t of doorDef.tiles || []) reserve(t.x, t.y, 1);
+        }
+        const markers = missionLayout.tilemap.markers || [];
+        for (let y = 0; y < markers.length; y++) {
+            for (let x = 0; x < (markers[y]?.length || 0); x++) {
+                if ((markers[y][x] | 0) > 0) reserve(x, y, 1);
+            }
+        }
+
+        const isFloor = (x, y) => (
+            x >= 0 && y >= 0 && x < width && y < height && terrain[y][x] === 0
+        );
+        const neighbors8 = [
+            [-1, -1], [0, -1], [1, -1],
+            [-1, 0], [1, 0],
+            [-1, 1], [0, 1], [1, 1],
+        ];
+        const candidates = [];
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                if (!isFloor(x, y)) continue;
+                if (reserved.has(`${x},${y}`)) continue;
+                const open4 = isFloor(x - 1, y) && isFloor(x + 1, y) && isFloor(x, y - 1) && isFloor(x, y + 1);
+                if (!open4) continue;
+                let open8 = 0;
+                for (const d of neighbors8) {
+                    if (isFloor(x + d[0], y + d[1])) open8++;
+                }
+                if (open8 < 6) continue;
+                candidates.push({ x, y });
+            }
+        }
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(rnd() * (i + 1));
+            const t = candidates[i];
+            candidates[i] = candidates[j];
+            candidates[j] = t;
+        }
+        const floorCount = width * height;
+        const deskTarget = Phaser.Math.Clamp(Math.floor(floorCount / 220), 3, 16);
+        const lampTarget = Phaser.Math.Clamp(Math.floor(floorCount / 280), 2, 12);
+        const placedDesks = [];
+        const placedLamps = [];
+        const farEnough = (list, tx, ty, minDistTiles) => {
+            const minSq = minDistTiles * minDistTiles;
+            for (const p of list) {
+                const dx = p.x - tx;
+                const dy = p.y - ty;
+                if ((dx * dx + dy * dy) < minSq) return false;
+            }
+            return true;
+        };
+
+        for (const c of candidates) {
+            if (placedDesks.length >= deskTarget) break;
+            if (!isFloor(c.x + 1, c.y) || reserved.has(`${c.x + 1},${c.y}`)) continue;
+            if (!farEnough(placedDesks, c.x, c.y, 2.4)) continue;
+            if (!farEnough(placedLamps, c.x, c.y, 1.8)) continue;
+            placedDesks.push({ x: c.x, y: c.y });
+            reserve(c.x, c.y, 0);
+            reserve(c.x + 1, c.y, 0);
+        }
+        for (const c of candidates) {
+            if (placedLamps.length >= lampTarget) break;
+            if (!farEnough(placedLamps, c.x, c.y, 4.2)) continue;
+            if (!farEnough(placedDesks, c.x, c.y, 2.3)) continue;
+            placedLamps.push({ x: c.x, y: c.y });
+            reserve(c.x, c.y, 0);
+        }
+
+        const depth = 6;
+        for (const d of placedDesks) {
+            const p = this.tileToWorldCenter(d.x, d.y);
+            const s = this.add.sprite(p.x + CONFIG.TILE_SIZE * 0.5, p.y, 'prop_desk');
+            s.setDepth(depth);
+            s.setAlpha(0.9);
+            s.setRotation(rnd() < 0.5 ? 0 : Math.PI);
+            this.roomProps.push({ kind: 'desk', tileX: d.x, tileY: d.y, sprite: s, blocksLight: true, radius: 24 });
+        }
+        for (const l of placedLamps) {
+            const p = this.tileToWorldCenter(l.x, l.y);
+            const s = this.add.sprite(p.x, p.y, 'prop_lamp');
+            s.setDepth(depth + 0.2);
+            s.setAlpha(0.95);
+            this.roomProps.push({ kind: 'lamp', tileX: l.x, tileY: l.y, sprite: s, blocksLight: false, radius: 8 });
+            this.environmentLampLights.push({
+                x: p.x,
+                y: p.y,
+                angle: 0,
+                halfAngle: Math.PI,
+                range: 136,
+                kind: 'lamp',
+                intensity: 0.44,
+                softRadius: 118,
+            });
+        }
+    }
+
     buildMarineLightSources(marines) {
         const lighting = this.runtimeSettings?.lighting || {};
         const out = marines.map((marine) => ({
@@ -1619,6 +2110,9 @@ export class GameScene extends Phaser.Scene {
             range: lighting.torchRange ?? CONFIG.TORCH_RANGE,
             kind: 'torch',
         }));
+        if (Array.isArray(this.environmentLampLights) && this.environmentLampLights.length > 0) {
+            for (const lamp of this.environmentLampLights) out.push(lamp);
+        }
         const now = this.time.now;
         this.gunFlashLights = this.gunFlashLights.filter((f) => f.expiresAt > now);
         this.sparkLights = this.sparkLights.filter((f) => f.expiresAt > now);
@@ -1631,6 +2125,8 @@ export class GameScene extends Phaser.Scene {
                 halfAngle: f.halfAngle ?? Math.PI,
                 range: (f.rangeMin ?? 120) + (f.rangeBoost ?? 110) * t,
                 kind: 'flash',
+                intensity: (f.intensityMin ?? 0.82) + (f.intensityBoost ?? 0.74) * t,
+                softRadius: (f.softRadiusMin ?? 120) + (f.softRadiusBoost ?? 130) * t,
             });
         }
         for (const f of this.sparkLights) {
@@ -1642,6 +2138,8 @@ export class GameScene extends Phaser.Scene {
                 halfAngle: Math.PI,
                 range: (f.rangeMin ?? 18) + (f.rangeBoost ?? 34) * t,
                 kind: 'spark',
+                intensity: 0.38 + 0.26 * t,
+                softRadius: 26 + 28 * t,
             });
         }
         return out;
@@ -1649,9 +2147,18 @@ export class GameScene extends Phaser.Scene {
 
     addGunFlashLight(x, y, angle, time, weaponKey = 'pulseRifle') {
         const profiles = {
-            pulseRifle: { duration: 125, halfAngle: 0.75, rangeMin: 136, rangeBoost: 150 },
-            shotgun: { duration: 160, halfAngle: 1.1, rangeMin: 165, rangeBoost: 190 },
-            pistol: { duration: 95, halfAngle: 0.62, rangeMin: 108, rangeBoost: 115 },
+            pulseRifle: {
+                duration: 145, halfAngle: 0.95, rangeMin: 170, rangeBoost: 185,
+                intensityMin: 0.95, intensityBoost: 0.9, softRadiusMin: 165, softRadiusBoost: 155,
+            },
+            shotgun: {
+                duration: 190, halfAngle: 1.35, rangeMin: 230, rangeBoost: 250,
+                intensityMin: 1.18, intensityBoost: 1.05, softRadiusMin: 220, softRadiusBoost: 200,
+            },
+            pistol: {
+                duration: 120, halfAngle: 0.82, rangeMin: 140, rangeBoost: 145,
+                intensityMin: 0.78, intensityBoost: 0.66, softRadiusMin: 130, softRadiusBoost: 120,
+            },
         };
         const p = profiles[weaponKey] || profiles.pulseRifle;
         const duration = p.duration;
@@ -1664,6 +2171,10 @@ export class GameScene extends Phaser.Scene {
             halfAngle: p.halfAngle,
             rangeMin: p.rangeMin,
             rangeBoost: p.rangeBoost,
+            intensityMin: p.intensityMin,
+            intensityBoost: p.intensityBoost,
+            softRadiusMin: p.softRadiusMin,
+            softRadiusBoost: p.softRadiusBoost,
             expiresAt: time + duration,
         });
     }
@@ -1682,12 +2193,24 @@ export class GameScene extends Phaser.Scene {
     }
 
     buildMarineShadowCasters(marines) {
-        return marines.map((marine) => ({
+        const casters = marines.map((marine) => ({
             x: marine.x,
             y: marine.y,
             radius: 14,
             blocksLight: true,
         }));
+        if (Array.isArray(this.roomProps)) {
+            for (const prop of this.roomProps) {
+                if (!prop?.sprite?.active || prop.blocksLight !== true) continue;
+                casters.push({
+                    x: prop.sprite.x,
+                    y: prop.sprite.y,
+                    radius: prop.radius || 18,
+                    blocksLight: true,
+                });
+            }
+        }
+        return casters;
     }
 
     updateStageUI(stage, missionState = null) {
@@ -1718,6 +2241,7 @@ export class GameScene extends Phaser.Scene {
             this.extractionRing.setVisible(false);
             this.extractionLabel.setVisible(false);
             this.objectiveTargetMarker.setVisible(false);
+            this.recordMissionBalanceSnapshot('victory');
             this.updateMetaProgress(true);
             this.updateCampaignProgressOnVictory();
             this.stageText.setText('STAGE: MISSION COMPLETE');
@@ -1734,6 +2258,7 @@ export class GameScene extends Phaser.Scene {
             this.extractionRing.setVisible(false);
             this.extractionLabel.setVisible(false);
             this.objectiveTargetMarker.setVisible(false);
+            this.recordMissionBalanceSnapshot('defeat');
             this.updateMetaProgress(false);
             this.stageText.setText('STAGE: TEAM WIPED');
             this.endHintText.setText(`${this.buildMissionStatsText()}\n${this.buildMetaProgressText()}\n${this.buildMissionEndPrompt('defeat')}`);
@@ -1902,6 +2427,214 @@ export class GameScene extends Phaser.Scene {
         return `Best Time: ${bestTime} | Best Kills: ${this.meta.bestKills} | Runs: ${this.meta.runs}`;
     }
 
+    recordMissionBalanceSnapshot(result = 'defeat') {
+        if (this.missionBalanceSnapshotRecorded) return;
+        this.missionBalanceSnapshotRecorded = true;
+        const missionId = String(this.activeMission?.id || '');
+        if (!missionId) return;
+        const telemetry = this.loadTelemetryBucketForMission(missionId);
+        const runSamples = telemetry.filter((s) => Number(s?.ts) >= this.sessionStartEpochMs);
+        const avgPressure = this.averageSampleValue(runSamples, 'pressure');
+        const avgJam = this.averageSampleValue(runSamples, 'jamMul');
+        const avgReaction = this.averageSampleValue(runSamples, 'reactionMul');
+        const avgReinforceGapMs = this.averageSampleValue(runSamples, 'reinforceGapMs');
+        const highPressureRate = this.ratioWhere(runSamples, (s) => Number(s?.pressure) >= 0.78);
+        const highJamRate = this.ratioWhere(runSamples, (s) => Number(s?.jamMul) >= 1.28);
+        const stressTier = this.classifySnapshotStress(avgPressure, avgJam, highPressureRate, highJamRate);
+        const anomalies = this.getSnapshotAnomalies(runSamples, avgPressure, avgJam, highPressureRate, highJamRate);
+        const suggestedProfile = this.recommendProfileFromSnapshot(avgPressure, avgJam);
+        const suggestion = this.buildDirectorSuggestionForMission(avgPressure, avgJam);
+        const elapsedSec = Math.floor(Math.max(0, this.time.now - this.sessionStartTime) / 1000);
+        const survivalIndex = this.computeSurvivalIndex(result, elapsedSec, this.totalKills);
+        const pacingScore = this.computePacingScore(avgPressure, avgJam, highPressureRate, highJamRate);
+        const entry = {
+            ts: Date.now(),
+            result: String(result || 'defeat'),
+            missionId,
+            missionName: String(this.activeMission?.name || missionId),
+            difficulty: String(this.activeMission?.difficulty || 'normal'),
+            elapsedSec,
+            kills: Math.max(0, Number(this.totalKills) || 0),
+            sampleCount: runSamples.length,
+            avgPressure: round3(avgPressure),
+            avgJam: round3(avgJam),
+            avgReaction: round3(avgReaction),
+            avgReinforceGapMs: Math.round(avgReinforceGapMs),
+            highPressureRate: round3(highPressureRate),
+            highJamRate: round3(highJamRate),
+            stressTier,
+            anomalies,
+            survivalIndex,
+            pacingScore,
+            suggestedProfile,
+            suggestion,
+        };
+        this.pushMissionBalanceHistoryEntry(entry);
+    }
+
+    loadTelemetryBucketForMission(missionId) {
+        try {
+            const raw = localStorage.getItem(COMBAT_TELEMETRY_STORAGE_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            const bucket = parsed?.missions?.[missionId];
+            return Array.isArray(bucket) ? bucket : [];
+        } catch {
+            return [];
+        }
+    }
+
+    averageSampleValue(samples, key) {
+        if (!Array.isArray(samples) || samples.length === 0) return 0;
+        const values = samples
+            .map((s) => Number(s?.[key]))
+            .filter((n) => Number.isFinite(n));
+        if (values.length === 0) return 0;
+        return values.reduce((a, b) => a + b, 0) / values.length;
+    }
+
+    ratioWhere(samples, predicate) {
+        if (!Array.isArray(samples) || samples.length === 0) return 0;
+        let hit = 0;
+        let total = 0;
+        for (const s of samples) {
+            total++;
+            if (predicate(s)) hit++;
+        }
+        return total > 0 ? (hit / total) : 0;
+    }
+
+    classifySnapshotStress(avgPressure = 0, avgJam = 1, highPressureRate = 0, highJamRate = 0) {
+        if (avgPressure >= 0.72 || avgJam >= 1.32 || highPressureRate >= 0.3 || highJamRate >= 0.25) return 'high';
+        if (avgPressure <= 0.42 && avgJam <= 1.04 && highPressureRate <= 0.08) return 'low';
+        return 'target';
+    }
+
+    getSnapshotAnomalies(samples, avgPressure, avgJam, highPressureRate, highJamRate) {
+        const flags = [];
+        if (!Array.isArray(samples) || samples.length < 12) flags.push('low_sample_count');
+        if (avgPressure >= 0.82) flags.push('overpressure');
+        if (avgPressure <= 0.34) flags.push('underpressure');
+        if (avgJam >= 1.42) flags.push('high_jam');
+        if (highPressureRate >= 0.42) flags.push('spiky_pressure');
+        if (highJamRate >= 0.34) flags.push('spiky_jam');
+        return flags;
+    }
+
+    computeSurvivalIndex(result = 'defeat', elapsedSec = 0, kills = 0) {
+        const winBonus = result === 'victory' ? 42 : 10;
+        const timeScore = Phaser.Math.Clamp((Number(elapsedSec) || 0) / 320, 0, 1) * 28;
+        const killScore = Phaser.Math.Clamp((Number(kills) || 0) / 80, 0, 1) * 30;
+        return Math.round(winBonus + timeScore + killScore);
+    }
+
+    computePacingScore(avgPressure = 0, avgJam = 1, highPressureRate = 0, highJamRate = 0) {
+        const targetPressure = this.activeMission?.difficulty === 'extreme'
+            ? 0.67
+            : (this.activeMission?.difficulty === 'hard' ? 0.6 : 0.53);
+        const pressureFit = 1 - Phaser.Math.Clamp(Math.abs(avgPressure - targetPressure) / 0.3, 0, 1);
+        const jamFit = 1 - Phaser.Math.Clamp(Math.abs(avgJam - 1.08) / 0.5, 0, 1);
+        const spikePenalty = Phaser.Math.Clamp(highPressureRate * 0.55 + highJamRate * 0.45, 0, 1);
+        const score = (pressureFit * 0.55 + jamFit * 0.35 + (1 - spikePenalty) * 0.1) * 100;
+        return Math.round(score);
+    }
+
+    recommendProfileFromSnapshot(avgPressure = 0, avgJam = 1) {
+        if (avgPressure >= 0.72 || avgJam >= 1.32) return 'cinematic';
+        if (avgPressure <= 0.42 && avgJam <= 1.04) return 'hardcore';
+        return 'balanced';
+    }
+
+    buildDirectorSuggestionForMission(avgPressure = 0, avgJam = 1) {
+        const d = (this.activeMission?.director && typeof this.activeMission.director === 'object')
+            ? this.activeMission.director
+            : {};
+        const idleBase = Number(d.idlePressureBaseMs) || 7000;
+        const gunfireBase = Number(d.gunfireReinforceBaseMs) || 4500;
+        const reinforceCap = Number(d.reinforceCap) || 16;
+        const ambushMs = Number(d.inactivityAmbushMs) || 10000;
+        const ambushCdMs = Number(d.inactivityAmbushCooldownMs) || 14000;
+        const targetPressure = this.activeMission?.difficulty === 'extreme'
+            ? 0.67
+            : (this.activeMission?.difficulty === 'hard' ? 0.6 : 0.53);
+        const pressureErr = Phaser.Math.Clamp((targetPressure - avgPressure) / 0.22, -1, 1);
+        const jamErr = Phaser.Math.Clamp((1.06 - avgJam) / 0.28, -1, 1);
+        const paceSignal = Phaser.Math.Clamp(pressureErr * 0.74 + jamErr * 0.26, -1, 1);
+        return {
+            idlePressureBaseMs: Math.round(Phaser.Math.Clamp(idleBase * (1 - paceSignal * 0.16), 2000, 30000)),
+            gunfireReinforceBaseMs: Math.round(Phaser.Math.Clamp(gunfireBase * (1 - paceSignal * 0.18), 1200, 20000)),
+            reinforceCap: Math.round(Phaser.Math.Clamp(reinforceCap * (1 + paceSignal * 0.14), 0, 80)),
+            inactivityAmbushMs: Math.round(Phaser.Math.Clamp(ambushMs * (1 - paceSignal * 0.14), 2000, 45000)),
+            inactivityAmbushCooldownMs: Math.round(Phaser.Math.Clamp(ambushCdMs * (1 - paceSignal * 0.12), 1500, 60000)),
+            paceSignal: round3(paceSignal),
+            targetPressure: round3(targetPressure),
+        };
+    }
+
+    pushMissionBalanceHistoryEntry(entry) {
+        try {
+            const raw = localStorage.getItem(MISSION_BALANCE_HISTORY_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            const entries = Array.isArray(parsed) ? parsed : [];
+            entries.unshift(entry);
+            if (entries.length > MISSION_BALANCE_HISTORY_MAX) {
+                entries.splice(MISSION_BALANCE_HISTORY_MAX);
+            }
+            localStorage.setItem(MISSION_BALANCE_HISTORY_KEY, JSON.stringify(entries));
+        } catch {
+            // Ignore storage failures.
+        }
+    }
+
+    sampleCombatTelemetry(time = this.time.now) {
+        if (!this.combatTelemetryMissionId || time < this.nextCombatTelemetrySampleAt) return;
+        this.nextCombatTelemetrySampleAt = time + COMBAT_TELEMETRY_SAMPLE_MS;
+        const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1);
+        const jamMul = Phaser.Math.Clamp(Number(this.combatMods?.marineJamMul) || 1, 0, 10);
+        const reactionMul = Phaser.Math.Clamp(Number(this.combatMods?.marineReactionMul) || 1, 0, 10);
+        const idleGapMs = Math.max(0, Math.floor((Number(this.nextIdlePressureAt) || time) - time));
+        const gunGapMs = Math.max(0, Math.floor((Number(this.nextGunfireReinforceAt) || time) - time));
+        const reinforceGapMs = Math.min(idleGapMs, gunGapMs);
+
+        let snapshot = { updatedAt: Date.now(), missions: {} };
+        try {
+            const raw = localStorage.getItem(COMBAT_TELEMETRY_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object' && parsed.missions && typeof parsed.missions === 'object') {
+                    snapshot = parsed;
+                }
+            }
+        } catch {
+            snapshot = { updatedAt: Date.now(), missions: {} };
+        }
+
+        const bucket = Array.isArray(snapshot.missions[this.combatTelemetryMissionId])
+            ? snapshot.missions[this.combatTelemetryMissionId]
+            : [];
+        bucket.push({
+            ts: Date.now(),
+            tMs: Math.floor(time),
+            pressure,
+            jamMul,
+            reactionMul,
+            reinforceGapMs,
+            reinforceIdleMs: idleGapMs,
+            reinforceGunMs: gunGapMs,
+        });
+        if (bucket.length > COMBAT_TELEMETRY_MAX_SAMPLES) {
+            bucket.splice(0, bucket.length - COMBAT_TELEMETRY_MAX_SAMPLES);
+        }
+        snapshot.missions[this.combatTelemetryMissionId] = bucket;
+        snapshot.updatedAt = Date.now();
+
+        try {
+            localStorage.setItem(COMBAT_TELEMETRY_STORAGE_KEY, JSON.stringify(snapshot));
+        } catch {
+            // Ignore storage failures.
+        }
+    }
+
     updateDebugOverlay(time) {
         if (!this.debugOverlay) return;
         const phase = this.lastMissionState && this.lastMissionState.phaseLabel
@@ -1919,6 +2652,15 @@ export class GameScene extends Phaser.Scene {
             kills: this.totalKills,
             pathStats: this.pathPlanner && this.pathPlanner.getStats ? this.pathPlanner.getStats() : null,
             warnings: this.collectLogicWarnings(time),
+            combat: {
+                state: String(this.combatMods?.state || 'manual'),
+                pressure: Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1),
+                jamMul: Phaser.Math.Clamp(Number(this.combatMods?.marineJamMul) || 1, 0, 10),
+                reactionMul: Phaser.Math.Clamp(Number(this.combatMods?.marineReactionMul) || 1, 0, 10),
+                reinforceInMs: Math.max(0, Math.floor((Number(this.nextIdlePressureAt) || time) - time)),
+                reinforceCdMs: Math.max(0, Math.floor((Number(this.nextGunfireReinforceAt) || time) - time)),
+                momentum: this.getKillMomentum(time),
+            },
         });
     }
 
@@ -2587,11 +3329,19 @@ export class GameScene extends Phaser.Scene {
         if (time < (this.nextAtmosphereIncidentAt || 0)) return;
         const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || 0, 0, 1);
         const onScreen = this.enemyManager?.getOnScreenHostileCount?.(this.cameras.main) || 0;
-        if (pressure < 0.46 || onScreen < 2) {
+        const view = this.cameras.main ? this.cameras.main.worldView : null;
+        const nearest = this.getClosestEnemyForTrackerCue(view, 980);
+        const offscreenThreat = !!(nearest && view && !Phaser.Geom.Rectangle.Contains(view, nearest.enemy.x, nearest.enemy.y));
+        if (pressure < 0.42 && !offscreenThreat) {
             this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(2800, 5200);
             return;
         }
-        const chance = Phaser.Math.Clamp((pressure - 0.46) * 1.3, 0.08, 0.64);
+        if (!offscreenThreat && onScreen < 2) {
+            this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(2600, 5000);
+            return;
+        }
+        const chanceBase = Phaser.Math.Clamp((pressure - 0.4) * 1.35, 0.08, 0.66);
+        const chance = Phaser.Math.Clamp(chanceBase + (offscreenThreat ? 0.14 : 0), 0.1, 0.8);
         if (Math.random() > chance) {
             this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(2400, 4600);
             return;
@@ -2599,9 +3349,13 @@ export class GameScene extends Phaser.Scene {
         const candidates = (marines || []).filter((m) => m && m.active !== false && m.alive !== false);
         if (candidates.length === 0) return;
         const anchor = Phaser.Utils.Array.GetRandom(candidates);
-        const line = Phaser.Utils.Array.GetRandom(RADIO_STATIC_INCIDENTS);
+        const line = offscreenThreat
+            ? Phaser.Utils.Array.GetRandom(OFFSCREEN_INCIDENTS)
+            : Phaser.Utils.Array.GetRandom(RADIO_STATIC_INCIDENTS);
         this.showFloatingText(anchor.x, anchor.y - 34, line, '#9ed0ff');
-        this.nextAtmosphereIncidentAt = time + Phaser.Math.Between(4800, 9000);
+        this.nextAtmosphereIncidentAt = offscreenThreat
+            ? time + Phaser.Math.Between(3800, 7600)
+            : time + Phaser.Math.Between(4800, 9000);
     }
 
     createMoveTargetIcon() {
@@ -2781,6 +3535,27 @@ export class GameScene extends Phaser.Scene {
         const offset = 18 * flashScale;
         const fx = x + Math.cos(angle) * offset;
         const fy = y + Math.sin(angle) * offset;
+        this.spawnFxSprite('ring', fx, fy, {
+            life: weaponKey === 'shotgun' ? 150 : 110,
+            scaleStart: weaponKey === 'shotgun' ? 0.2 : 0.14,
+            scaleEnd: weaponKey === 'shotgun' ? 0.9 : 0.62,
+            alphaStart: weaponKey === 'shotgun' ? 0.62 : 0.5,
+            alphaEnd: 0,
+            tint: weaponKey === 'pistol' ? 0xbfd3ff : 0xffe4b5,
+            rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+            spin: Phaser.Math.FloatBetween(-1.2, 1.2),
+        });
+        if (Math.random() < (weaponKey === 'shotgun' ? 0.76 : 0.58) * this.fxQualityScale) {
+            this.spawnFxSprite('flare', fx, fy, {
+                life: weaponKey === 'shotgun' ? 110 : 84,
+                rotation: angle,
+                scaleStart: weaponKey === 'shotgun' ? 0.7 : 0.52,
+                scaleEnd: weaponKey === 'shotgun' ? 1.45 : 1.2,
+                alphaStart: weaponKey === 'shotgun' ? 0.32 : 0.24,
+                alphaEnd: 0,
+                tint: weaponKey === 'pistol' ? 0xbfd4ff : 0xffe7bf,
+            });
+        }
         const coreQty = Math.max(3, Math.round(10 * p.coreMul * flashScale * this.fxQualityScale * flashBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = angle + Phaser.Math.FloatBetween(-p.coneCore, p.coneCore);
@@ -2868,6 +3643,16 @@ export class GameScene extends Phaser.Scene {
         const sparkIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.ricochetSparkIntensity) || 1, 0.4, 2.2);
         const impactFxIntensity = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
         const fxBoost = 2.45 * impactFxIntensity * profileMul;
+        this.spawnFxSprite('ring', x, y, {
+            life: Phaser.Math.Between(120, 190),
+            scaleStart: Phaser.Math.FloatBetween(0.12, 0.2),
+            scaleEnd: Phaser.Math.FloatBetween(0.58, 0.94),
+            alphaStart: Phaser.Math.FloatBetween(0.26, 0.48),
+            alphaEnd: 0,
+            tint: color,
+            rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+            spin: Phaser.Math.FloatBetween(-0.8, 0.8),
+        });
         const coreQty = Math.max(3, Math.round((5 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity * fxBoost));
         for (let i = 0; i < coreQty; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -2922,6 +3707,25 @@ export class GameScene extends Phaser.Scene {
                 tint: Phaser.Utils.Array.GetRandom([0xffffff, 0xffe8b8, 0xffd27a, color]),
                 rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
                 spin: Phaser.Math.FloatBetween(-20, 20),
+            });
+        }
+        // Angular metal debris shards — heavier, tumble slowly, cold steel palette
+        const debrisQty = Math.max(2, Math.round((4 + Phaser.Math.Between(0, 3)) * this.fxQualityScale * sparkIntensity));
+        for (let i = 0; i < debrisQty; i++) {
+            const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const speed = Phaser.Math.FloatBetween(120, 360) * sparkIntensity;
+            this.spawnFxSprite('debris', x, y, {
+                vx: Math.cos(dir) * speed,
+                vy: Math.sin(dir) * speed + Phaser.Math.FloatBetween(-20, 10),
+                gravityY: Phaser.Math.FloatBetween(480, 820),
+                life: Phaser.Math.Between(80, 200),
+                scaleStart: Phaser.Math.FloatBetween(0.5, 1.1),
+                scaleEnd: Phaser.Math.FloatBetween(0.1, 0.4),
+                alphaStart: Phaser.Math.FloatBetween(0.7, 0.95),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0xaabbc8, 0x8a9aac, 0xc0cad4, 0x7a8a98]),
+                rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                spin: Phaser.Math.FloatBetween(-6, 6),
             });
         }
 
@@ -3058,6 +3862,16 @@ export class GameScene extends Phaser.Scene {
 
     showAlienDeathBurst(x, y) {
         const fxMul = Phaser.Math.Clamp(Number(this.runtimeSettings?.walls?.impactFxIntensity) || 1, 0.2, 3);
+        this.spawnFxSprite('ring', x, y, {
+            life: Phaser.Math.Between(180, 260),
+            scaleStart: 0.2 * fxMul,
+            scaleEnd: 1.05 * fxMul,
+            alphaStart: 0.44,
+            alphaEnd: 0,
+            tint: 0x9cff8f,
+            rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+            spin: Phaser.Math.FloatBetween(-0.5, 0.5),
+        });
         const count = Math.max(16, Math.round((28 + Phaser.Math.Between(0, 12)) * this.fxQualityScale * fxMul));
         for (let i = 0; i < count; i++) {
             const dir = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -3089,6 +3903,23 @@ export class GameScene extends Phaser.Scene {
                 tint: Phaser.Utils.Array.GetRandom([0xd8ffe0, 0xbcecc6, 0x9ec9a8]),
                 rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
                 spin: Phaser.Math.FloatBetween(-1.2, 1.2),
+            });
+        }
+        // Warm glowing embers — linger and float upward after the burst
+        const emberCount = Math.max(6, Math.round((10 + Phaser.Math.Between(0, 6)) * this.fxQualityScale * fxMul));
+        for (let i = 0; i < emberCount; i++) {
+            this.spawnFxSprite('ember', x + Phaser.Math.Between(-10, 10), y + Phaser.Math.Between(-10, 10), {
+                vx: Phaser.Math.FloatBetween(-24, 24),
+                vy: Phaser.Math.FloatBetween(-52, -12),
+                gravityY: Phaser.Math.FloatBetween(-18, 12),
+                life: Phaser.Math.Between(500, 1100),
+                scaleStart: Phaser.Math.FloatBetween(0.18, 0.44),
+                scaleEnd: 0,
+                alphaStart: Phaser.Math.FloatBetween(0.55, 0.88),
+                alphaEnd: 0,
+                tint: Phaser.Utils.Array.GetRandom([0xff7020, 0xff9040, 0xffc060, 0xffdd90]),
+                rotation: Phaser.Math.FloatBetween(0, Math.PI * 2),
+                spin: Phaser.Math.FloatBetween(-2, 2),
             });
         }
         this.addSparkLight(x, y, this.time.now, {
@@ -3312,6 +4143,7 @@ export class GameScene extends Phaser.Scene {
             if (this.isMarineHealBusy(follower, time)) continue;
             const state = this.getFollowerCombatState(follower.roleKey);
             const profile = this.getFollowerCombatProfile(follower.roleKey);
+            const momentum = this.getKillMomentum(time);
             const selfRecentlyAttacked = Number.isFinite(follower.lastDamagedAt) && (time - follower.lastDamagedAt <= 1500);
             const maxHp = Math.max(1, Number(follower.maxHealth) || 100);
             const hpPct = Phaser.Math.Clamp((Number(follower.health) || 0) / maxHp, 0, 1);
@@ -3546,7 +4378,7 @@ export class GameScene extends Phaser.Scene {
                 state.targetRef = best;
                 // Callouts fire only when a marine freshly spots a hostile in beam/LOS.
                 this.tryMarineSpotCallout(follower, time);
-                const reactionMul = Phaser.Math.Clamp(1 + moralePenalty * 0.8 - moraleBoost * 0.22, 0.58, 2.2);
+                const reactionMul = Phaser.Math.Clamp(1 + moralePenalty * 0.8 - moraleBoost * 0.22 - momentum * 0.16, 0.58, 2.2);
                 state.readyAt = time + profile.reactionMs * reactionMul * combatMods.marineReactionMul;
             }
             if (time < state.readyAt) continue;
@@ -3567,7 +4399,11 @@ export class GameScene extends Phaser.Scene {
                     Math.floor(
                         def.fireRate
                         * profile.fireRateMul
-                        * Phaser.Math.Clamp(1 + moralePenalty * 0.35 - moraleBoost * 0.18 + combatMods.pressure * 0.08, 0.62, 2.4)
+                        * Phaser.Math.Clamp(
+                            1 + moralePenalty * 0.35 - moraleBoost * 0.18 + combatMods.pressure * 0.08 - momentum * 0.14,
+                            0.62,
+                            2.4
+                        )
                     )
                 ),
                 damage: Math.max(1, def.damage * profile.damageMul),
@@ -3588,7 +4424,7 @@ export class GameScene extends Phaser.Scene {
                     Math.max(0, (state.heat - 82) / 140) * profile.jamSensitivity
                     + moralePenalty * 0.12
                     - moraleBoost * 0.06
-                ) * combatMods.marineJamMul,
+                ) * combatMods.marineJamMul * (1 - momentum * 0.26),
                 0,
                 0.45
             );
@@ -4350,19 +5186,19 @@ export class GameScene extends Phaser.Scene {
 
         const trackerStart = Number(this.trackerStartedAt) || 0;
         const healStart = Number(h.startedAt) || 0;
-        if (trackerStart >= healStart) {
-            this.cancelMotionTrackerScan(false);
-        } else {
+        // Tracker should only be cancelled by attacks; if both slipped through, drop heal instead.
+        if (trackerStart < healStart) {
             this.cancelHealAction(false);
+            this.showFloatingText(this.leader.x, this.leader.y - 24, 'HEAL DEFERRED', '#ffcb8a');
         }
-        this.showFloatingText(this.leader.x, this.leader.y - 24, 'ACTION DECONFLICT', '#ffcb8a');
     }
 
     startMotionTrackerScan(time, preferredRoleKey = null, options = null) {
         const visibility = this.runtimeSettings?.visibility || {};
         const force = !!(options && options.force === true);
-        const actionMs = 5000;
-        const scanMs = 5000;
+        const actionMs = 5000; // startup channel stays 5s
+        const scanMs = Number(visibility.trackerScanMs) || CONFIG.MOTION_TRACKER_SCAN_MS;
+        const riskMs = Number(visibility.trackerRiskMs) || CONFIG.MOTION_TRACKER_RISK_MS;
         const cooldownMs = Number(visibility.trackerCooldownMs) || CONFIG.MOTION_TRACKER_COOLDOWN_MS;
         if (this.healAction) {
             this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER BLOCKED: HEAL ACTIVE', '#ffcc88');
@@ -4392,7 +5228,8 @@ export class GameScene extends Phaser.Scene {
         this.trackerStartedAt = time;
         this.trackerChannelUntil = time + actionMs;
         this.trackerScanUntil = this.trackerChannelUntil + scanMs;
-        this.trackerRiskUntil = this.trackerScanUntil;
+        // Risk window matches configured value (defaults to scan duration).
+        this.trackerRiskUntil = this.trackerChannelUntil + riskMs;
         this.trackerCooldownUntil = time + cooldownMs;
         this.showFloatingText(this.leader.x, this.leader.y - 24, 'TRACKER ACTIVATING', '#88ffaa');
         return true;
@@ -4424,4 +5261,10 @@ export class GameScene extends Phaser.Scene {
             this.physics.world.resume();
         }
     }
+}
+
+function round3(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 1000) / 1000;
 }
