@@ -380,41 +380,105 @@ async function openPiskelEditor() {
     ctx.drawImage(spriteImg, 0, 0);
     const imageData = ctx.getImageData(0, 0, cv.width, cv.height);
 
-    // Create modal with Piskel iframe
-    const { body, footer, close } = API.showModal(`Edit: ${selectedSprite.name}`, { width: '90vw' });
+    // Create enhanced modal with Piskel iframe
+    const { body, footer, close } = API.showModal(`Edit Sprite: ${selectedSprite.name}`, { width: '95vw' });
     body.innerHTML = `
-        <div style="position:relative;width:100%;height:600px;border:1px solid var(--border);background:#0a0a0a;overflow:hidden;">
-            <iframe id="piskel-iframe"
-                    src="https://www.piskelapp.com/?embed"
-                    style="width:100%;height:100%;border:none;background:#0a0a0a;"
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms">
-            </iframe>
-        </div>
-        <div style="margin-top:12px;padding:8px;background:var(--bg-secondary);border-radius:4px;font-size:11px;color:var(--text-muted);">
-            <strong>Workflow:</strong> Edit your sprite in Piskel, then click "File" → "Export as PNG" to download. Upload the PNG file back below.
-        </div>
-        <div style="margin-top:12px;">
-            <input type="file" id="piskel-import-input" accept="image/png" style="display:none;">
-            <button class="btn btn-sm btn-secondary" id="piskel-upload-btn">Upload Edited Sprite</button>
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:12px;height:620px;overflow:hidden;">
+            <!-- Piskel editor on left -->
+            <div style="position:relative;border:1px solid var(--border);background:#0a0a0a;border-radius:4px;overflow:hidden;">
+                <iframe id="piskel-iframe"
+                        src="https://www.piskelapp.com/?embed"
+                        style="width:100%;height:100%;border:none;background:#0a0a0a;"
+                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms">
+                </iframe>
+            </div>
+
+            <!-- Right panel: instructions + preview -->
+            <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
+                <div style="padding:8px;background:var(--bg-secondary);border-radius:4px;border-left:3px solid var(--accent);">
+                    <div style="font-weight:600;margin-bottom:4px;color:var(--accent);">📋 Workflow</div>
+                    <div style="font-size:11px;line-height:1.6;color:var(--text-muted);">
+                        1. Edit your sprite in Piskel<br/>
+                        2. Click File → Export as PNG<br/>
+                        3. Upload or drag-drop below<br/>
+                        4. Preview will show<br/>
+                        5. Click Save to commit
+                    </div>
+                </div>
+
+                <!-- Drop zone -->
+                <div id="piskel-dropzone"
+                     style="flex:1;border:2px dashed var(--border);border-radius:4px;padding:8px;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(74,164,216,0.05);cursor:pointer;transition:all 0.2s;">
+                    <div style="font-size:12px;color:var(--text-muted);">
+                        📁 Drop PNG here<br/><br/>
+                        <strong style="color:var(--text);">or</strong><br/><br/>
+                        <button class="btn btn-sm btn-secondary" id="piskel-upload-btn" style="margin-top:4px;">Choose File</button>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div id="piskel-preview-container" style="display:none;border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--bg-secondary);overflow:hidden;">
+                    <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Preview</div>
+                    <canvas id="piskel-preview-canvas" style="max-width:100%;height:auto;image-rendering:pixelated;display:block;margin:0 auto;"></canvas>
+                    <div id="piskel-preview-info" style="font-size:10px;color:var(--text-muted);margin-top:4px;text-align:center;"></div>
+                </div>
+
+                <!-- Keyboard hints -->
+                <div style="padding:6px;background:rgba(255,255,255,0.03);border-radius:3px;font-size:10px;color:var(--text-muted);">
+                    <strong>⌨️ Shortcuts:</strong><br/>
+                    Enter = Save | Esc = Cancel
+                </div>
+            </div>
         </div>
     `;
     footer.innerHTML = `
         <button class="btn btn-secondary" id="piskel-cancel">Cancel</button>
-        <button class="btn btn-primary" id="piskel-save" disabled>Save Changes</button>
+        <button class="btn btn-primary" id="piskel-save" disabled style="margin-left:auto;">💾 Save Changes</button>
     `;
 
     const importInput = document.getElementById('piskel-import-input');
     const uploadBtn = document.getElementById('piskel-upload-btn');
+    const dropzone = document.getElementById('piskel-dropzone');
+    const previewContainer = document.getElementById('piskel-preview-container');
+    const previewCanvas = document.getElementById('piskel-preview-canvas');
+    const previewInfo = document.getElementById('piskel-preview-info');
     const saveBtn = document.getElementById('piskel-save');
     const cancelBtn = document.getElementById('piskel-cancel');
 
+    // File input handlers
     uploadBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => handlePiskelFileImport(e.target.files[0]));
 
-    importInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
+    // Drag-drop handlers
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--accent)';
+        dropzone.style.background = 'rgba(74,164,216,0.15)';
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'var(--border)';
+        dropzone.style.background = 'rgba(74,164,216,0.05)';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--border)';
+        dropzone.style.background = 'rgba(74,164,216,0.05)';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handlePiskelFileImport(files[0]);
+    });
+
+    // Preview and save handlers
+    async function handlePiskelFileImport(file) {
         if (!file) return;
 
         try {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                throw new Error('Please select an image file (PNG recommended)');
+            }
+
             const dataUrl = await new Promise((res, rej) => {
                 const r = new FileReader();
                 r.onload = () => res(r.result);
@@ -422,24 +486,41 @@ async function openPiskelEditor() {
                 r.readAsDataURL(file);
             });
 
-            // Create image to verify it loaded
+            // Load and preview
             const img = new Image();
+            img.crossOrigin = 'anonymous';
             await new Promise((res, rej) => {
                 img.onload = res;
                 img.onerror = rej;
                 img.src = dataUrl;
             });
 
+            // Draw preview
+            previewCanvas.width = Math.min(img.naturalWidth, 340);
+            previewCanvas.height = Math.min(img.naturalHeight, 200);
+            const pCtx = previewCanvas.getContext('2d');
+            pCtx.imageSmoothingEnabled = false;
+            pCtx.drawImage(img, 0, 0, previewCanvas.width, previewCanvas.height);
+
+            previewInfo.textContent = `${img.naturalWidth}×${img.naturalHeight}px`;
+            previewContainer.style.display = 'block';
+
             // Store for saving
             piskelEditorState = { dataUrl, width: img.naturalWidth, height: img.naturalHeight };
             saveBtn.disabled = false;
+
             API.toast(`Loaded ${file.name} (${img.naturalWidth}×${img.naturalHeight}px)`, 'success');
         } catch (err) {
             API.toast('Failed to load image: ' + err.message, 'error');
+            piskelEditorState = null;
+            saveBtn.disabled = true;
         }
-    });
+    }
 
-    saveBtn.addEventListener('click', async () => {
+    // Save handler
+    saveBtn.addEventListener('click', savePiskelChanges);
+
+    async function savePiskelChanges() {
         if (!piskelEditorState) return;
 
         try {
@@ -456,7 +537,7 @@ async function openPiskelEditor() {
             const result = await resp.json();
             if (!result.ok) throw new Error(result.error);
 
-            API.toast(`Saved ${selectedSprite.name}`, 'success');
+            API.toast(`✓ Saved ${selectedSprite.name} (${piskelEditorState.width}×${piskelEditorState.height}px)`, 'success');
             API.recordSave();
             close();
 
@@ -466,12 +547,33 @@ async function openPiskelEditor() {
         } catch (err) {
             API.toast('Save failed: ' + err.message, 'error');
         }
-    });
+    }
 
+    // Cancel handler
     cancelBtn.addEventListener('click', () => {
         piskelEditorState = null;
         close();
     });
+
+    // Keyboard shortcuts
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !saveBtn.disabled) {
+            e.preventDefault();
+            savePiskelChanges();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelBtn.click();
+        }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, { once: false });
+
+    // Cleanup on close
+    const originalClose = close;
+    close = () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        originalClose();
+    };
 
     // Try to load sprite data into Piskel (future enhancement)
     const iframe = document.getElementById('piskel-iframe');
