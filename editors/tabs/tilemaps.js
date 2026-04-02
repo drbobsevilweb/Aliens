@@ -34,6 +34,7 @@ let activeTool = 'paint';   // paint, erase, select, pan
 let activeBrush = 1;        // tile value for paint
 let showGrid = true;
 let layerVisibility = { terrain: true, doors: true, markers: true, props: true, lights: true };
+let showCollision = false;  // Collision/walkability overlay
 let dirty = false;
 
 // Selection state
@@ -150,6 +151,11 @@ function buildUI(root) {
                         </label>
                     </div>
                     <div class="toolbar-group">
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;" title="Show walkable/blocked areas">
+                            <input type="checkbox" id="tm-collision"> Collision
+                        </label>
+                    </div>
+                    <div class="toolbar-group">
                         <button class="btn btn-sm btn-secondary" id="tm-zoom-in" title="Zoom in">+</button>
                         <span id="tm-zoom-label" style="font-size:11px;min-width:40px;text-align:center;">100%</span>
                         <button class="btn btn-sm btn-secondary" id="tm-zoom-out" title="Zoom out">−</button>
@@ -180,6 +186,7 @@ function buildUI(root) {
     });
 
     document.getElementById('tm-grid').addEventListener('change', (e) => { showGrid = e.target.checked; draw(); });
+    document.getElementById('tm-collision').addEventListener('change', (e) => { showCollision = e.target.checked; draw(); });
     document.getElementById('tm-zoom-in').addEventListener('click', () => setZoom(zoom * 1.25));
     document.getElementById('tm-zoom-out').addEventListener('click', () => setZoom(zoom / 1.25));
     document.getElementById('tm-zoom-fit').addEventListener('click', fitMap);
@@ -578,6 +585,56 @@ function draw() {
                 const obj = layer.objects.find(o => o.id === objId);
                 if (obj) {
                     ctx.strokeRect(obj.x, obj.y, obj.width || tw, obj.height || th);
+                }
+            }
+        }
+    }
+
+    // Collision layer visualization (if enabled)
+    if (showCollision) {
+        const terrainLayer = currentMap.layers.find(l => l.name === 'terrain');
+        const doorsLayer = currentMap.layers.find(l => l.name === 'doors');
+
+        if (terrainLayer) {
+            ctx.fillStyle = 'rgba(79, 219, 142, 0.15)'; // Green for walkable
+            ctx.strokeStyle = 'rgba(79, 219, 142, 0.5)';
+            ctx.lineWidth = 0.5 / zoom;
+
+            for (let y = 0; y < mh; y++) {
+                for (let x = 0; x < mw; x++) {
+                    const idx = y * mw + x;
+                    const val = terrainLayer.data[idx];
+                    // Walkable = floor (value 1)
+                    if (val === 1) {
+                        ctx.fillRect(x * tw, y * th, tw, th);
+                    }
+                }
+            }
+
+            // Draw blocked (walls and doors) in red
+            ctx.fillStyle = 'rgba(255, 80, 80, 0.15)'; // Red for blocked
+            ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)';
+
+            for (let y = 0; y < mh; y++) {
+                for (let x = 0; x < mw; x++) {
+                    const idx = y * mw + x;
+                    const val = terrainLayer.data[idx];
+                    // Blocked = wall (value 2) or empty (value 0)
+                    if (val === 0 || val === 2) {
+                        ctx.fillRect(x * tw, y * th, tw, th);
+                    }
+                }
+            }
+
+            // Draw door obstacles in orange
+            if (doorsLayer) {
+                ctx.fillStyle = 'rgba(255, 170, 0, 0.2)'; // Orange for doors
+                ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
+                ctx.lineWidth = 1 / zoom;
+
+                for (const door of doorsLayer.objects || []) {
+                    ctx.fillRect(door.x, door.y, door.width || tw, door.height || th);
+                    ctx.strokeRect(door.x, door.y, door.width || tw, door.height || th);
                 }
             }
         }
