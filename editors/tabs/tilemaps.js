@@ -39,9 +39,13 @@ let dirty = false;
 // Selection state
 let selectedTiles = [];      // [{x, y, layer}, ...]
 let selectedObjects = [];    // [obj_id, ...]
+let selectedObject = null;   // Currently inspected object
 let isRectSelecting = false;
 let selectionStart = null;   // {x, y} in screen coords
 let selectionEnd = null;     // {x, y} in screen coords
+
+// Clipboard state
+let clipboard = { tiles: [], objects: [] };  // [{tileData}, {objData}, ...]
 
 // Undo/redo
 const MAX_UNDO = 50;
@@ -613,6 +617,7 @@ function finishRectSelection() {
     if (!currentMap) return;
     selectedTiles = [];
     selectedObjects = [];
+    selectedObject = null;
 
     // Get selection bounds in tile coordinates
     const minX = Math.min(selectionStart.x, selectionEnd.x);
@@ -642,6 +647,7 @@ function finishRectSelection() {
             }
         }
         API.toast(`Selected ${selectedTiles.length} tiles`, 'info');
+        renderMapProps();
     } else if (layer.type === 'objectgroup') {
         // Collect objects in selection bounds
         const tw = currentMap.tilewidth, th = currentMap.tileheight;
@@ -655,8 +661,109 @@ function finishRectSelection() {
                 selectedObjects.push(obj.id);
             }
         }
+        // Auto-select first object for inspection
+        if (selectedObjects.length > 0) {
+            selectedObject = layer.objects.find(o => o.id === selectedObjects[0]);
+        }
         API.toast(`Selected ${selectedObjects.length} objects`, 'info');
+        renderObjectProps();
     }
+}
+
+// ── Object Inspector ──────────────────────────────────────────────────────
+function renderMapProps() {
+    const el = document.getElementById('tm-props');
+    if (!currentMap) {
+        el.innerHTML = '<div style="color:var(--text-muted);">No map loaded</div>';
+        return;
+    }
+    el.innerHTML = `
+        <div><b>Map:</b> ${currentMapName}</div>
+        <div><b>Size:</b> ${currentMap.width}×${currentMap.height}</div>
+        <div><b>Tile:</b> ${currentMap.tilewidth}×${currentMap.tileheight}px</div>
+        ${selectedTiles.length > 0 ? `<div style="margin-top:8px;color:var(--accent);"><b>📍 ${selectedTiles.length} tiles selected</b></div>` : ''}
+    `;
+}
+
+function renderObjectProps() {
+    const el = document.getElementById('tm-props');
+    if (!selectedObject) {
+        renderMapProps();
+        return;
+    }
+
+    const obj = selectedObject;
+    let propsHtml = '';
+
+    if (obj.properties && obj.properties.length > 0) {
+        propsHtml = '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">';
+        for (const prop of obj.properties) {
+            propsHtml += `
+                <div style="display:flex;gap:4px;margin-bottom:4px;align-items:center;">
+                    <label style="font-size:11px;min-width:80px;">${prop.name}:</label>
+                    <input type="text" class="input input-sm obj-prop-input" data-prop="${prop.name}" value="${prop.value}"
+                           style="flex:1;font-size:11px;" placeholder="value">
+                </div>
+            `;
+        }
+        propsHtml += '</div>';
+    }
+
+    el.innerHTML = `
+        <div style="margin-bottom:6px;font-weight:600;color:var(--accent);">📦 ${obj.name || 'Object'}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;font-size:11px;">
+            <label>ID:</label><span style="font-family:monospace;">${obj.id}</span>
+            <label>Type:</label><span>${obj.type || '—'}</span>
+            <label>X:</label><input type="number" class="input input-sm obj-num-input" data-key="x" value="${Math.round(obj.x)}" style="width:70px;">
+            <label>Y:</label><input type="number" class="input input-sm obj-num-input" data-key="y" value="${Math.round(obj.y)}" style="width:70px;">
+            <label>Width:</label><input type="number" class="input input-sm obj-num-input" data-key="width" value="${Math.round(obj.width || 0)}" style="width:70px;">
+            <label>Height:</label><input type="number" class="input input-sm obj-num-input" data-key="height" value="${Math.round(obj.height || 0)}" style="width:70px;">
+        </div>
+        ${propsHtml}
+        <div style="display:flex;gap:4px;margin-top:8px;">
+            <button class="btn btn-sm btn-secondary" id="obj-apply">Apply</button>
+            <button class="btn btn-sm btn-danger" id="obj-delete">Delete</button>
+        </div>
+    `;
+
+    // Wire up event listeners
+    document.getElementById('obj-apply')?.addEventListener('click', () => {
+        obj.x = parseInt(document.querySelector('[data-key="x"]').value) || obj.x;
+        obj.y = parseInt(document.querySelector('[data-key="y"]').value) || obj.y;
+        obj.width = parseInt(document.querySelector('[data-key="width"]').value) || obj.width;
+        obj.height = parseInt(document.querySelector('[data-key="height"]').value) || obj.height;
+
+        // Update custom properties
+        document.querySelectorAll('.obj-prop-input').forEach(inp => {
+            const propName = inp.dataset.prop;
+            const prop = obj.properties.find(p => p.name === propName);
+            if (prop) prop.value = inp.value;
+        });
+
+        const layer = currentMap.layers.find(l => l.name === activeLayer);
+        pushUndo({ type: 'objectEdit', layerName: activeLayer, objectId: obj.id, oldData: JSON.parse(JSON.stringify(obj)), newData: JSON.parse(JSON.stringify(obj)) });
+        dirty = true;
+        API.setDirty(true);
+        draw();
+        API.toast(`Updated ${obj.name}`, 'success');
+    });
+
+    document.getElementById('obj-delete')?.addEventListener('click', () => {
+        const layer = currentMap.layers.find(l => l.name === activeLayer);
+        if (!layer) return;
+        const idx = layer.objects.findIndex(o => o.id === obj.id);
+        if (idx >= 0) {
+            const removed = layer.objects.splice(idx, 1)[0];
+            pushUndo({ type: 'objectRemove', layerName: activeLayer, object: JSON.parse(JSON.stringify(removed)), objectIndex: idx });
+            selectedObject = null;
+            selectedObjects = [];
+            dirty = true;
+            API.setDirty(true);
+            renderMapProps();
+            draw();
+            API.toast(`Deleted ${removed.name}`, 'info');
+        }
+    });
 }
 
 function paintTile(tx, ty) {
@@ -895,13 +1002,133 @@ function onKeyDown(e) {
         redo();
         return;
     }
+    // Copy/Paste
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        copySelection();
+        return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        pasteSelection();
+        return;
+    }
     switch (e.key.toLowerCase()) {
         case 'p': setTool('paint'); break;
         case 'e': setTool('erase'); break;
         case 'f': setTool('fill'); break;
         case 's': if (!e.ctrlKey && !e.metaKey) setTool('select'); break;
+        case 'r': if (selectedObject && activeLayer === 'doors') rotateDoor(); break;
         case 'g': showGrid = !showGrid; document.getElementById('tm-grid').checked = showGrid; draw(); break;
     }
+}
+
+// ── Clipboard & Transform ─────────────────────────────────────────────────
+function copySelection() {
+    clipboard = { tiles: [], objects: [] };
+
+    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    if (!layer) return;
+
+    if (selectedTiles.length > 0) {
+        // Copy tiles (with their position)
+        for (const sel of selectedTiles) {
+            const idx = sel.y * currentMap.width + sel.x;
+            const val = layer.data[idx];
+            clipboard.tiles.push({ x: sel.x, y: sel.y, value: val });
+        }
+        API.toast(`Copied ${clipboard.tiles.length} tiles`, 'info');
+    } else if (selectedObjects.length > 0 && layer.type === 'objectgroup') {
+        // Copy objects
+        for (const objId of selectedObjects) {
+            const obj = layer.objects.find(o => o.id === objId);
+            if (obj) clipboard.objects.push(JSON.parse(JSON.stringify(obj)));
+        }
+        API.toast(`Copied ${clipboard.objects.length} objects`, 'info');
+    }
+}
+
+function pasteSelection() {
+    if (clipboard.tiles.length === 0 && clipboard.objects.length === 0) {
+        API.toast('Clipboard is empty', 'error');
+        return;
+    }
+
+    if (!currentMap) return;
+    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    if (!layer) return;
+
+    if (clipboard.tiles.length > 0 && layer.type === 'tilelayer') {
+        // Paste tiles (offset by 1 tile for visual separation)
+        const changes = [];
+        for (const tile of clipboard.tiles) {
+            const newX = tile.x + 1;
+            const newY = tile.y + 1;
+            if (newX >= 0 && newX < currentMap.width && newY >= 0 && newY < currentMap.height) {
+                const idx = newY * currentMap.width + newX;
+                const oldVal = layer.data[idx];
+                layer.data[idx] = tile.value;
+                changes.push({ idx, oldVal, newVal: tile.value });
+            }
+        }
+        if (changes.length > 0) {
+            pushUndo({ type: 'tiles', layerName: activeLayer, changes });
+            dirty = true;
+            API.setDirty(true);
+            draw();
+            API.toast(`Pasted ${changes.length} tiles`, 'success');
+        }
+    } else if (clipboard.objects.length > 0 && layer.type === 'objectgroup') {
+        // Paste objects (offset by tile size for visual separation)
+        const tw = currentMap.tilewidth, th = currentMap.tileheight;
+        const pastedIds = [];
+        for (const objData of clipboard.objects) {
+            const newObj = JSON.parse(JSON.stringify(objData));
+            newObj.id = Date.now() + Math.random() * 10000; // New unique ID
+            newObj.x += tw;
+            newObj.y += th;
+            // Clamp to map bounds
+            newObj.x = Math.min(newObj.x, (currentMap.width - 1) * tw);
+            newObj.y = Math.min(newObj.y, (currentMap.height - 1) * th);
+            layer.objects.push(newObj);
+            pastedIds.push(newObj.id);
+        }
+        pushUndo({ type: 'objectsAdd', layerName: activeLayer, objects: clipboard.objects.map((o, i) => ({ ...o, id: pastedIds[i] })) });
+        selectedObjects = pastedIds;
+        selectedObject = layer.objects.find(o => o.id === pastedIds[0]) || null;
+        dirty = true;
+        API.setDirty(true);
+        renderObjectProps();
+        draw();
+        API.toast(`Pasted ${clipboard.objects.length} objects`, 'success');
+    }
+}
+
+function rotateDoor() {
+    if (!selectedObject || selectedObject.type !== 'door') {
+        API.toast('Select a door to rotate', 'error');
+        return;
+    }
+
+    const orientProp = selectedObject.properties?.find(p => p.name === 'orientation');
+    if (!orientProp) {
+        API.toast('Door missing orientation property', 'error');
+        return;
+    }
+
+    // Toggle orientation
+    orientProp.value = orientProp.value === 'horizontal' ? 'vertical' : 'horizontal';
+
+    // Swap width/height for visual effect
+    const tmp = selectedObject.width;
+    selectedObject.width = selectedObject.height;
+    selectedObject.height = tmp;
+
+    dirty = true;
+    API.setDirty(true);
+    renderObjectProps();
+    draw();
+    API.toast(`Rotated door to ${orientProp.value}`, 'info');
 }
 
 // ── Object layers ──────────────────────────────────────────────────────────
@@ -941,40 +1168,11 @@ function showObjectContextMenu(e, tile) {
     );
     if (!obj) return;
 
-    const { body, footer, close } = API.showModal(`Edit Object: ${obj.name}`);
-    body.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <label style="font-size:12px;">Name: <input type="text" class="input" id="obj-name" value="${obj.name || ''}" style="width:100%;"></label>
-            <label style="font-size:12px;">Type: <input type="text" class="input" id="obj-type" value="${obj.type || ''}" style="width:100%;"></label>
-            <label style="font-size:12px;">X: <input type="number" class="input" id="obj-x" value="${obj.x}" style="width:100%;"></label>
-            <label style="font-size:12px;">Y: <input type="number" class="input" id="obj-y" value="${obj.y}" style="width:100%;"></label>
-            <label style="font-size:12px;">Width: <input type="number" class="input" id="obj-w" value="${obj.width || 64}" style="width:100%;"></label>
-            <label style="font-size:12px;">Height: <input type="number" class="input" id="obj-h" value="${obj.height || 64}" style="width:100%;"></label>
-        </div>
-    `;
-    footer.innerHTML = `
-        <button class="btn btn-danger btn-sm" id="obj-delete">Delete</button>
-        <button class="btn btn-secondary btn-sm" id="obj-cancel">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="obj-save">Apply</button>
-    `;
-    document.getElementById('obj-cancel').onclick = close;
-    document.getElementById('obj-delete').onclick = () => {
-        const idx = layer.objects.indexOf(obj);
-        if (idx >= 0) {
-            layer.objects.splice(idx, 1);
-            pushUndo({ type: 'objectRemove', layerName: activeLayer, object: JSON.parse(JSON.stringify(obj)), objectIndex: idx });
-        }
-        dirty = true; API.setDirty(true); draw(); close();
-    };
-    document.getElementById('obj-save').onclick = () => {
-        obj.name = document.getElementById('obj-name').value;
-        obj.type = document.getElementById('obj-type').value;
-        obj.x = parseInt(document.getElementById('obj-x').value) || 0;
-        obj.y = parseInt(document.getElementById('obj-y').value) || 0;
-        obj.width = parseInt(document.getElementById('obj-w').value) || 64;
-        obj.height = parseInt(document.getElementById('obj-h').value) || 64;
-        dirty = true; API.setDirty(true); draw(); close();
-    };
+    // Select object for inspector
+    selectedObject = obj;
+    selectedObjects = [obj.id];
+    renderObjectProps();
+    draw();
 }
 
 // ── Save / Rebuild ─────────────────────────────────────────────────────────
