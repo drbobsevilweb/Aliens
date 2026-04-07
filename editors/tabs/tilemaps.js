@@ -34,8 +34,11 @@ let activeLayer = 'terrain';
 let activeTool = 'paint';   // paint, erase, select, pan
 let activeBrush = 1;        // tile value for paint
 let showGrid = true;
+let showCollision = false;
 let layerVisibility = { terrain: true, doors: true, markers: true, props: true, lights: true, story: true };
+let layerLocked = { terrain: false, doors: false, markers: false, props: false, lights: false, story: false };
 let dirty = false;
+let spaceHeld = false;
 
 // Selection state
 let selectedTiles = [];      // [{x, y, layer}, ...]
@@ -61,6 +64,9 @@ let activeObjectRotationByLayer = { doors: 0, props: 0, lights: 0 };
 let spriteAssetList = [];
 let spriteAssetLoadPromise = null;
 let assetSearchByLayer = { props: '', lights: '' };
+
+// Clipboard for copy/paste
+let clipboard = null; // { type: 'tiles'|'objects', data: [...] }
 
 // Tile palettes for each tile-layer
 const TILE_VALUES = {
@@ -405,6 +411,9 @@ function buildUI(root) {
                         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
                             <input type="checkbox" id="tm-grid" checked> Grid
                         </label>
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+                            <input type="checkbox" id="tm-collision"> Collision
+                        </label>
                     </div>
                     <div class="toolbar-group">
                         <button class="btn btn-sm btn-secondary" id="tm-zoom-in" title="Zoom in">+</button>
@@ -446,6 +455,7 @@ function buildUI(root) {
     });
 
     document.getElementById('tm-grid').addEventListener('change', (e) => { showGrid = e.target.checked; draw(); });
+    document.getElementById('tm-collision').addEventListener('change', (e) => { showCollision = e.target.checked; draw(); });
     document.getElementById('tm-zoom-in').addEventListener('click', () => setZoom(zoom * 1.25));
     document.getElementById('tm-zoom-out').addEventListener('click', () => setZoom(zoom / 1.25));
     document.getElementById('tm-zoom-fit').addEventListener('click', fitMap);
@@ -467,6 +477,7 @@ function buildUI(root) {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
 
     // Resize
     const wrap = document.getElementById('tm-canvas-wrap');
@@ -512,7 +523,9 @@ function renderLayers() {
                     ${activeLayer === lay ? 'background:rgba(74,164,216,0.15);' : ''}">
             <input type="checkbox" ${layerVisibility[lay] ? 'checked' : ''} data-vis="${lay}" title="Toggle visibility"
                    style="cursor:pointer;">
-            <span style="flex:1;font-size:12px;">${LAYER_LABELS[lay]}</span>
+            <span style="flex:1;font-size:12px;${layerLocked[lay] ? 'opacity:0.5;' : ''}">${LAYER_LABELS[lay]}</span>
+            <span data-lock="${lay}" title="${layerLocked[lay] ? 'Unlock layer' : 'Lock layer'}"
+                  style="cursor:pointer;font-size:13px;opacity:${layerLocked[lay] ? '1' : '0.3'};">${layerLocked[lay] ? '🔒' : '🔓'}</span>
         </div>
     `).join('');
 
@@ -533,6 +546,14 @@ function renderLayers() {
         cb.addEventListener('change', () => {
             layerVisibility[cb.dataset.vis] = cb.checked;
             draw();
+        });
+    });
+    el.querySelectorAll('[data-lock]').forEach(lockEl => {
+        lockEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const lay = lockEl.dataset.lock;
+            layerLocked[lay] = !layerLocked[lay];
+            renderLayers();
         });
     });
 }
@@ -795,6 +816,10 @@ function renderMapList() {
 }
 
 async function loadMap(name) {
+    // Dirty-check before switching
+    if (dirty && currentMapName) {
+        if (!confirm(`Map "${currentMapName}" has unsaved changes. Discard and load "${name}"?`)) return;
+    }
     try {
         const resp = await API.apiFetch(`/api/maps/${encodeURIComponent(name)}`);
         const data = await resp.json();
@@ -991,6 +1016,7 @@ function applyLayerTypeSelection(obj, nextValue) {
 }
 
 function deleteSelectedObjects() {
+    if (layerLocked[activeLayer]) { API.toast(`Layer "${LAYER_LABELS[activeLayer]}" is locked`, 'warn'); return; }
     const layer = currentMap?.layers.find((entry) => entry.name === activeLayer);
     if (!layer || layer.type !== 'objectgroup' || selectedObjects.length === 0) return;
     const removedEntries = [];
@@ -1070,6 +1096,60 @@ function renderInspector() {
     const layerOptions = getLayerTypeOptions(activeLayer);
     const layerPalette = TILE_VALUES[activeLayer] || [];
     const selectedPreset = getActiveObjectPreset(activeLayer);
+
+    if (!isObjectLayer && selectedTiles.length > 0) {
+        // Terrain tile inspector — show details of selected tile(s)
+        const isSingle = selectedTiles.length === 1;
+        const firstTile = selectedTiles[0];
+        const tileIdx = firstTile.y * currentMap.width + firstTile.x;
+        const tileVal = layer?.data?.[tileIdx] ?? 0;
+        const tileDef = layerPalette.find(t => t.value === tileVal) || { label: 'Unknown', color: '#555' };
+        const tileOptions = layerPalette.map(t => `<option value="${t.value}" ${tileVal === t.value ? 'selected' : ''}>${esc(t.label)}</option>`).join('');
+
+        el.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">
+                        ${isSingle ? 'Selected Tile' : `${selectedTiles.length} Tiles Selected`}
+                    </div>
+                    ${isSingle ? `
+                        <div><b>Position:</b> ${firstTile.x}, ${firstTile.y}</div>
+                        <div><b>Type:</b> <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${tileDef.color};vertical-align:middle;margin-right:4px;border:1px solid #555;"></span>${esc(tileDef.label)}</div>
+                        <div><b>Value:</b> ${tileVal}</div>
+                        <div><b>Layer:</b> ${esc(LAYER_LABELS[activeLayer] || activeLayer)}</div>
+                    ` : `
+                        <div><b>Layer:</b> ${esc(LAYER_LABELS[activeLayer] || activeLayer)}</div>
+                        <div style="color:var(--text-muted);margin-top:4px;">Use the dropdown below to change all selected tiles.</div>
+                    `}
+                </div>
+                <label style="display:flex;flex-direction:column;gap:4px;">
+                    <span>${isSingle ? 'Change Tile Type' : 'Set All Selected To'}</span>
+                    <select id="tm-tile-change" class="input" style="width:100%;">${tileOptions}</select>
+                </label>
+                <button class="btn btn-sm btn-primary" id="tm-tile-apply">Apply</button>
+            </div>
+        `;
+        el.querySelector('#tm-tile-apply')?.addEventListener('click', () => {
+            const newVal = Number(el.querySelector('#tm-tile-change')?.value ?? tileVal);
+            if (!layer?.data) return;
+            const changes = [];
+            for (const sel of selectedTiles) {
+                const idx = sel.y * currentMap.width + sel.x;
+                if (layer.data[idx] !== newVal) {
+                    changes.push({ idx, oldVal: layer.data[idx], newVal });
+                    layer.data[idx] = newVal;
+                }
+            }
+            if (changes.length) {
+                pushUndo({ type: 'tiles', layerName: activeLayer, changes });
+                dirty = true;
+                API.setDirty(true);
+                draw();
+                renderInspector();
+            }
+        });
+        return;
+    }
 
     if (!isObjectLayer || selected.length === 0) {
         const brushOptions = layerPalette.filter((item) => item.value > 0);
@@ -1219,6 +1299,16 @@ function renderInspector() {
             ${activeLayer === 'markers' || activeLayer === 'story' ? `
                 <label style="display:flex;flex-direction:column;gap:4px;"><span>Trigger ID / marker_type</span><input id="tm-obj-marker-type" class="input" value="${esc(getObjectProperty(obj, 'marker_type', ''))}" placeholder="mission_intro"></label>
             ` : ''}
+            ${activeLayer === 'markers' && (obj.type === 'alien_spawn' || getObjectProperty(obj, 'markerValue', 0) === 5) ? `
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Spawn Count (2/4/6/8)</span>
+                    <select id="tm-obj-spawn-count" class="input" style="width:100%;">
+                        <option value="2" ${getObjectProperty(obj, 'count', 4) === 2 ? 'selected' : ''}>2</option>
+                        <option value="4" ${getObjectProperty(obj, 'count', 4) === 4 ? 'selected' : ''}>4</option>
+                        <option value="6" ${getObjectProperty(obj, 'count', 4) === 6 ? 'selected' : ''}>6</option>
+                        <option value="8" ${getObjectProperty(obj, 'count', 4) === 8 ? 'selected' : ''}>8</option>
+                    </select>
+                </label>
+            ` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn btn-sm btn-primary" id="tm-obj-apply">Apply</button>
                 <button class="btn btn-sm btn-secondary" id="tm-obj-duplicate">Duplicate</button>
@@ -1297,6 +1387,9 @@ function renderInspector() {
         }
         if (activeLayer === 'markers' || activeLayer === 'story') {
             setObjectProperty(obj, 'marker_type', 'string', el.querySelector('#tm-obj-marker-type')?.value?.trim() || '');
+        }
+        if (el.querySelector('#tm-obj-spawn-count')) {
+            setObjectProperty(obj, 'count', 'int', Number(el.querySelector('#tm-obj-spawn-count')?.value) || 4);
         }
         markDirtyAndRefresh();
     });
@@ -1426,6 +1519,34 @@ function draw() {
         }
         for (let y = 0; y <= mh; y++) {
             ctx.beginPath(); ctx.moveTo(0, y * th); ctx.lineTo(mw * tw, y * th); ctx.stroke();
+        }
+    }
+
+    // Collision/walkability overlay
+    if (showCollision) {
+        const terrainLayer = currentMap.layers.find(l => l.name === 'terrain');
+        const doorsLayer = currentMap.layers.find(l => l.name === 'doors');
+        if (terrainLayer?.data) {
+            for (let y = 0; y < mh; y++) {
+                for (let x = 0; x < mw; x++) {
+                    const val = terrainLayer.data[y * mw + x];
+                    if (val === 1) {
+                        ctx.fillStyle = 'rgba(79, 219, 142, 0.15)';
+                    } else {
+                        ctx.fillStyle = 'rgba(255, 80, 80, 0.15)';
+                    }
+                    ctx.fillRect(x * tw, y * th, tw, th);
+                }
+            }
+        }
+        if (doorsLayer?.objects) {
+            ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
+            ctx.lineWidth = 2 / zoom;
+            for (const obj of doorsLayer.objects) {
+                ctx.fillStyle = 'rgba(255, 170, 0, 0.2)';
+                ctx.fillRect(obj.x, obj.y, obj.width || tw, obj.height || th);
+                ctx.strokeRect(obj.x, obj.y, obj.width || tw, obj.height || th);
+            }
         }
     }
 
@@ -1605,6 +1726,7 @@ function finishRectSelection() {
 }
 
 function paintTile(tx, ty) {
+    if (layerLocked[activeLayer]) { API.toast(`Layer "${LAYER_LABELS[activeLayer]}" is locked`, 'warn'); return; }
     const layer = currentMap.layers.find(l => l.name === activeLayer);
     if (!layer) return;
 
@@ -1708,6 +1830,7 @@ function placeObjectAtTile(tx, ty, layer) {
             properties: [
                 { name: 'markerValue', type: 'int', value: activeBrush },
                 { name: 'marker_type', type: 'string', value: '' },
+                ...(mtype === 'alien_spawn' ? [{ name: 'count', type: 'int', value: 4 }] : []),
             ],
         };
     } else if (activeLayer === 'story') {
@@ -1763,7 +1886,7 @@ function onCanvasMouseDown(e) {
         return;
     }
 
-    if (activeTool === 'pan' || e.button === 1) {
+    if (activeTool === 'pan' || e.button === 1 || spaceHeld) {
         isDragging = true;
         dragStartX = e.clientX; dragStartY = e.clientY;
         viewStartX = viewX; viewStartY = viewY;
@@ -1774,6 +1897,12 @@ function onCanvasMouseDown(e) {
     if (!currentMap) return;
     const tile = screenToTile(sx, sy);
     if (!tile) return;
+
+    // Alt+click eyedropper: pick tile value or object preset
+    if (e.altKey && e.button === 0) {
+        eyedropperPickAt(tile);
+        return;
+    }
 
     if (e.button === 2) {
         // Right-click: select object for inspector editing on object layers
@@ -1950,6 +2079,37 @@ function onKeyDown(e) {
         return;
     }
 
+    // Ctrl+S save
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveMap();
+        return;
+    }
+
+    // Ctrl+C copy
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        copySelection();
+        return;
+    }
+
+    // Ctrl+V paste
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        pasteClipboard();
+        return;
+    }
+
+    // Space for temporary pan
+    if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        if (!spaceHeld) {
+            spaceHeld = true;
+            canvas.style.cursor = 'grab';
+        }
+        return;
+    }
+
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjects.length > 0) {
         e.preventDefault();
         deleteSelectedObjects();
@@ -1993,6 +2153,14 @@ function onKeyDown(e) {
         case 'f': setTool('fill'); break;
         case 's': if (!e.ctrlKey && !e.metaKey) setTool('select'); break;
         case 'g': showGrid = !showGrid; document.getElementById('tm-grid').checked = showGrid; draw(); break;
+        case 'i': eyedropperPick(); break;
+    }
+}
+
+function onKeyUp(e) {
+    if (e.code === 'Space' || e.key === ' ') {
+        spaceHeld = false;
+        canvas.style.cursor = activeTool === 'pan' ? 'grab' : (activeTool === 'paint' || activeTool === 'erase' || activeTool === 'fill') ? 'crosshair' : 'default';
     }
 }
 
@@ -2048,6 +2216,14 @@ function showObjectContextMenu(e, tile) {
 // ── Save / Rebuild ─────────────────────────────────────────────────────────
 async function saveMap() {
     if (!currentMap || !currentMapName) return;
+
+    // Validation warnings (non-blocking)
+    const warnings = validateMap(currentMap);
+    if (warnings.length) {
+        const proceed = confirm(`Map has ${warnings.length} warning(s):\n\n• ${warnings.join('\n• ')}\n\nSave anyway?`);
+        if (!proceed) return;
+    }
+
     try {
         const resp = await API.apiFetch(`/api/maps/${encodeURIComponent(currentMapName)}`, {
             method: 'POST',
@@ -2145,6 +2321,7 @@ function updateUndoButtons() {
 // ── Flood Fill ─────────────────────────────────────────────────────────────
 function floodFill(tx, ty) {
     if (!currentMap) return;
+    if (layerLocked[activeLayer]) { API.toast(`Layer "${LAYER_LABELS[activeLayer]}" is locked`, 'warn'); return; }
     const layer = currentMap.layers.find(l => l.name === activeLayer);
     if (!layer || layer.type !== 'tilelayer') {
         API.toast('Fill only works on tile layers', 'warning');
@@ -2242,6 +2419,182 @@ function showNewMapDialog() {
             API.toast('Create failed: ' + err.message, 'error');
         }
     };
+}
+
+// ── Eyedropper ──────────────────────────────────────────────────────────────
+function eyedropperPick() {
+    if (!currentMap || !hoverTile) return;
+    eyedropperPickAt(hoverTile);
+}
+
+function eyedropperPickAt(tile) {
+    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    if (!layer) return;
+
+    if (layer.type === 'tilelayer') {
+        const idx = tile.ty * currentMap.width + tile.tx;
+        const val = layer.data?.[idx] ?? 0;
+        activeBrush = val;
+        renderPalette();
+        renderInspector();
+        setTool('paint');
+        API.toast(`Picked: ${(TILE_VALUES[activeLayer] || []).find(t => t.value === val)?.label || val}`, 'info');
+    } else if (layer.type === 'objectgroup') {
+        const hit = findObjectAtWorld(tile.mx, tile.my, layer);
+        if (hit) {
+            const presets = getObjectPresetOptions(activeLayer);
+            const match = presets.find(p => p.type === hit.type || p.id === hit.type);
+            if (match) {
+                activeObjectPresetByLayer[activeLayer] = String(match.id || match.type);
+                renderPalette();
+                renderInspector();
+            }
+            setTool('paint');
+            API.toast(`Picked: ${hit.name || hit.type}`, 'info');
+        }
+    }
+}
+
+// ── Copy/Paste ──────────────────────────────────────────────────────────────
+function copySelection() {
+    if (!currentMap) return;
+    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    if (!layer) return;
+
+    if (layer.type === 'tilelayer' && selectedTiles.length > 0) {
+        const minX = Math.min(...selectedTiles.map(t => t.x));
+        const minY = Math.min(...selectedTiles.map(t => t.y));
+        const tiles = selectedTiles.map(t => ({
+            dx: t.x - minX,
+            dy: t.y - minY,
+            value: layer.data[t.y * currentMap.width + t.x] ?? 0,
+        }));
+        clipboard = { type: 'tiles', layerName: activeLayer, data: tiles };
+        API.toast(`Copied ${tiles.length} tile(s)`, 'info');
+    } else if (layer.type === 'objectgroup' && selectedObjects.length > 0) {
+        const objects = [];
+        const allObjs = selectedObjects.map(id => layer.objects.find(o => o.id === id)).filter(Boolean);
+        const minX = Math.min(...allObjs.map(o => o.x));
+        const minY = Math.min(...allObjs.map(o => o.y));
+        for (const obj of allObjs) {
+            objects.push({
+                ...JSON.parse(JSON.stringify(obj)),
+                dx: obj.x - minX,
+                dy: obj.y - minY,
+            });
+        }
+        clipboard = { type: 'objects', layerName: activeLayer, data: objects };
+        API.toast(`Copied ${objects.length} object(s)`, 'info');
+    }
+}
+
+function pasteClipboard() {
+    if (!currentMap || !clipboard || !clipboard.data.length) return;
+    if (layerLocked[activeLayer]) { API.toast(`Layer "${LAYER_LABELS[activeLayer]}" is locked`, 'warn'); return; }
+    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    if (!layer) return;
+
+    // Paste at center of viewport
+    const wrap = document.getElementById('tm-canvas-wrap');
+    const centerSx = wrap.clientWidth / 2;
+    const centerSy = wrap.clientHeight / 2;
+    const centerTile = screenToTile(centerSx, centerSy);
+    if (!centerTile) return;
+
+    if (clipboard.type === 'tiles' && layer.type === 'tilelayer') {
+        const changes = [];
+        for (const t of clipboard.data) {
+            const tx = centerTile.tx + t.dx;
+            const ty = centerTile.ty + t.dy;
+            if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
+            const idx = ty * currentMap.width + tx;
+            if (layer.data[idx] !== t.value) {
+                changes.push({ idx, oldVal: layer.data[idx], newVal: t.value });
+                layer.data[idx] = t.value;
+            }
+        }
+        if (changes.length) {
+            pushUndo({ type: 'tiles', layerName: activeLayer, changes });
+            dirty = true; API.setDirty(true);
+        }
+        API.toast(`Pasted ${changes.length} tile(s)`, 'info');
+    } else if (clipboard.type === 'objects' && layer.type === 'objectgroup') {
+        const tw = currentMap.tilewidth, th = currentMap.tileheight;
+        const baseX = centerTile.tx * tw, baseY = centerTile.ty * th;
+        selectedObjects = [];
+        for (const src of clipboard.data) {
+            const newObj = JSON.parse(JSON.stringify(src));
+            newObj.id = Date.now() + Math.floor(Math.random() * 10000);
+            newObj.x = baseX + (src.dx || 0);
+            newObj.y = baseY + (src.dy || 0);
+            delete newObj.dx;
+            delete newObj.dy;
+            layer.objects.push(newObj);
+            pushUndo({ type: 'objectAdd', layerName: activeLayer, object: JSON.parse(JSON.stringify(newObj)) });
+            selectedObjects.push(newObj.id);
+        }
+        dirty = true; API.setDirty(true);
+        API.toast(`Pasted ${clipboard.data.length} object(s)`, 'info');
+    }
+    draw();
+    renderInspector();
+    updateProps();
+}
+
+// ── Map Validation ──────────────────────────────────────────────────────────
+function validateMap(map) {
+    const warnings = [];
+    if (!map) return warnings;
+
+    const terrainLayer = map.layers.find(l => l.name === 'terrain');
+    const markersLayer = map.layers.find(l => l.name === 'markers');
+    const doorsLayer = map.layers.find(l => l.name === 'doors');
+
+    // Check terrain has some floor tiles
+    if (terrainLayer?.data) {
+        const floorCount = terrainLayer.data.filter(v => v === 1).length;
+        if (floorCount === 0) warnings.push('No floor tiles painted — map has no walkable area');
+    }
+
+    // Check required markers
+    if (markersLayer?.objects) {
+        const hasSpawn = markersLayer.objects.some(o => o.type === 'spawn' || getObjectProperty(o, 'markerValue', 0) === 1);
+        const hasExtract = markersLayer.objects.some(o => o.type === 'extract' || getObjectProperty(o, 'markerValue', 0) === 2);
+        const hasAlienSpawn = markersLayer.objects.some(o => o.type === 'alien_spawn' || getObjectProperty(o, 'markerValue', 0) === 5);
+        if (!hasSpawn) warnings.push('No player spawn point — add a Spawn marker');
+        if (!hasExtract) warnings.push('No extraction point — add an Extract marker');
+        if (!hasAlienSpawn) warnings.push('No alien spawn points — add at least one Alien Spawn marker');
+    } else {
+        warnings.push('Markers layer missing — no spawn or extraction points');
+    }
+
+    // Check objects within bounds
+    const mapPxW = map.width * map.tilewidth;
+    const mapPxH = map.height * map.tileheight;
+    for (const layer of map.layers) {
+        if (layer.type !== 'objectgroup') continue;
+        for (const obj of layer.objects || []) {
+            if (obj.x < 0 || obj.y < 0 || obj.x >= mapPxW || obj.y >= mapPxH) {
+                warnings.push(`Object "${obj.name || obj.type}" on ${layer.name} is out of map bounds`);
+                break; // One warning per layer is enough
+            }
+        }
+    }
+
+    // Check duplicate object IDs
+    for (const layer of map.layers) {
+        if (layer.type !== 'objectgroup') continue;
+        const ids = new Set();
+        for (const obj of layer.objects || []) {
+            if (ids.has(obj.id)) {
+                warnings.push(`Duplicate object ID ${obj.id} on ${layer.name} layer`);
+                break;
+            }
+            ids.add(obj.id);
+        }
+    }
+
+    return warnings;
 }
 
 // ── Exports ────────────────────────────────────────────────────────────────
