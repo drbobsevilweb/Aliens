@@ -1,5 +1,62 @@
 import { normalizeMissionPackage } from './normalizeMissionPackage.js';
 
+/**
+ * Derive canonical spawnPoints from a tilemap's markers grid and alien_spawn props.
+ * Marker value 5 → count defaults to 4 unless an alien_spawn prop at the same tile
+ * provides an explicit count.
+ * @param {object} m - tilemap shape with .markers grid and .props array
+ * @returns {Array<{tileX:number, tileY:number, count:number}>}
+ */
+function deriveSpawnPointsFromMap(m) {
+    // If the tilemap already carries explicit spawnPoints (e.g. from Tiled import), use them.
+    if (Array.isArray(m.spawnPoints) && m.spawnPoints.length > 0) {
+        return m.spawnPoints
+            .filter((p) => p && Number.isFinite(Number(p.tileX)) && Number.isFinite(Number(p.tileY)) && Number(p.count) >= 1)
+            .map((p) => ({ tileX: Math.round(Number(p.tileX)), tileY: Math.round(Number(p.tileY)), count: Math.max(1, Math.round(Number(p.count))) }));
+    }
+    const out = [];
+    // Build a lookup of alien_spawn props by tile position (explicit counts win over defaults).
+    const propCountByTile = new Map();
+    if (Array.isArray(m.props)) {
+        for (const p of m.props) {
+            if (p && (p.type === 'alien_spawn' || p.type === 'spawn')) {
+                const key = `${Math.round(Number(p.tileX) || 0)},${Math.round(Number(p.tileY) || 0)}`;
+                propCountByTile.set(key, Math.max(1, Math.round(Number(p.count) || 4)));
+            }
+        }
+    }
+    // Collect positions from the markers grid (value 5).
+    if (Array.isArray(m.markers)) {
+        for (let y = 0; y < m.markers.length; y++) {
+            const row = m.markers[y];
+            if (!Array.isArray(row)) continue;
+            for (let x = 0; x < row.length; x++) {
+                if ((row[x] | 0) === 5) {
+                    const key = `${x},${y}`;
+                    const count = propCountByTile.get(key) || 4;
+                    out.push({ tileX: x, tileY: y, count });
+                    propCountByTile.delete(key); // avoid duplicate
+                }
+            }
+        }
+    }
+    // Any alien_spawn props not already covered by a marker grid cell.
+    if (Array.isArray(m.props)) {
+        for (const p of m.props) {
+            if (p && (p.type === 'alien_spawn' || p.type === 'spawn')) {
+                const tileX = Math.round(Number(p.tileX) || 0);
+                const tileY = Math.round(Number(p.tileY) || 0);
+                const key = `${tileX},${tileY}`;
+                if (propCountByTile.has(key)) {
+                    out.push({ tileX, tileY, count: Math.max(1, Math.round(Number(p.count) || 4)) });
+                    propCountByTile.delete(key);
+                }
+            }
+        }
+    }
+    return out;
+}
+
 export function buildPackageFromEditorState(editorState) {
     const s = editorState && typeof editorState === 'object' ? editorState : {};
     const maps = Array.isArray(s.tilemaps)
@@ -17,6 +74,7 @@ export function buildPackageFromEditorState(editorState) {
             props: Array.isArray(m.props) ? m.props : [],
             lights: Array.isArray(m.lights) ? m.lights : [],
             storyPoints: Array.isArray(m.storyPoints) ? m.storyPoints : [],
+            spawnPoints: deriveSpawnPointsFromMap(m),
             atmosphere: m.atmosphere && typeof m.atmosphere === 'object' ? { ...m.atmosphere } : {},
             largeTextures: Array.isArray(m.largeTextures) ? m.largeTextures : [],
         }))

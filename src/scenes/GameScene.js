@@ -568,14 +568,9 @@ export class GameScene extends Phaser.Scene {
         this.stageFlow = new StageFlow(this.activeMissionWaves.length);
         this.stageFlow.eventBus = this.eventBus;
         if (!this.noAliens && this.activeMissionWaves.length > 0) {
-            // Phase 1: Use author-specified spawn points if available, else fall back to wave-based spawning
-            const hasAuthoredSpawns = Array.isArray(missionLayout.spawnPoints) && missionLayout.spawnPoints.length > 0;
-            if (hasAuthoredSpawns) {
-                const missionDifficulty = missionLayout.mission?.difficulty === 'hard' ? 1.5 : 1.0;
-                this.enemyManager.spawner.spawnFromAuthoredPoints(missionLayout.spawnPoints, 1, missionDifficulty);
-            } else {
-                this.enemyManager.spawnWave(this.activeMissionWaves[0], 1);
-            }
+            // Unified opening: missionWaves[0] already incorporates authored spawn points
+            // (positions and counts) when they exist — see buildMissionWaves() in missionLayout.js.
+            this.enemyManager.spawnWave(this.activeMissionWaves[0], 1);
         }
         this.sessionStartTime = this.time.now;
         this.sessionStartEpochMs = Date.now();

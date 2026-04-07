@@ -28,6 +28,16 @@ export function normalizeMissionPackage(input) {
                     missionId: String(sp.missionId || 'all'),
                 })) : [],
                 atmosphere: normalizeAtmosphere(m.atmosphere),
+                spawnPoints: Array.isArray(m.spawnPoints) ? m.spawnPoints
+                    .filter((sp) => sp && typeof sp === 'object'
+                        && Number.isFinite(Number(sp.tileX))
+                        && Number.isFinite(Number(sp.tileY))
+                        && Number(sp.count) >= 1)
+                    .map((sp) => ({
+                        tileX: Math.round(Number(sp.tileX)),
+                        tileY: Math.round(Number(sp.tileY)),
+                        count: Math.max(1, Math.round(Number(sp.count))),
+                    })) : [],
                 largeTextures: Array.isArray(m.largeTextures) ? m.largeTextures.filter(lt => lt && typeof lt === 'object' && typeof lt.tileX === 'number').map(lt => ({
                     id: String(lt.id || ''),
                     imageKey: String(lt.imageKey || ''),

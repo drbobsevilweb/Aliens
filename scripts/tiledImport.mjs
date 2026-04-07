@@ -134,6 +134,8 @@ export function tiledToTemplate(tiledMap, overrideId) {
 
     // --- Parse marker object layer ---
     const markers = makeGrid(width, height, 0);
+    // Canonical spawn points extracted from alien_spawn marker objects (preserving authored count).
+    const spawnPoints = [];
     const markerLayer = tiledMap.layers.find(l => l.name === 'markers' && l.type === 'objectgroup');
     if (markerLayer && Array.isArray(markerLayer.objects)) {
         for (const obj of markerLayer.objects) {
@@ -152,6 +154,11 @@ export function tiledToTemplate(tiledMap, overrideId) {
             const tileY = Math.round(obj.y / TILE_SIZE);
             if (tileY >= 0 && tileY < height && tileX >= 0 && tileX < width) {
                 markers[tileY][tileX] = markerValue;
+                // Preserve authored spawn count from alien_spawn marker objects.
+                if (markerValue === 5) {
+                    const count = Math.max(1, Math.round(Number(getProperty(obj, 'count')) || 4));
+                    spawnPoints.push({ tileX, tileY, count });
+                }
             }
         }
     }
@@ -214,7 +221,7 @@ export function tiledToTemplate(tiledMap, overrideId) {
         }
     }
 
-    return { id, name, width, height, terrain, doors, markers, terrainTextures, floorTextureKey, wallTextureKey, props, lights };
+    return { id, name, width, height, terrain, doors, markers, terrainTextures, floorTextureKey, wallTextureKey, props, lights, spawnPoints };
 }
 
 // ---------------------------------------------------------------------------

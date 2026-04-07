@@ -66,8 +66,7 @@ function collectMarkerTiles(markers, markerValue, props = []) {
             if (!Array.isArray(row)) continue;
             for (let x = 0; x < row.length; x++) {
                 const v = row[x] | 0;
-                // Both 5 and 6 are used for alien spawn markers.
-                if (v === markerValue || (markerValue === MARKER_ALIEN_SPAWN && v === 6)) {
+                if (v === markerValue) {
                     tiles.push({ x, y, count: 1 });
                 }
             }
@@ -636,7 +635,7 @@ function splitBudget(total, waveCount, rnd) {
     return out;
 }
 
-function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly) {
+function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly, authoredSpawnPoints = []) {
     const waveCount = mission.difficulty === 'extreme' ? 3 : mission.difficulty === 'hard' ? 3 : 2;
     const rnd = createSeededRandom(`${mission.id}:${mission.enemyBudget}:${mission.difficulty}`);
     const counts = splitBudget(mission.enemyBudget, waveCount, rnd);
@@ -663,9 +662,43 @@ function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly) {
     const zones = buildSpawnZones(openTiles, tilemap.width, tilemap.height);
     if (openTiles.length === 0) return [[]];
 
+    // Build the set of valid authored spawn positions for a fast lookup.
+    const validAuthoredPoints = Array.isArray(authoredSpawnPoints)
+        ? authoredSpawnPoints.filter((p) => {
+            if (!p || !Number.isFinite(Number(p.tileX)) || !Number.isFinite(Number(p.tileY))) return false;
+            if (tilemap.terrain[p.tileY]?.[p.tileX] !== 0) return false;
+            if (doorGrid[p.tileY] && (doorGrid[p.tileY][p.tileX] | 0) > 0) return false;
+            if (spawnTile) {
+                const dx = p.tileX - spawnTile.x;
+                const dy = p.tileY - spawnTile.y;
+                if ((dx * dx + dy * dy) < 64) return false;
+            }
+            return true;
+        })
+        : [];
+
     const usedPerWave = new Set();
     const waves = [];
     for (let waveIndex = 0; waveIndex < waveCount; waveIndex++) {
+        // Wave 0: when valid authored spawn points exist, use their exact positions and
+        // authored counts so the opening encounter respects designer intent.
+        if (waveIndex === 0 && validAuthoredPoints.length > 0) {
+            const wave = [];
+            const totalAuthoredCount = validAuthoredPoints.reduce((s, p) => s + Math.max(1, Math.round(Number(p.count) || 1)), 0);
+            const typePlan = buildWaveTypePlan(mission.id, 0, waveCount, totalAuthoredCount, warriorOnly, rnd);
+            let typeIdx = 0;
+            for (const point of validAuthoredPoints) {
+                const count = Math.max(1, Math.round(Number(point.count) || 1));
+                for (let i = 0; i < count; i++) {
+                    const type = typePlan[typeIdx] || typePlan[typePlan.length - 1] || 'warrior';
+                    typeIdx++;
+                    wave.push({ type, tileX: point.tileX, tileY: point.tileY });
+                }
+            }
+            waves.push(wave);
+            continue;
+        }
+
         let waveOpenTiles = openTiles;
         if (waveIndex === 0 && spawnTile) {
             const firstWaveBandByMission = {
@@ -753,6 +786,12 @@ export function resolveMissionLayout(missionId) {
     const extractionTile = extractionFromMap || EXTRACTION_TILE;
     const tilemap = cloneTilemap(sourceTilemap);
 
+    // Prefer explicit spawnPoints from the tilemap (e.g. from Tiled import or package build),
+    // fall back to deriving from markers + props so the grid-only path still works.
+    const spawnPoints = (Array.isArray(sourceTilemap.spawnPoints) && sourceTilemap.spawnPoints.length > 0)
+        ? sourceTilemap.spawnPoints.filter((p) => p && Number.isFinite(Number(p.tileX)) && Number.isFinite(Number(p.tileY)) && Number(p.count) >= 1)
+        : collectSpawnPoints(sourceTilemap.markers, sourceTilemap.props);
+
     return {
         mission,
         tilemap,
@@ -761,7 +800,7 @@ export function resolveMissionLayout(missionId) {
         spawnTile,
         extractionTile,
         doorDefinitions: buildDoorDefinitions(tilemap),
-        missionWaves: buildMissionWaves(mission, tilemap, spawnTile, isWarriorOnlyTestingEnabled()),
+        missionWaves: buildMissionWaves(mission, tilemap, spawnTile, isWarriorOnlyTestingEnabled(), spawnPoints),
         forceWarriorOnly: isWarriorOnlyTestingEnabled(),
         tilemapSource,
         floorTextureKey: sourceTilemap.floorTextureKey || 'tile_floor_grill_import',
@@ -774,6 +813,6 @@ export function resolveMissionLayout(missionId) {
         ventPoints: collectVentPoints(sourceTilemap.markers),
         eggClusters: collectEggClusters(sourceTilemap.markers),
         warningStrobes: collectWarningStrobes(sourceTilemap.markers),
-        spawnPoints: collectSpawnPoints(sourceTilemap.markers, sourceTilemap.props),
+        spawnPoints,
     };
 }
