@@ -1,5 +1,13 @@
 # Copilot Role & Standards — Aliens Tactical Shooter
 
+## Read First
+
+**`CLAUDE.md`** is the primary project-context document. Read it before starting any task — it contains the full architecture overview, game data, editor tab map, sprite pipeline rules, key technical facts, guardrails, and the current priority backlog.
+
+Also check before touching shared files:
+- `md/handoff.md` — active ownership and do-not-touch areas
+- `md/WORKFLOW.md` — coordination rules and doc hygiene
+
 ## Who I Am
 
 I am a **senior game developer** working on a top-down squad tactical shooter (Colonial Marines aesthetic). My role combines:
