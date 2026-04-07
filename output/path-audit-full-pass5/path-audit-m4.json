@@ -1,0 +1,20 @@
+{
+  "missionId": "m4",
+  "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m4",
+  "summary": {
+    "hasScene": true,
+    "width": 104,
+    "height": 70,
+    "doors": 11,
+    "nowTotalWalkable": 2834,
+    "openTotalWalkable": 2834,
+    "nowReachable": 420,
+    "openReachable": 420,
+    "nowUnreachable": 2414,
+    "openUnreachable": 2414,
+    "extractionNowReachable": true,
+    "extractionOpenReachable": true,
+    "deadEndDoorCount": 0,
+    "deadEndDoors": []
+  }
+}

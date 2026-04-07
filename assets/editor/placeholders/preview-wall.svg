@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#0d1218"/>
+  <rect x="18" y="18" width="220" height="220" rx="14" fill="#2f3942" stroke="#9eb5c5" stroke-width="4"/>
+  <path d="M18 74h220M18 128h220M18 182h220" stroke="#60707d" stroke-width="4"/>
+  <path d="M73 18v56M183 18v56M37 74v54M128 74v54M219 74v54M73 128v54M183 128v54M37 182v56M128 182v56M219 182v56" stroke="#43505a" stroke-width="4"/>
+  <text x="128" y="122" fill="#f0f6ff" font-family="IBM Plex Mono, monospace" font-size="18" text-anchor="middle">WALL</text>
+  <text x="128" y="146" fill="#b2c9d8" font-family="IBM Plex Mono, monospace" font-size="12" text-anchor="middle">preview placeholder</text>
+</svg>

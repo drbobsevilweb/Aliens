@@ -1,0 +1,26 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build:tiled-maps": "node scripts/generateTiledMapsModule.mjs",
+    "build:tiled-tileset": "node scripts/generateTileset.mjs",
+    "build:tiled": "npm run build:tiled-tileset && npm run build:tiled-maps",
+    "watch:tiled": "node scripts/watchTiled.mjs",
+    "import:aseprite": "node scripts/asepriteImport.mjs",
+    "verify": "bash ./scripts/verify.sh",
+    "test:map-editor-bot": "node scripts/test_map_tile_editor_bot.mjs",
+    "test:tilemaps-inspector": "node scripts/test_tilemaps_inspector_panel.mjs",
+    "test:editors-hidden-panels": "node scripts/test_editors_hidden_panels.mjs",
+    "test:mission-events": "node scripts/test_mission_events.mjs",
+    "test:mission-package-contract": "node scripts/test_mission_package_api_contract.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "playwright": "^1.59.1",
+    "sharp": "^0.34.5",
+    "wavesurfer.js": "^7.12.5"
+  }
+}

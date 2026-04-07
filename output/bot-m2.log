@@ -1,0 +1,59 @@
+[m2][INFO] === BOT START m2 (headless) ===
+[m2][INFO] Map 6656x4480, Extract(5920,3872), Waves=2
+[m2][INFO] Leader(928,1056) HP=100/100
+[m2][INFO] Squad=4 Hostiles=17 Mode=combat
+[m2][INFO] Bot loop started
+[m2][STATUS] 0s | HP:100/100 | Sq:4/4 | H:17 | K:0 | combat P=0.12 W=1
+[m2][STATUS] 5s | HP:100/100 | Sq:4/4 | H:17 | K:0 | combat P=0.08 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,12) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (13,13) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,11) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,11) to (29,14)
+[m2][STATUS] 10s | HP:100/100 | Sq:4/4 | H:17 | K:0 | combat P=0.06 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,11) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,11) to (29,14)
+[m2][WARN] STUCK (805,749) 4.9s - screenshot: /home/drevilbob/Aliens/output/bot-m2-stuck-1.png
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,11) to (29,14)
+[m2][WARN] STUCK (805,749) 5.8s - screenshot: /home/drevilbob/Aliens/output/bot-m2-stuck-2.png
+[m2][WARN] STUCK (805,749) 6.7s - screenshot: /home/drevilbob/Aliens/output/bot-m2-stuck-3.png
+[m2][STATUS] 16s | HP:100/100 | Sq:4/4 | H:17 | K:0 | combat P=0.05 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned null from (12,10) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (15,10) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (17,10) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (18,10) to (30,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (18,10) to (29,15)
+[m2][STATUS] 21s | HP:100/100 | Sq:4/4 | H:17 | K:0 | combat P=0.05 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned empty from (20,9) to (20,9)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (20,9) to (29,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (20,9) to (29,14)
+[m2][STATUS] 26s | HP:100/100 | Sq:4/4 | H:15 | K:2 | combat P=0.18 W=1
+[m2][STATUS] 31s | HP:100/100 | Sq:4/4 | H:13 | K:4 | combat P=0.38 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned null from (20,9) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,9) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,9) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,15)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (19,8) to (29,15)
+[m2][STATUS] 36s | HP:100/100 | Sq:4/4 | H:12 | K:5 | combat P=0.26 W=1
+[m2][ERROR] Console: [bot-debug] findPath returned null from (20,8) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (22,10) to (30,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (23,10) to (30,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (23,10) to (29,14)
+[m2][ERROR] Console: [bot-debug] findPath returned null from (23,10) to (29,14)
+[m2][STATUS] 42s | HP:80/100 | Sq:4/4 | H:11 | K:6 | combat P=0.25 W=1
+[m2][WARN] STUCK (1490,664) 4.9s - screenshot: /home/drevilbob/Aliens/output/bot-m2-stuck-1.png
+[m2][EVENT] BURST DMG -30HP → 50 | 2 close | firing: 3/4
+[m2][STATUS] 47s | HP:50/100 | Sq:4/4 | H:10 | K:7 | combat P=0.33 W=1
+[m2][EVENT] BURST DMG -30HP → 20 | 2 close | firing: 3/4
+[m2][EVENT] MODE: combat → defeat
+[m2][DEATH] DEFEAT 48.6s | fair
+[m2][DEATH] Enemies: warrior(65px,79hp), warrior(152px,27hp)
+[m2][DEATH] Followers alive=4 firing=3
+[m2][INFO] ════════════════════════════════════
+[m2][INFO] m2 DONE: defeat | 48.7s
+[m2][INFO] HP:0/100 Sq:4/4 K:7
+[m2][INFO] Issues: 37 | Modes: combat→defeat

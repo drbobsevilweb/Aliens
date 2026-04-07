@@ -1,7 +1,7 @@
 export const CONFIG = Object.freeze({
     // Display
-    GAME_WIDTH: 1024,
-    GAME_HEIGHT: 768,
+    GAME_WIDTH: 1280,
+    GAME_HEIGHT: 720,
 
     // Tile
     TILE_SIZE: 64,
@@ -92,6 +92,7 @@ export const CONFIG = Object.freeze({
 
     // Door action durations (ms)
     DOOR_HACK_DURATION: 3000,
+    DOOR_LOCK_DURATION: 3000,
     DOOR_WELD_DURATION: 4000,
     DOOR_UNWELD_DURATION: 3000,
 
@@ -115,6 +116,10 @@ export const CONFIG = Object.freeze({
     TORCH_SOFT_GLOW_ALPHA: 0.65,
     TORCH_FOG_HALO_RADIUS_FACTOR: 3.6,
     TORCH_FOG_HALO_ALPHA: 0.28,
+    LIGHT_SOURCE_VIEW_RADIUS: 720,
+    LIGHT_SHADER_EFFECT_RANGE: 420,
+    LIGHTING_ADAPTIVE_SHADOW_MIN_ALPHA: 0.45,
+    LIGHTING_ADAPTIVE_SHADOW_FPS_RANGE: 36,
 
     // Enemy detection
     DETECTION_FADE_ALPHA: 0.18,
@@ -122,7 +127,7 @@ export const CONFIG = Object.freeze({
     SPOTTED_MEMORY_MS: 2000,
 
     // Motion tracker
-    MOTION_TRACKER_RANGE: 420,
+    MOTION_TRACKER_RANGE: 1472, // 23 tiles × 64px — matches MotionTracker.js cone range
     MOTION_TRACKER_SIZE: 150,
     MOTION_TRACKER_DEPTH: 230,
     MOTION_TRACKER_SCAN_MS: 10000,

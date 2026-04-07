@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "referenceSprite": null,
+  "characters": {},
+  "assignments": {
+    "marine_team_leader:idle": "/assets/sprites/scaled/marine/marine_topdown.png",
+    "marine_team_leader:walk": "/assets/sprites/scaled/marine/marine_topdown.png",
+    "alien_warrior:idle": "/assets/sprites/scaled/alien_warrior/alien_warrior_idle.png",
+    "marine:idle": "/assets/sprites/scaled/marine/marine_topdown.png"
+  },
+  "svgAssets": {
+    "debris": {
+      "alien_gibs": {
+        "sourcePath": "/assets/svg/debris/alien_gibs.svg",
+        "rasterPath": "/assets/sprites/scaled/svg/debris/alien_gibs.png",
+        "width": 256,
+        "height": 256,
+        "viewBox": "0 0 256 256",
+        "brightness": 0,
+        "contrast": 5,
+        "overlayColor": "#ffffff",
+        "overlayAlpha": 100,
+        "usage": "alien-warrior-death",
+        "target": "alien_warrior",
+        "notes": "",
+        "updatedAt": "2026-04-04T16:03:02.094797+00:00"
+      }
+    }
+  },
+  "updatedAt": "2026-04-04T16:03:22.609972+00:00"
+}

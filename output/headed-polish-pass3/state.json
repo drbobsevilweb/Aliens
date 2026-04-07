@@ -1,0 +1,248 @@
+{
+  "hasRenderBridge": true,
+  "hasScene": false,
+  "parsed": {
+    "coordinateSystem": "origin top-left, +x right, +y down, units in world pixels",
+    "mode": "combat",
+    "timeMs": 12781,
+    "leader": {
+      "x": 671,
+      "y": 532,
+      "health": 93,
+      "maxHealth": 100,
+      "facingRad": "-0.100"
+    },
+    "squad": [
+      {
+        "role": "leader",
+        "x": 671,
+        "y": 532,
+        "hp": 93,
+        "alive": true,
+        "morale": -33
+      },
+      {
+        "role": "tech",
+        "x": 672,
+        "y": 480,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      },
+      {
+        "role": "medic",
+        "x": 672,
+        "y": 416,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      },
+      {
+        "role": "heavy",
+        "x": 672,
+        "y": 352,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      }
+    ],
+    "hostiles": [
+      {
+        "type": "warrior",
+        "x": 284,
+        "y": 2900,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "facehugger",
+        "x": 1838,
+        "y": 1416,
+        "hp": 27,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5396,
+        "y": 3168,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "drone",
+        "x": 638,
+        "y": 628,
+        "hp": 59,
+        "visible": true
+      },
+      {
+        "type": "drone",
+        "x": 3377,
+        "y": 916,
+        "hp": 75,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5396,
+        "y": 550,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 361,
+        "y": 2900,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 2082,
+        "y": 2546,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "drone",
+        "x": 5942,
+        "y": 2624,
+        "hp": 75,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 2667,
+        "y": 1565,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5928,
+        "y": 860,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 1389,
+        "y": 3569,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 3858,
+        "y": 2460,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 6097,
+        "y": 3073,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "facehugger",
+        "x": 1353,
+        "y": 496,
+        "hp": 27,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 2284,
+        "y": 1964,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 4129,
+        "y": 797,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 480,
+        "y": 2200,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "drone",
+        "x": 3624,
+        "y": 3626,
+        "hp": 75,
+        "visible": false
+      },
+      {
+        "type": "facehugger",
+        "x": 4915,
+        "y": 3684,
+        "hp": 27,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 2132,
+        "y": 762,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5396,
+        "y": 422,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 477,
+        "y": 2527,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 2465,
+        "y": 2128,
+        "hp": 42,
+        "visible": false
+      }
+    ],
+    "tracker": {
+      "active": false,
+      "contacts": [
+        {
+          "x": 636,
+          "y": 634,
+          "confidence": 1,
+          "speed": 112,
+          "echo": false
+        }
+      ]
+    },
+    "combat": {
+      "pressure": 0.1,
+      "state": "build"
+    },
+    "objective": {
+      "completed": 0,
+      "total": 0
+    }
+  },
+  "acidHazards": 0,
+  "acidWithSubHoles": 0,
+  "doors": {
+    "total": 0,
+    "closed": 0,
+    "welded": 0,
+    "destroyed": 0
+  }
+}

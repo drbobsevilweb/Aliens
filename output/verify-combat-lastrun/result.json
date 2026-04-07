@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "results": {
+    "doorBulletDamage": true,
+    "doorBreach": true,
+    "alienDoorDamage": true,
+    "occlusionCheck": true,
+    "waveCountMatch": true,
+    "spawnValidity": true,
+    "details": {
+      "doorStartIntegrity": 105,
+      "doorEndIntegrity": 101,
+      "doorFinalState": "destroyed",
+      "alienDamage": 10,
+      "occlusionStartHealth": 1000,
+      "occlusionEndHealth": 1000,
+      "expectedTotal": 24,
+      "actualTotal": 24,
+      "spawnTile": {
+        "x": 12,
+        "y": 34
+      },
+      "minSpawnDist": 20,
+      "closestEnemyCoord": {
+        "x": 32,
+        "y": 34
+      }
+    },
+    "walkableSpawns": true
+  },
+  "errors": []
+}

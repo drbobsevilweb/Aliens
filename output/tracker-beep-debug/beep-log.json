@@ -1,0 +1,143 @@
+{
+  "beepLog": [
+    {
+      "note": "ReinforcementSystem exists"
+    },
+    {
+      "note": "initial_state",
+      "trackerAlpha": 0,
+      "coneCount": 0,
+      "nextTrackerBeepAt": 4824.1,
+      "nextAmbientBeepAt": 7824.1
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 6414.5,
+      "strong": false,
+      "proximity": 0.18684782642663061
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 8750.199999988079,
+      "strong": false,
+      "proximity": 0.2175745253138816
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 10992.699999988079,
+      "strong": false,
+      "proximity": 0.24072310271969521
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 13171.199999988079,
+      "strong": false,
+      "proximity": 0.13559571802302592
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 15320.600000023842,
+      "strong": false,
+      "proximity": 0.10446684492722402
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 17761,
+      "strong": false,
+      "proximity": 0.10446684492722402
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 19931.100000023842,
+      "strong": false,
+      "proximity": 0.10446684492722402
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 22232.400000035763,
+      "strong": false,
+      "proximity": 0.17772997040232996
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 24395.19999998808,
+      "strong": false,
+      "proximity": 0.2509669648771028
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 26582.30000001192,
+      "strong": false,
+      "proximity": 0.3886814357498959
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 28415.5,
+      "strong": true,
+      "proximity": 0.5741654163611859
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 29942.30000001192,
+      "strong": true,
+      "proximity": 0.5906189428868628
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 31484.100000023842,
+      "strong": true,
+      "proximity": 0.7091108339315747
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 32612.80000001192,
+      "strong": true,
+      "proximity": 0.7918825156730963
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 33784.10000002384,
+      "strong": true,
+      "proximity": 0.7537491359423626
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 35073.90000003576,
+      "strong": true,
+      "proximity": 1
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 35505.19999998808,
+      "strong": true,
+      "proximity": 1
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 35900,
+      "strong": true,
+      "proximity": 0.985570927286962
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 36298.90000003576,
+      "strong": true,
+      "proximity": 0.9522798885595503
+    },
+    {
+      "fn": "playTrackerPing",
+      "t": 37108.5,
+      "strong": true,
+      "proximity": 0.9012151896107282
+    }
+  ],
+  "trackerState": {
+    "alpha": 0.5,
+    "coneCount": 2,
+    "flashOn": true
+  },
+  "contactCount": 4,
+  "aliveEnemyCount": 11,
+  "nextTrackerBeepAt": 37663.6,
+  "nextAmbientBeepAt": 37663.6
+}

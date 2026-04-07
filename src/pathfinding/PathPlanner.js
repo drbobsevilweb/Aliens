@@ -7,7 +7,7 @@ export class PathPlanner {
         this.lastGoal = null;
         this.lastRevision = -1;
         this.exactCache = new Map();
-        this.maxExactEntries = 48;
+        this.maxExactEntries = 200;
         this.stats = {
             requests: 0,
             exactHits: 0,
@@ -24,11 +24,15 @@ export class PathPlanner {
     }
 
     findPath(startX, startY, endX, endY, grid) {
+        if (!(this.exactCache instanceof Map)) this.exactCache = new Map();
         this.stats.requests++;
         const revision = this.pathGrid.getRevision ? this.pathGrid.getRevision() : 0;
         const exactKey = `${revision}|${startX},${startY}->${endX},${endY}`;
         const cached = this.exactCache.get(exactKey);
         if (cached) {
+            // LRU: move to end of Map iteration order so eviction removes least-recently-used
+            this.exactCache.delete(exactKey);
+            this.exactCache.set(exactKey, cached);
             this.stats.exactHits++;
             this.stats.lastSource = 'exact-cache';
             this.stats.lastMs = 0;
@@ -108,19 +112,21 @@ export class PathPlanner {
     }
 
     storeExact(key, path) {
+        if (!(this.exactCache instanceof Map)) this.exactCache = new Map();
         this.exactCache.set(key, path.map((p) => ({ x: p.x, y: p.y })));
-        if (this.exactCache.size <= this.maxExactEntries) return;
+        if (Number(this.exactCache.size) <= this.maxExactEntries) return;
         const firstKey = this.exactCache.keys().next().value;
         if (firstKey !== undefined) this.exactCache.delete(firstKey);
     }
 
     getStats() {
+        if (!(this.exactCache instanceof Map)) this.exactCache = new Map();
         const hits = this.stats.exactHits + this.stats.reuseHits;
         const hitRate = this.stats.requests > 0 ? hits / this.stats.requests : 0;
         const avgAstarMs = this.stats.astarRuns > 0 ? this.stats.totalAstarMs / this.stats.astarRuns : 0;
         return {
             ...this.stats,
-            cacheEntries: this.exactCache.size,
+            cacheEntries: Number(this.exactCache.size) || 0,
             hitRate,
             avgAstarMs,
         };

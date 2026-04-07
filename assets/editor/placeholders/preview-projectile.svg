@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#0a0d12"/>
+  <path d="M34 148h128" stroke="#6fb8de" stroke-width="10" stroke-linecap="round"/>
+  <path d="M162 148h26" stroke="#d7eaf7" stroke-width="8" stroke-linecap="round"/>
+  <path d="M188 148l34-18-10 18 10 18z" fill="#ff9b4b"/>
+  <circle cx="76" cy="108" r="10" fill="#7ecfff" fill-opacity="0.55"/>
+  <circle cx="106" cy="92" r="7" fill="#7ecfff" fill-opacity="0.32"/>
+  <circle cx="134" cy="78" r="5" fill="#7ecfff" fill-opacity="0.2"/>
+  <text x="128" y="208" fill="#f4fbff" font-family="IBM Plex Mono, monospace" font-size="16" text-anchor="middle">PROJECTILE</text>
+</svg>

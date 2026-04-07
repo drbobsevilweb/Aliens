@@ -1,0 +1,85 @@
+    generateAlienTailTextures() {
+        // Use the user-authored tail sprites: tailbase.png, tailmid.png, tailend.png.
+        // These are 50×100px files with content centred inside (vertical orientation).
+        const srcDefs = [
+            { srcKey: '__tail_src_base__', destKey: 'alien_tail_base', cx: 11, cy: 11, cw: 26, ch: 75 },
+            { srcKey: '__tail_src_mid__',  destKey: 'alien_tail_mid',  cx: 17, cy: 24, cw: 17, ch: 53 },
+            { srcKey: '__tail_src_end__',  destKey: 'alien_tail_tip',  cx: 26, cy:  5, cw:  9, ch: 89 },
+        ];
+        
+        let allLoaded = true;
+        for (const def of srcDefs) {
+            const tex = this.textures.get(def.srcKey);
+            if (!tex || tex.key === '__MISSING') { allLoaded = false; break; }
+            const src = tex.getSourceImage();
+            if (!src || src.width === 0) { allLoaded = false; break; }
+        }
+
+        if (allLoaded) {
+            for (const { srcKey, destKey, cx, cy, cw, ch } of srcDefs) {
+                const src = this.textures.get(srcKey).getSourceImage();
+                if (this.textures.exists(destKey)) this.textures.remove(destKey);
+                const tw = Math.max(cw, 10);
+                const th = ch;
+                const tx = this.textures.createCanvas(destKey, tw, th);
+                if (!tx) continue;
+                const ctx = tx.getContext();
+                ctx.clearRect(0, 0, tw, th);
+                const xOffset = Math.floor((tw - cw) / 2);
+                ctx.drawImage(src, cx, cy, cw, ch, xOffset, 0, cw, ch);
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = 'rgba(80, 160, 100, 0.55)';
+                ctx.fillRect(0, 0, tw, th);
+                ctx.globalCompositeOperation = 'source-over';
+                tx.refresh();
+            }
+
+            // Generate a combined 'alien_tail_rope' for the mesh system
+            const totalH = 75 + 53 + 89;
+            const rw = 26;
+            if (this.textures.exists('alien_tail_rope')) this.textures.remove('alien_tail_rope');
+            const rtx = this.textures.createCanvas('alien_tail_rope', rw, totalH);
+            if (rtx) {
+                const rctx = rtx.getContext();
+                const base = this.textures.get('alien_tail_base').getSourceImage();
+                const mid = this.textures.get('alien_tail_mid').getSourceImage();
+                const tip = this.textures.get('alien_tail_tip').getSourceImage();
+                rctx.drawImage(base, (rw - base.width) / 2, 0);
+                rctx.drawImage(mid, (rw - mid.width) / 2, 75);
+                rctx.drawImage(tip, (rw - tip.width) / 2, 75 + 53);
+                rtx.refresh();
+            }
+            return;
+        }
+
+        // Fallback: procedural oval segments
+        for (const [destKey, w, h] of [
+            ['alien_tail_base', 24, 14],
+            ['alien_tail_mid',  20, 11],
+            ['alien_tail_tip',  14,  8],
+        ]) {
+            if (this.textures.exists(destKey)) this.textures.remove(destKey);
+            const tx = this.textures.createCanvas(destKey, w, h);
+            if (!tx) continue;
+            const ctx = tx.getContext();
+            ctx.fillStyle = 'rgba(50, 100, 60, 1.0)';
+            ctx.beginPath();
+            ctx.ellipse(w / 2, h / 2, w / 2 - 0.5, h / 2 - 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(100, 160, 110, 0.55)';
+            ctx.beginPath();
+            ctx.ellipse(w / 2, h / 2 - 1, w / 2 - 2, h / 2 - 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            tx.refresh();
+        }
+
+        // Generate fallback 'alien_tail_rope'
+        if (this.textures.exists('alien_tail_rope')) this.textures.remove('alien_tail_rope');
+        const frtx = this.textures.createCanvas('alien_tail_rope', 20, 60);
+        if (frtx) {
+            const fctx = frtx.getContext();
+            fctx.fillStyle = 'rgba(80, 160, 100, 0.8)';
+            fctx.fillRect(4, 0, 12, 60);
+            frtx.refresh();
+        }
+    }

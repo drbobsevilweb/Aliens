@@ -2,7 +2,7 @@ export const RUNTIME_SETTINGS_KEY = 'aliens_runtime_settings_v1';
 
 export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     player: Object.freeze({
-        leaderSpeed: 180,
+        leaderSpeed: 120,
         movementRigidity: 0.98,
         moveResponseRate: 9.5,
         leaderTurnSpeed: 8.5,
@@ -13,18 +13,19 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         reactionDelayMs: 70,
         followLerp: 0.1,
         followerTurnMultiplier: 1,
-        snakeBaseSpeed: 280,
+        snakeBaseSpeed: 200,
         snakeCatchupGain: 1.8,
-        formupSpeed: 210,
+        formupSpeed: 140,
         snakeStaggerMs: 380,
         snakeStaggerMinMs: 500,
         snakeStaggerMaxMs: 1000,
         minSpacing: 40,
     }),
     enemies: Object.freeze({
-        globalHealthScale: 0.68,
+        globalHealthScale: 0.8,
         globalSpeedScale: 1,
         globalDamageScale: 1,
+        warriorOnly: 0,
         hitSlowMinPct: 25,
         hitSlowMaxPct: 50,
         hitSlowDurationMinMs: 180,
@@ -46,27 +47,37 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         pistol: Object.freeze({ damageMultiplier: 1, speedMultiplier: 1, fireRateMultiplier: 1 }),
     }),
     lighting: Object.freeze({
-        ambientDarkness: 0.52,
-        torchRange: 470,
-        torchConeHalfAngle: 0.65,
-        softRadius: 125,
-        coreAlpha: 0.62,
+        ambientDarkness: 0.72,
+        torchRange: 560,
+        torchConeHalfAngle: 0.28,
+        softRadius: 220,
+        coreAlpha: 0.9,
+        featherLayers: 14,
+        featherSpread: 1.2,
+        featherDecay: 0.68,
+        glowStrength: 1.15,
+        beamFlashAlphaMul: 1.8,
+        beamFlashWidthMul: 1.4,
     }),
     graphics: Object.freeze({
         tiltShift: 1,
-        tiltShiftStrength: 0.9,
-        tiltShiftRange: 0.32,
-        tiltShiftFocus: 0.52,
+        tiltShiftStrength: 0.35,
+        tiltShiftRange: 0.48,
+        tiltShiftFocus: 0.50,
         scanline: 0,
-        scanlineStrength: 0.08,
-        filmGrain: 0.05,
+        scanlineStrength: 0,
+        filmGrain: 0.07,
+        pressureChromaticAberration: 1,
+        pressureColorBleed: 1,
+        cinematicBloom: 0.28,
+        cinematicWarp: 0.18,
+        filmFlicker: 0.14,
+        cinematicHalation: 0.20,
+        cinematicExposure: 1.04,
+        cinematicBleachBypass: 0.12,
     }),
     visibility: Object.freeze({
         spottedMemoryMs: 2000,
-        trackerScanMs: 10000,
-        trackerRiskMs: 10000,
-        trackerCooldownMs: 30000,
-        trackerRange: 420,
         alienContrastBoost: 1.15,
         ghostAlphaMin: 0.62,
         ghostAlphaPulse: 0.09,
@@ -75,14 +86,15 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         ghostBlueMix: 86,
     }),
     doors: Object.freeze({
-        integrityHits: 10,
+        integrityHits: 105,
         hackDurationMs: 3000,
         weldDurationMs: 4000,
         unweldDurationMs: 3000,
+        bulletDamageScale: 0.34,
     }),
     marines: Object.freeze({
         heavyAccuracyMul: 1.15,
-        techAccuracyMul: 1.06,
+        techAccuracyMul: 1.00,
         medicAccuracyMul: 0.92,
         heavyReactionMs: 220,
         techReactionMs: 340,
@@ -133,6 +145,8 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         doorLightBlockStrength: 1,
         lightPenetrationPct: 0.25,
         wallCollisionHardness: 1,
+        wallDepthShadeStrength: 0.78,
+        wallDepthShadeRangePx: 96,
         ricochetSparkIntensity: 1,
         impactFxIntensity: 1.5,
         fxBurstCapBase: 88,
@@ -141,16 +155,19 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
     other: Object.freeze({
         uiScale: 1,
         audioBeepVolume: 1,
+        audioMusicVolume: 1,
         cameraShakeMul: 1,
         pauseOnFocusLoss: 0,
-        atmoVignetteBase: 0.18,
-        atmoVignettePressureGain: 0.16,
+        atmoVignetteBase: 0.08,
+        atmoVignettePressureGain: 0.08,
     }),
     game: Object.freeze({
         globalTimeScale: 1,
         cameraLerp: 0.1,
         gameSpeedMultiplier: 1,
         fogEnabled: 1,
+        mistEnabled: 1,
+        hiveGrowthEnabled: 1,
     }),
     mapTiles: Object.freeze({
         roomVisibilityMul: 1,
@@ -178,9 +195,8 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         inactivityAmbushCooldownMs: 14000,
     }),
     spriteAnimation: Object.freeze({
-        marineSpriteScale: 1,
-        alienSpriteScale: 1,
-        muzzleFlashScale: 1,
+        // marineSpriteScale removed — Image Editor is sole authority on sprite sizing
+        muzzleFlashScale: 1.18,
         animationRateMul: 1,
     }),
     director: Object.freeze({
@@ -200,6 +216,9 @@ export const DEFAULT_RUNTIME_SETTINGS = Object.freeze({
         peakHoldMaxMs: 5000,
         buildMinMs: 2100,
         releaseMinMs: 1800,
+        damageShockThreshold: 14,
+        damageShockReliefMs: 2400,
+        damageShockReliefMul: 0.68,
     }),
     editor: Object.freeze({
         spriteStorageKey: 'aliens_dev_editors_v1',
@@ -232,19 +251,19 @@ function clampNumber(value, min, max, fallback) {
 function sanitize(settings) {
     const s = JSON.parse(JSON.stringify(deepMerge(DEFAULT_RUNTIME_SETTINGS, settings || {})));
 
-    s.player.leaderSpeed = clampNumber(s.player.leaderSpeed, 40, 600, 180);
+    s.player.leaderSpeed = clampNumber(s.player.leaderSpeed, 40, 600, 120);
     s.player.movementRigidity = clampNumber(s.player.movementRigidity, 0, 1, 0.98);
     s.player.moveResponseRate = clampNumber(s.player.moveResponseRate, 1, 50, 9.5);
     s.player.leaderTurnSpeed = clampNumber(s.player.leaderTurnSpeed, 1, 40, 8.5);
     s.player.maxHealth = clampNumber(s.player.maxHealth, 1, 9999, 100);
     s.player.startHealth = clampNumber(s.player.startHealth, 1, s.player.maxHealth, 100);
 
-    s.squad.reactionDelayMs = clampNumber(s.squad.reactionDelayMs, 20, 400, 90);
+    s.squad.reactionDelayMs = clampNumber(s.squad.reactionDelayMs, 20, 400, 70);
     s.squad.followLerp = clampNumber(s.squad.followLerp, 0.02, 0.4, 0.1);
     s.squad.followerTurnMultiplier = clampNumber(s.squad.followerTurnMultiplier, 0.2, 4, 1);
-    s.squad.snakeBaseSpeed = clampNumber(s.squad.snakeBaseSpeed, 80, 600, 280);
+    s.squad.snakeBaseSpeed = clampNumber(s.squad.snakeBaseSpeed, 80, 600, 200);
     s.squad.snakeCatchupGain = clampNumber(s.squad.snakeCatchupGain, 0.1, 6, 1.8);
-    s.squad.formupSpeed = clampNumber(s.squad.formupSpeed, 80, 500, 210);
+    s.squad.formupSpeed = clampNumber(s.squad.formupSpeed, 80, 500, 140);
     s.squad.snakeStaggerMs = clampNumber(s.squad.snakeStaggerMs, 0, 2000, 380);
     s.squad.snakeStaggerMinMs = clampNumber(s.squad.snakeStaggerMinMs, 100, 2000, 500);
     s.squad.snakeStaggerMaxMs = clampNumber(
@@ -255,9 +274,10 @@ function sanitize(settings) {
     );
     s.squad.minSpacing = clampNumber(s.squad.minSpacing, 4, 120, 40);
 
-    s.enemies.globalHealthScale = clampNumber(s.enemies.globalHealthScale, 0.1, 3, 0.68);
+    s.enemies.globalHealthScale = clampNumber(s.enemies.globalHealthScale, 0.1, 3, 0.8);
     s.enemies.globalSpeedScale = clampNumber(s.enemies.globalSpeedScale, 0.2, 3, 1);
     s.enemies.globalDamageScale = clampNumber(s.enemies.globalDamageScale, 0.1, 3, 1);
+    s.enemies.warriorOnly = clampNumber(s.enemies.warriorOnly, 0, 1, 0);
     s.enemies.hitSlowMinPct = clampNumber(s.enemies.hitSlowMinPct, 0, 95, 25);
     s.enemies.hitSlowMaxPct = clampNumber(s.enemies.hitSlowMaxPct, s.enemies.hitSlowMinPct, 99, 50);
     s.enemies.hitSlowDurationMinMs = clampNumber(s.enemies.hitSlowDurationMinMs, 40, 3000, 180);
@@ -290,25 +310,35 @@ function sanitize(settings) {
         s.weapons[key] = w;
     }
 
-    s.lighting.ambientDarkness = clampNumber(s.lighting.ambientDarkness, 0, 1, 0.76);
-    s.lighting.torchRange = clampNumber(s.lighting.torchRange, 80, 1200, 420);
-    s.lighting.torchConeHalfAngle = clampNumber(s.lighting.torchConeHalfAngle, 0.1, 1.57, 0.6);
-    s.lighting.softRadius = clampNumber(s.lighting.softRadius, 10, 600, 110);
-    s.lighting.coreAlpha = clampNumber(s.lighting.coreAlpha, 0, 1, 0.58);
+    s.lighting.ambientDarkness = clampNumber(s.lighting.ambientDarkness, 0.45, 1, 0.72);
+    s.lighting.torchRange = clampNumber(s.lighting.torchRange, 80, 1200, 560);
+    s.lighting.torchConeHalfAngle = clampNumber(s.lighting.torchConeHalfAngle, 0.1, 1.57, 0.28);
+    s.lighting.softRadius = clampNumber(s.lighting.softRadius, 10, 600, 220);
+    s.lighting.coreAlpha = clampNumber(s.lighting.coreAlpha, 0, 1, 0.9);
+    s.lighting.featherLayers = clampNumber(s.lighting.featherLayers, 4, 24, 14);
+    s.lighting.featherSpread = clampNumber(s.lighting.featherSpread, 0.4, 2.5, 1.2);
+    s.lighting.featherDecay = clampNumber(s.lighting.featherDecay, 0.2, 0.95, 0.68);
+    s.lighting.glowStrength = clampNumber(s.lighting.glowStrength, 0.1, 2, 1.15);
+    s.lighting.beamFlashAlphaMul = clampNumber(s.lighting.beamFlashAlphaMul, 0.2, 3, 1.8);
+    s.lighting.beamFlashWidthMul = clampNumber(s.lighting.beamFlashWidthMul, 0.4, 2.5, 1.4);
     s.graphics = s.graphics || {};
     s.graphics.tiltShift = clampNumber(s.graphics.tiltShift, 0, 1, 1);
-    s.graphics.tiltShiftStrength = clampNumber(s.graphics.tiltShiftStrength, 0, 3, 0.9);
-    s.graphics.tiltShiftRange = clampNumber(s.graphics.tiltShiftRange, 0.05, 0.9, 0.32);
-    s.graphics.tiltShiftFocus = clampNumber(s.graphics.tiltShiftFocus, 0, 1, 0.52);
+    s.graphics.tiltShiftStrength = clampNumber(s.graphics.tiltShiftStrength, 0, 3, 0.35);
+    s.graphics.tiltShiftRange = clampNumber(s.graphics.tiltShiftRange, 0.05, 0.9, 0.48);
+    s.graphics.tiltShiftFocus = clampNumber(s.graphics.tiltShiftFocus, 0, 1, 0.50);
     s.graphics.scanline = clampNumber(s.graphics.scanline, 0, 1, 0);
-    s.graphics.scanlineStrength = clampNumber(s.graphics.scanlineStrength, 0, 0.5, 0.08);
-    s.graphics.filmGrain = clampNumber(s.graphics.filmGrain, 0, 0.3, 0.05);
+    s.graphics.scanlineStrength = clampNumber(s.graphics.scanlineStrength, 0, 0.5, 0);
+    s.graphics.filmGrain = clampNumber(s.graphics.filmGrain, 0, 0.3, 0.07);
+    s.graphics.pressureChromaticAberration = clampNumber(s.graphics.pressureChromaticAberration, 0, 1, 1);
+    s.graphics.pressureColorBleed = clampNumber(s.graphics.pressureColorBleed, 0, 1, 1);
+    s.graphics.cinematicBloom = clampNumber(s.graphics.cinematicBloom, 0, 1, 0.28);
+    s.graphics.cinematicWarp = clampNumber(s.graphics.cinematicWarp, 0, 1, 0.18);
+    s.graphics.filmFlicker = clampNumber(s.graphics.filmFlicker, 0, 1, 0.14);
+    s.graphics.cinematicHalation = clampNumber(s.graphics.cinematicHalation, 0, 1, 0.20);
+    s.graphics.cinematicExposure = clampNumber(s.graphics.cinematicExposure, 0.7, 1.5, 1.04);
+    s.graphics.cinematicBleachBypass = clampNumber(s.graphics.cinematicBleachBypass, 0, 1, 0.12);
 
     s.visibility.spottedMemoryMs = clampNumber(s.visibility.spottedMemoryMs, 250, 10000, 2000);
-    s.visibility.trackerScanMs = clampNumber(s.visibility.trackerScanMs, 1000, 20000, 10000);
-    s.visibility.trackerRiskMs = clampNumber(s.visibility.trackerRiskMs, 1000, 24000, 10000);
-    s.visibility.trackerCooldownMs = clampNumber(s.visibility.trackerCooldownMs, 1000, 120000, 30000);
-    s.visibility.trackerRange = clampNumber(s.visibility.trackerRange, 120, 1600, 420);
     s.visibility.alienContrastBoost = clampNumber(s.visibility.alienContrastBoost, 0.6, 2, 1.15);
     s.visibility.ghostAlphaMin = clampNumber(s.visibility.ghostAlphaMin, 0.1, 0.9, 0.62);
     s.visibility.ghostAlphaPulse = clampNumber(s.visibility.ghostAlphaPulse, 0, 0.2, 0.09);
@@ -316,20 +346,21 @@ function sanitize(settings) {
     s.visibility.ghostScaleMul = clampNumber(s.visibility.ghostScaleMul, 1, 1.25, 1.06);
     s.visibility.ghostBlueMix = clampNumber(s.visibility.ghostBlueMix, 0, 100, 86);
 
-    s.doors.integrityHits = clampNumber(s.doors.integrityHits, 1, 20, 10);
+    s.doors.integrityHits = clampNumber(s.doors.integrityHits, 1, 200, 105);
     s.doors.hackDurationMs = clampNumber(s.doors.hackDurationMs, 100, 20000, 3000);
     s.doors.weldDurationMs = clampNumber(s.doors.weldDurationMs, 100, 20000, 4000);
     s.doors.unweldDurationMs = clampNumber(s.doors.unweldDurationMs, 100, 20000, 3000);
+    s.doors.bulletDamageScale = clampNumber(s.doors.bulletDamageScale, 0.05, 2, 0.34);
 
     s.marines.heavyAccuracyMul = clampNumber(s.marines.heavyAccuracyMul, 0.2, 3, 1.15);
-    s.marines.techAccuracyMul = clampNumber(s.marines.techAccuracyMul, 0.2, 3, 1.06);
+    s.marines.techAccuracyMul = clampNumber(s.marines.techAccuracyMul, 0.2, 3, 1.00);
     s.marines.medicAccuracyMul = clampNumber(s.marines.medicAccuracyMul, 0.2, 3, 0.92);
     s.marines.heavyReactionMs = clampNumber(s.marines.heavyReactionMs, 50, 2000, 220);
     s.marines.techReactionMs = clampNumber(s.marines.techReactionMs, 50, 3000, 340);
     s.marines.medicReactionMs = clampNumber(s.marines.medicReactionMs, 50, 4000, 460);
     s.marines.heavyJamSensitivity = clampNumber(s.marines.heavyJamSensitivity, 0.1, 3, 0.62);
-    s.marines.techJamSensitivity = clampNumber(s.marines.techJamSensitivity, 0.1, 3, 0.9);
-    s.marines.medicJamSensitivity = clampNumber(s.marines.medicJamSensitivity, 0.1, 3, 1.1);
+    s.marines.techJamSensitivity = clampNumber(s.marines.techJamSensitivity, 0.1, 3, 0.78);
+    s.marines.medicJamSensitivity = clampNumber(s.marines.medicJamSensitivity, 0.1, 3, 0.95);
     s.marines.moraleKillGain = clampNumber(s.marines.moraleKillGain, 0, 30, 5);
     s.marines.moraleDamageLoss = clampNumber(s.marines.moraleDamageLoss, 0, 50, 10);
     s.marines.moraleRecoverMinMs = clampNumber(s.marines.moraleRecoverMinMs, 1000, 120000, 30000);
@@ -381,6 +412,8 @@ function sanitize(settings) {
     s.walls.doorLightBlockStrength = clampNumber(s.walls.doorLightBlockStrength, 0, 3, 1);
     s.walls.lightPenetrationPct = clampNumber(s.walls.lightPenetrationPct, 0, 0.8, 0.25);
     s.walls.wallCollisionHardness = clampNumber(s.walls.wallCollisionHardness, 0, 3, 1);
+    s.walls.wallDepthShadeStrength = clampNumber(s.walls.wallDepthShadeStrength, 0, 2, 0.78);
+    s.walls.wallDepthShadeRangePx = clampNumber(s.walls.wallDepthShadeRangePx, 24, 280, 96);
     s.walls.ricochetSparkIntensity = clampNumber(s.walls.ricochetSparkIntensity, 0, 3, 1);
     s.walls.impactFxIntensity = clampNumber(s.walls.impactFxIntensity, 0.2, 3, 1.5);
     s.walls.fxBurstCapBase = clampNumber(s.walls.fxBurstCapBase, 12, 240, 88);
@@ -388,15 +421,18 @@ function sanitize(settings) {
 
     s.other.uiScale = clampNumber(s.other.uiScale, 0.5, 2, 1);
     s.other.audioBeepVolume = clampNumber(s.other.audioBeepVolume, 0, 2, 1);
+    s.other.audioMusicVolume = clampNumber(s.other.audioMusicVolume, 0, 2, 1);
     s.other.cameraShakeMul = clampNumber(s.other.cameraShakeMul, 0, 2, 1);
     s.other.pauseOnFocusLoss = clampNumber(s.other.pauseOnFocusLoss, 0, 1, 0);
-    s.other.atmoVignetteBase = clampNumber(s.other.atmoVignetteBase, 0, 0.6, 0.18);
-    s.other.atmoVignettePressureGain = clampNumber(s.other.atmoVignettePressureGain, 0, 0.8, 0.16);
+    s.other.atmoVignetteBase = clampNumber(s.other.atmoVignetteBase, 0, 0.6, 0.08);
+    s.other.atmoVignettePressureGain = clampNumber(s.other.atmoVignettePressureGain, 0, 0.8, 0.08);
 
     s.game.globalTimeScale = clampNumber(s.game.globalTimeScale, 0.25, 3, 1);
     s.game.cameraLerp = clampNumber(s.game.cameraLerp, 0.01, 1, 0.1);
     s.game.gameSpeedMultiplier = clampNumber(s.game.gameSpeedMultiplier, 0.25, 3, 1);
     s.game.fogEnabled = clampNumber(s.game.fogEnabled, 0, 1, 1);
+    s.game.mistEnabled = clampNumber(s.game.mistEnabled, 0, 1, 1);
+    s.game.hiveGrowthEnabled = clampNumber(s.game.hiveGrowthEnabled, 0, 1, 1);
 
     s.mapTiles.roomVisibilityMul = clampNumber(s.mapTiles.roomVisibilityMul, 0.2, 3, 1);
     s.mapTiles.corridorVisibilityMul = clampNumber(s.mapTiles.corridorVisibilityMul, 0.2, 3, 1);
@@ -406,25 +442,25 @@ function sanitize(settings) {
     s.scripting.directorEnabled = clampNumber(s.scripting.directorEnabled, 0, 1, 1);
     s.scripting.useMissionPackageDirector = clampNumber(s.scripting.useMissionPackageDirector, 0, 1, 0);
     s.scripting.eventTickMs = clampNumber(s.scripting.eventTickMs, 10, 1000, 80);
-    s.scripting.aiThinkIntervalMs = clampNumber(s.scripting.aiThinkIntervalMs, 20, 2000, 120);
+    s.scripting.aiThinkIntervalMs = clampNumber(s.scripting.aiThinkIntervalMs, 20, 2000, 100);
     s.scripting.autoSaveBetweenMissions = clampNumber(s.scripting.autoSaveBetweenMissions, 0, 1, 1);
-    s.scripting.idlePressureBaseMs = clampNumber(s.scripting.idlePressureBaseMs, 2000, 30000, 7000);
+    s.scripting.idlePressureBaseMs = clampNumber(s.scripting.idlePressureBaseMs, 2000, 30000, 6000);
     s.scripting.idlePressureMinMs = clampNumber(
         s.scripting.idlePressureMinMs,
         1000,
         s.scripting.idlePressureBaseMs,
-        3500
+        3000
     );
-    s.scripting.gunfireReinforceBaseMs = clampNumber(s.scripting.gunfireReinforceBaseMs, 1200, 20000, 4500);
+    s.scripting.gunfireReinforceBaseMs = clampNumber(s.scripting.gunfireReinforceBaseMs, 1200, 20000, 3900);
     s.scripting.gunfireReinforceMinMs = clampNumber(
         s.scripting.gunfireReinforceMinMs,
         600,
         s.scripting.gunfireReinforceBaseMs,
-        2200
+        1900
     );
-    s.scripting.reinforceCap = clampNumber(s.scripting.reinforceCap, 0, 80, 16);
-    s.scripting.reinforceCapIdle = clampNumber(s.scripting.reinforceCapIdle, 0, 80, 6);
-    s.scripting.reinforceCapGunfire = clampNumber(s.scripting.reinforceCapGunfire, 0, 80, 10);
+    s.scripting.reinforceCap = clampNumber(s.scripting.reinforceCap, 0, 80, 18);
+    s.scripting.reinforceCapIdle = clampNumber(s.scripting.reinforceCapIdle, 0, 80, 7);
+    s.scripting.reinforceCapGunfire = clampNumber(s.scripting.reinforceCapGunfire, 0, 80, 11);
     s.scripting.doorNoiseMemoryMs = clampNumber(s.scripting.doorNoiseMemoryMs, 1000, 60000, 16000);
     s.scripting.idleSpawnMemoryMs = clampNumber(s.scripting.idleSpawnMemoryMs, 1000, 60000, 9000);
     s.scripting.waveTransitionGraceMs = clampNumber(s.scripting.waveTransitionGraceMs, 0, 15000, 2600);
@@ -436,22 +472,21 @@ function sanitize(settings) {
         14000
     );
 
-    s.spriteAnimation.marineSpriteScale = clampNumber(s.spriteAnimation.marineSpriteScale, 0.2, 4, 1);
-    s.spriteAnimation.alienSpriteScale = clampNumber(s.spriteAnimation.alienSpriteScale, 0.2, 4, 1);
-    s.spriteAnimation.muzzleFlashScale = clampNumber(s.spriteAnimation.muzzleFlashScale, 0.2, 4, 1);
+    // marineSpriteScale / alienSpriteScale removed — Image Editor is sole authority
+    s.spriteAnimation.muzzleFlashScale = clampNumber(s.spriteAnimation.muzzleFlashScale, 0.2, 4, 1.18);
     s.spriteAnimation.animationRateMul = clampNumber(s.spriteAnimation.animationRateMul, 0.1, 4, 1);
 
     s.director.enabled = clampNumber(s.director.enabled, 0, 1, 1);
-    s.director.pressureRiseRate = clampNumber(s.director.pressureRiseRate, 0.1, 5, 1.25);
-    s.director.pressureFallRate = clampNumber(s.director.pressureFallRate, 0.05, 5, 0.55);
+    s.director.pressureRiseRate = clampNumber(s.director.pressureRiseRate, 0.1, 5, 1.4);
+    s.director.pressureFallRate = clampNumber(s.director.pressureFallRate, 0.05, 5, 0.62);
     s.director.noDecayWhileEngaged = clampNumber(s.director.noDecayWhileEngaged, 0, 1, 1);
     s.director.comfortHealthThreshold = clampNumber(s.director.comfortHealthThreshold, 0.1, 1, 0.5);
     s.director.comfortPressureGate = clampNumber(s.director.comfortPressureGate, 0.1, 0.99, 0.58);
     s.director.comfortReliefMul = clampNumber(s.director.comfortReliefMul, 0.4, 1.2, 0.82);
-    s.director.peakEnterPressure = clampNumber(s.director.peakEnterPressure, 0.1, 0.99, 0.74);
-    s.director.releaseEnterPressure = clampNumber(s.director.releaseEnterPressure, 0.05, 0.95, 0.46);
+    s.director.peakEnterPressure = clampNumber(s.director.peakEnterPressure, 0.1, 0.99, 0.7);
+    s.director.releaseEnterPressure = clampNumber(s.director.releaseEnterPressure, 0.05, 0.95, 0.42);
     s.director.buildEnterPressure = clampNumber(s.director.buildEnterPressure, 0.05, 0.9, 0.26);
-    s.director.peakMaxMs = clampNumber(s.director.peakMaxMs, 500, 60000, 9500);
+    s.director.peakMaxMs = clampNumber(s.director.peakMaxMs, 500, 60000, 8400);
     s.director.peakMinMs = clampNumber(s.director.peakMinMs, 500, s.director.peakMaxMs, 3000);
     s.director.peakHoldMinMs = clampNumber(s.director.peakHoldMinMs, 500, s.director.peakMaxMs, 3000);
     s.director.peakHoldMaxMs = clampNumber(
@@ -460,8 +495,11 @@ function sanitize(settings) {
         s.director.peakMaxMs,
         5000
     );
-    s.director.buildMinMs = clampNumber(s.director.buildMinMs, 100, 60000, 2600);
-    s.director.releaseMinMs = clampNumber(s.director.releaseMinMs, 100, 60000, 2200);
+    s.director.buildMinMs = clampNumber(s.director.buildMinMs, 100, 60000, 2100);
+    s.director.releaseMinMs = clampNumber(s.director.releaseMinMs, 100, 60000, 1800);
+    s.director.damageShockThreshold = clampNumber(s.director.damageShockThreshold, 1, 200, 14);
+    s.director.damageShockReliefMs = clampNumber(s.director.damageShockReliefMs, 0, 20000, 2400);
+    s.director.damageShockReliefMul = clampNumber(s.director.damageShockReliefMul, 0.3, 1, 0.68);
 
     return s;
 }
@@ -480,7 +518,11 @@ export function loadRuntimeSettings() {
 export function saveRuntimeSettings(settings) {
     const s = sanitize(settings);
     if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(RUNTIME_SETTINGS_KEY, JSON.stringify(s));
+        try {
+            window.localStorage.setItem(RUNTIME_SETTINGS_KEY, JSON.stringify(s));
+        } catch {
+            // Best-effort persistence; keep returning sanitized settings for runtime use.
+        }
     }
     return s;
 }
@@ -488,7 +530,11 @@ export function saveRuntimeSettings(settings) {
 export function resetRuntimeSettings() {
     const s = sanitize({});
     if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(RUNTIME_SETTINGS_KEY, JSON.stringify(s));
+        try {
+            window.localStorage.setItem(RUNTIME_SETTINGS_KEY, JSON.stringify(s));
+        } catch {
+            // Best-effort persistence; keep returning defaults for runtime use.
+        }
     }
     return s;
 }

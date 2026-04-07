@@ -1,0 +1,52 @@
+/* ── ALIENS Unified Navigation Bar ──
+   Include in all pages for consistent nav styling.
+   Nav HTML structure:
+   <nav class="dev-nav">
+       <span class="nav-title">ALIENS</span>
+       <a href="/game">Game</a>
+       <a href="/editors">Editors</a>
+       <a href="/settings">Settings</a>
+       <a href="/gameplan">Gameplan</a>
+   </nav>
+*/
+
+.dev-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(6, 12, 18, 0.95);
+    border-bottom: 1px solid #4aa4d8;
+    padding: 4px 10px;
+    z-index: 9999;
+    font: 12px 'Share Tech Mono', 'Consolas', monospace;
+    height: 28px;
+}
+
+.dev-nav .nav-title {
+    color: #4aa4d8;
+    font-weight: bold;
+    margin-right: 12px;
+    letter-spacing: 0.06em;
+}
+
+.dev-nav a {
+    color: #f0f6ff;
+    text-decoration: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.dev-nav a:hover {
+    background: rgba(74, 164, 216, 0.15);
+    color: #7ecfff;
+}
+
+.dev-nav a.active {
+    color: #7ecfff;
+    background: rgba(74, 164, 216, 0.22);
+}

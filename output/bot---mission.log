@@ -1,0 +1,229 @@
+[--mission][INFO] === BOT START --mission (headless) ===
+[--mission][INFO] Map 6656x4480, Extract(672,3872), Waves=2
+[--mission][INFO] Leader(544,672) HP=100/100
+[--mission][INFO] Squad=4 Hostiles=11 Mode=combat
+[--mission][INFO] Bot loop started
+[--mission][INFO] Map 6656x4480, Extract(672,3872), Waves=2
+[--mission][INFO] Leader(544,672) HP=100/100
+[--mission][INFO] Squad=4 Hostiles=11 Mode=combat
+[--mission][INFO] Bot loop started
+[--mission][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][INFO] Map 6656x4480, Extract(672,3872), Waves=2
+[--mission][INFO] Leader(544,672) HP=100/100
+[--mission][INFO] Squad=4 Hostiles=11 Mode=combat
+[--mission][INFO] Bot loop started
+[--mission][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] STUCK (544,672) 4.1s
+[--mission][WARN] STUCK (544,672) 4.5s
+[--mission][INFO] Map 6656x4480, Extract(672,3872), Waves=2
+[--mission][INFO] Leader(544,672) HP=100/100
+[--mission][INFO] Squad=4 Hostiles=11 Mode=combat
+[--mission][INFO] Bot loop started
+[--mission][WARN] STUCK (544,672) 5.0s
+[--mission][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] STUCK (544,672) 4.2s
+[--mission][WARN] STUCK (544,672) 4.7s
+[--mission][WARN] STUCK (544,672) 5.2s
+[--mission][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][INFO] Map 6656x4480, Extract(672,3872), Waves=2
+[--mission][INFO] Leader(544,672) HP=100/100
+[--mission][INFO] Squad=4 Hostiles=11 Mode=combat
+[--mission][INFO] Bot loop started
+[--mission][WARN] STUCK (544,672) 4.0s
+[--mission][WARN] STUCK (544,672) 4.5s
+[--mission][WARN] STUCK (544,672) 4.9s
+[--mission][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 7s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 7s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] STUCK (544,672) 4.3s
+[--mission][WARN] STUCK (544,672) 4.9s
+[--mission][WARN] STUCK (544,672) 5.4s
+[--mission][STATUS] 7s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] STUCK (544,672) 4.5s
+[--mission][WARN] STUCK (544,672) 5.1s
+[--mission][WARN] STUCK (544,672) 5.8s
+[--mission][STATUS] 6s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 7s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 13s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 11s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 13s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 11s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 18s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 18s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 13s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 18s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 17s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 23s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 24s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 19s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 24s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 22s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 24s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 28s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 29s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 29s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 30s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 27s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 34s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 34s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 35s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 39s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 33s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 35s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 39s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 40s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 45s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 38s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 41s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 44s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 46s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 50s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 44s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 46s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 50s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 51s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 55s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 49s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 55s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 52s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 56s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 60s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 54s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 61s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 57s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 62s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 65s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 60s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 66s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 63s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 70s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 67s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 65s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 71s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 68s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 76s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 72s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 70s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 76s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 73s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 81s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 78s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 76s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 81s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 79s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 87s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 83s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 86s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 81s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 84s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 88s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 92s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 86s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 92s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 90s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 94s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 98s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 92s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 98s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 95s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 99s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 103s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 97s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 103s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 100s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 108s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 105s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 102s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 108s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 105s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 113s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 111s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 108s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 114s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 111s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 116s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 119s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 119s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 113s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 116s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 121s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 125s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 118s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 124s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 121s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 126s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 130s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 126s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 124s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 130s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 132s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 135s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 130s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 135s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 132s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 140s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 137s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 135s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 141s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 137s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 145s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 143s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 140s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 143s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 146s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 151s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 149s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 145s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 148s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 151s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 156s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 154s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 151s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 156s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 153s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 161s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 159s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 161s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 156s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 159s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 167s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 164s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 166s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 161s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 164s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 172s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 172s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 169s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 166s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 170s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 177s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 177s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 175s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 172s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][STATUS] 175s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] Timeout after 180s
+[--mission][INFO] ════════════════════════════════════
+[--mission][INFO] --mission DONE: timeout | 180.5s
+[--mission][INFO] HP:100/100 Sq:4/4 K:0
+[--mission][INFO] Issues: 4 | Modes: combat
+[--mission][WARN] Timeout after 180s
+[--mission][INFO] ════════════════════════════════════
+[--mission][INFO] --mission DONE: timeout | 181.0s
+[--mission][INFO] HP:100/100 Sq:4/4 K:0
+[--mission][INFO] Issues: 4 | Modes: combat
+[--mission][WARN] Timeout after 180s
+[--mission][INFO] ════════════════════════════════════
+[--mission][INFO] --mission DONE: timeout | 180.6s
+[--mission][INFO] HP:100/100 Sq:4/4 K:0
+[--mission][INFO] Issues: 4 | Modes: combat
+[--mission][STATUS] 178s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[--mission][WARN] Timeout after 180s
+[--mission][INFO] ════════════════════════════════════
+[--mission][INFO] --mission DONE: timeout | 180.7s
+[--mission][INFO] HP:100/100 Sq:4/4 K:0
+[--mission][INFO] Issues: 4 | Modes: combat
+[--mission][WARN] Timeout after 180s
+[--mission][INFO] ════════════════════════════════════
+[--mission][INFO] --mission DONE: timeout | 180.4s
+[--mission][INFO] HP:100/100 Sq:4/4 K:0
+[--mission][INFO] Issues: 4 | Modes: combat

@@ -1,0 +1,214 @@
+Tile-Based Map Editor Specification with Examples
+1. General Overview
+Tile/grid-based editor.
+Adjustable tile sizes per layer: 64, 128, 256, 512 px (reference only; game uses positions, not pixel size).
+Single tile per layer; multiple layers exist: Floor, Wall, Door, Objects, Sprites, Markers, Lights.
+Layer stack fixed: Floor → Wall → Door → Objects → Sprites → Markers → Lights.
+Undo/Redo stored browser-side only, per action (brush/fill/cut/paste/property changes), lightweight.
+Map exported as a single JSON file containing all layers, tile data, properties, visibility, and versioning info.
+2. Layers
+Layer	Behavior
+Floor	Tile fills bounded by walls/doors; brush/fill allowed.
+Wall	Fill/brush bounded by adjacent walls; brush/fill allowed.
+Door	Tile-based objects with multiple states (Open/Closed, Locked/Unlocked, Welded/Unwelded, Destroyed/Intact). Placed individually.
+Objects	Tile-based; individual placement; rotation 8 directions; multi-tile brush supported.
+Sprites	Tile-based; static placement; rotation 8 directions; no animation preview.
+Markers	Tile-based; one marker per tile; properties from STORY/MISSION editor; placement confirmation if replacing.
+Lights	Tile-based; always on top; real-time preview; pulsing, rotating cone, radius, opacity, overlay style, color; cannot be brush-filled.
+3. Tools
+3.1 Selection
+Modes: Select, Line Select, Box Select.
+Operates only on the active layer.
+Realtime visual outlines + highlighted tiles.
+Actions: Cut, Copy, Paste, Delete, Change properties.
+Move tool unnecessary; Cut & Paste used instead.
+
+CLI Examples:
+
+# Select a 3x3 area at position (5,5) on Wall layer
+select --layer Wall --mode box --start 5,5 --end 7,7
+
+# Cut selected tiles
+cut
+
+# Paste at new location
+paste --position 10,10
+3.2 Brush
+Layer-specific texture menu (scrollable sidebar).
+Multi-tile brush supported (2x2, 3x3, etc.).
+Replace mode only, layer-specific.
+Rotation set in sidebar before applying (8 directions).
+Previews affected tiles with outline of blocked tiles.
+Undo/Redo treats brush stroke as a single action.
+
+CLI Examples:
+
+# Paint a 2x2 floor brush at (10,10) with texture 'stone_tile'
+brush --layer Floor --texture stone_tile --size 2,2 --position 10,10
+
+# Fill a floor area starting at (5,5)
+fill --layer Floor --texture grass_tile --position 5,5
+4. Tile Properties
+4.1 Sidebar Editing
+Updates only on tile selection.
+Resizable panel.
+Layer-specific options:
+Doors: Tick boxes for Open/Closed, Locked/Unlocked, Welded/Unwelded, Destroyed/Intact.
+Lights: Radius, Opacity, Overlay style, Pulsing, Rotating cone, Color.
+Markers: Map-specific dropdown with search/filter.
+Objects/Sprites: Rotation, texture.
+Brush textures: Scrollable, remembers last-used per layer.
+
+CLI Examples:
+
+# Set a door at (12,5) to Closed + Locked + Welded
+set-door-states --position 12,5 --closed --locked --welded
+
+# Set light properties at (8,8)
+set-light --position 8,8 --radius 5 --color "#FFA500" --opacity 0.8 --pulsing true --cone-rotation 45
+4.2 Tile Highlighting
+Snap-to-grid enabled.
+Tile under cursor highlighted with layer-specific color.
+Multi-tile brush/fill previews outlines affected area.
+Blocked tiles outlined differently.
+5. Doors
+States combinable: Closed + Locked + Welded.
+Edited via sidebar tick boxes.
+Rotation via sidebar or keyboard shortcuts.
+Texture reflects state; map view relies on tile texture.
+
+JSON Example:
+
+{
+  "x": 12,
+  "y": 5,
+  "layer": "Door",
+  "texture": "metal_door",
+  "rotation": "N",
+  "states": {
+    "open": false,
+    "locked": true,
+    "welded": true,
+    "destroyed": false
+  }
+}
+6. Lights
+Always on top.
+Real-time preview respects walls/doors blocking.
+Properties: radius, opacity, overlay style, pulsing, rotating cone, color.
+Cached rendering for performance.
+
+JSON Example:
+
+{
+  "x": 8,
+  "y": 8,
+  "layer": "Light",
+  "radius": 5,
+  "color": "#FFA500",
+  "opacity": 0.8,
+  "pulsing": true,
+  "cone_rotation": 45,
+  "overlay_style": "soft"
+}
+7. Markers
+One marker per tile.
+Confirmation required if replacing existing marker.
+Properties from STORY/MISSION editor.
+Sidebar supports search/filter.
+
+JSON Example:
+
+{
+  "x": 3,
+  "y": 7,
+  "layer": "Markers",
+  "marker_type": "enemy_spawn_1"
+}
+8. Navigation
+Panning: Hold middle mouse button + drag.
+Zoom: Mouse scroll wheel.
+No scrollbars.
+Floating top menu: Fixed, always visible, layer-specific tools, zoom/pan controls.
+Sidebar: Resizable, layer-specific content.
+
+CLI Example:
+
+# Zoom in
+zoom --level 1.5
+
+# Pan map to top-left
+pan --x -50 --y -50
+9. Undo/Redo
+Tracks brush stroke, fill, cut/paste, delete, property changes.
+Multi-tile actions treated as single step.
+Marker replacements tracked as single undo step.
+Stored browser-side only.
+
+CLI Example:
+
+undo
+redo
+10. Map Export (JSON)
+Single file with all map data:
+Tile positions (x, y), type/texture, rotation, special properties.
+Layer order and visibility.
+Grid size per layer.
+Door states.
+Marker assignments.
+Editor/map version info.
+
+Example JSON Structure:
+
+{
+  "version": "1.0.0",
+  "grid_size": 128,
+  "layers": [
+    {
+      "name": "Floor",
+      "visible": true,
+      "tiles": [
+        {"x":0,"y":0,"texture":"stone_tile"},
+        {"x":1,"y":0,"texture":"stone_tile"}
+      ]
+    },
+    {
+      "name": "Wall",
+      "visible": true,
+      "tiles": [
+        {"x":0,"y":0,"texture":"brick_wall","rotation":"N"}
+      ]
+    },
+    {
+      "name": "Door",
+      "visible": true,
+      "tiles": [
+        {
+          "x":2,
+          "y":0,
+          "texture":"metal_door",
+          "rotation":"E",
+          "states":{"open":false,"locked":true,"welded":true,"destroyed":false}
+        }
+      ]
+    }
+  ]
+}
+11. UI/UX Features
+Floating top menu: Fixed, layer-aware, always visible.
+Sidebar: Resizable, dynamic content.
+Tile highlights with layer-specific colors.
+Realtime outlines for selection and blocked tiles.
+Brush/fill previews before committing.
+Rotation via sidebar or keyboard shortcuts.
+Snap-to-grid and tile previews active at all times.
+
+CLI Example:
+
+# Select Floor layer and paint a 3x3 area of grass tiles
+select-layer Floor
+brush --texture grass_tile --size 3,3 --position 5,5
+
+# Place a locked, welded, closed door at (10,10)
+set-layer Door
+place-door --texture metal_door --rotation N --closed --locked --welded --position 10,10

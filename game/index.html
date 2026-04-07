@@ -5,236 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALIENS: Tactical Shooter</title>
     <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=block" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/nav.css">
     <style>
+        @font-face {
+            font-family: 'SevenSegment';
+            src: url('/assets/fonts/SevenSegment.ttf?v=2') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: block;
+        }
+        @font-face {
+            font-family: 'Alarm';
+            src: url('/assets/fonts/SevenSegment.ttf?v=2') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: block;
+        }
         * { margin: 0; padding: 0; }
         html, body { background: #000; overflow: hidden; touch-action: none; }
         canvas { touch-action: none; }
-        .hint {
-            position: fixed;
-            left: 10px;
-            top: 10px;
-            color: #9fc4d8;
-            font: 12px monospace;
-            background: rgba(0, 0, 0, 0.45);
-            padding: 4px 6px;
-            border: 1px solid #224051;
-            z-index: 10;
-        }
-        .hint a { color: #b6e8ff; text-decoration: none; }
-        .error-panel {
-            position: fixed;
-            right: 10px;
-            top: 10px;
-            width: 320px;
-            max-height: calc(100vh - 20px);
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            color: #d5e9f7;
-            font: 12px/1.3 monospace;
-            background: rgba(4, 9, 13, 0.78);
-            border: 1px solid #224051;
-            border-radius: 8px;
-            padding: 8px;
-            z-index: 12;
-        }
-        .error-panel h2 {
-            margin: 0;
-            font: 12px monospace;
-            color: #a7d7f3;
-        }
-        .error-panel textarea {
-            width: 100%;
-            min-height: 86px;
-            resize: vertical;
-            background: #08131c;
-            border: 1px solid #2a4a5f;
-            color: #e7f5ff;
-            border-radius: 6px;
-            padding: 6px;
-            font: 12px monospace;
-        }
-        .error-actions {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-        }
-        .error-panel button {
-            background: #112332;
-            color: #d8efff;
-            border: 1px solid #2e5269;
-            border-radius: 6px;
-            padding: 5px 6px;
-            cursor: pointer;
-            font: 11px monospace;
-        }
-        .error-log {
-            overflow: auto;
-            max-height: 42vh;
-            border: 1px solid #243c4b;
-            border-radius: 6px;
-            background: #070f15;
-            padding: 6px;
-            white-space: pre-wrap;
-        }
-        .error-status {
-            color: #9bc9e3;
-            min-height: 14px;
-        }
-        @media (max-width: 900px) {
-            .error-panel {
-                width: calc(100vw - 20px);
-                left: 10px;
-                right: 10px;
-                top: auto;
-                bottom: 10px;
-                max-height: 45vh;
-            }
-        }
     </style>
 </head>
 <body>
-    <div class="hint">Plan: <a href="/plan">/plan</a> | Editors: <a href="/editors">/editors</a> | Settings: <a href="/settings">/settings</a> | Missions: <a href="/game?mission=m1">m1</a> <a href="/game?mission=m2">m2</a> <a href="/game?mission=m3">m3</a> <a href="/game?mission=m4">m4</a> <a href="/game?mission=m5">m5</a></div>
-    <aside class="error-panel">
-        <h2>Error Notes</h2>
-        <textarea id="errorInput" placeholder="Paste error + short repro steps, then Send..."></textarea>
-        <div class="error-actions">
-            <button id="sendErrorBtn">Send</button>
-            <button id="copyErrorsBtn">Copy</button>
-            <button id="exportErrorsBtn">Export</button>
-            <button id="clearErrorsBtn">Clear</button>
-        </div>
-        <div id="errorStatus" class="error-status"></div>
-        <div id="errorLog" class="error-log"></div>
-    </aside>
+    <div style="font-family: 'SevenSegment'; visibility: hidden; position: absolute; height: 0; width: 0;">0123456789</div>
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game" class="active">Game</a>
+        <a href="/editors">Editors</a>
+        <a href="/settings">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
-    <script type="module" src="../src/main.js"></script>
-    <script>
-        (function () {
-            const STORAGE_KEY = 'aliens_error_notes_v1';
-            const API_ENDPOINT = '/api/error-notes';
-            const input = document.getElementById('errorInput');
-            const log = document.getElementById('errorLog');
-            const status = document.getElementById('errorStatus');
-            const sendBtn = document.getElementById('sendErrorBtn');
-            const copyBtn = document.getElementById('copyErrorsBtn');
-            const exportBtn = document.getElementById('exportErrorsBtn');
-            const clearBtn = document.getElementById('clearErrorsBtn');
-
-            function indexToCode(index) {
-                const n = Math.max(0, index);
-                const major = Math.floor(n / 26) + 1;
-                const minor = String.fromCharCode(97 + (n % 26));
-                return `${major}${minor}`;
-            }
-
-            function loadEntries() {
-                try {
-                    const raw = localStorage.getItem(STORAGE_KEY);
-                    if (!raw) return [];
-                    const parsed = JSON.parse(raw);
-                    return Array.isArray(parsed) ? parsed : [];
-                } catch (_) {
-                    return [];
-                }
-            }
-
-            function saveEntries(entries) {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-            }
-
-            function buildText(entries) {
-                return entries.map((e, idx) => {
-                    const id = `#error ${indexToCode(idx)}`;
-                    return `${id}: ${e.title}\nTime: ${e.time}\nURL: ${e.url}\n${e.body}\n`;
-                }).join('\n');
-            }
-
-            function render(entries) {
-                log.textContent = buildText(entries) || 'No errors logged yet.';
-            }
-
-            function nowText() {
-                return new Date().toLocaleString();
-            }
-
-            function splitTitleAndBody(text) {
-                const trimmed = text.trim();
-                if (!trimmed) return { title: '', body: '' };
-                const lines = trimmed.split('\n');
-                const title = lines[0].slice(0, 90);
-                return { title, body: trimmed };
-            }
-
-            let entries = loadEntries();
-            render(entries);
-            status.textContent = `Loaded ${entries.length} entries`;
-
-            async function postEntryToServer(entry) {
-                try {
-                    const res = await fetch(API_ENDPOINT, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(entry),
-                    });
-                    return res.ok;
-                } catch (_) {
-                    return false;
-                }
-            }
-
-            sendBtn.addEventListener('click', async () => {
-                const parsed = splitTitleAndBody(input.value);
-                if (!parsed.body) {
-                    status.textContent = 'Nothing to send';
-                    return;
-                }
-                const entry = {
-                    title: parsed.title || 'Untitled',
-                    body: parsed.body,
-                    time: nowText(),
-                    url: window.location.href,
-                };
-                entries.push(entry);
-                saveEntries(entries);
-                render(entries);
-                input.value = '';
-                const ok = await postEntryToServer(entry);
-                status.textContent = ok
-                    ? `Saved #error ${indexToCode(entries.length - 1)} (server + local)`
-                    : `Saved #error ${indexToCode(entries.length - 1)} (local only)`;
-            });
-
-            copyBtn.addEventListener('click', async () => {
-                const text = buildText(entries);
-                if (!text) return;
-                try {
-                    await navigator.clipboard.writeText(text);
-                    status.textContent = 'Copied log to clipboard';
-                } catch (_) {
-                    status.textContent = 'Clipboard copy failed';
-                }
-            });
-
-            exportBtn.addEventListener('click', () => {
-                const text = buildText(entries);
-                const blob = new Blob([text], { type: 'text/plain' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'aliens-error-notes.txt';
-                a.click();
-                URL.revokeObjectURL(a.href);
-                status.textContent = 'Exported text file';
-            });
-
-            clearBtn.addEventListener('click', () => {
-                if (!confirm('Clear all saved error notes?')) return;
-                entries = [];
-                saveEntries(entries);
-                render(entries);
-                status.textContent = 'Cleared';
-            });
-        })();
-    </script>
+    <script type="module" src="../src/main.js?v=20260327a"></script>
 </body>
 </html>

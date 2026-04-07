@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "prep": {
+    "ok": true,
+    "enemyHealthStart": 42,
+    "enemyId": "alien_warrior",
+    "wallTest": {
+      "tx": 47,
+      "ty": 5
+    },
+    "leader": {
+      "x": 2976,
+      "y": 352
+    },
+    "enemy": {
+      "x": 3104,
+      "y": 352
+    },
+    "angleToEnemy": 0,
+    "doorSetup": {
+      "leaderX": 1248,
+      "leaderY": 736,
+      "doorX": 1312,
+      "doorY": 736,
+      "doorState": "closed"
+    }
+  },
+  "wallResult": {
+    "enemyHealthEnd": null,
+    "enemyMaxHealth": null
+  },
+  "wallNoDamage": null,
+  "doorResult": {
+    "ok": true,
+    "doorState": "closed",
+    "hitDist": null,
+    "range": 470
+  },
+  "errors": []
+}

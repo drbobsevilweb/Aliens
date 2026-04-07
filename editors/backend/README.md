@@ -10,6 +10,14 @@ Goals:
 Current status:
 - `schemas/mission-package-v1.schema.json` defines the first payload contract.
 - `js/normalizeMissionPackage.js` validates and normalizes editor payloads.
+- `js/missionPackageQuality.js` analyzes pacing/atmosphere coverage and can auto-tune packages with baseline cues/events.
+- `js/checkMissionPackage.mjs` runs contract + quality checks on exported package JSON.
+
+Quick check:
+
+```bash
+node editors/backend/js/checkMissionPackage.mjs path/to/aliens-mission-package-v1.json
+```
 
 Integration policy:
 - No direct imports from `src/scenes/*` in this workstream.

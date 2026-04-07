@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+import argparse
+import base64
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+from http import HTTPStatus
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+LOG_DIR = Path('logs')
+LOG_FILE = LOG_DIR / 'error-notes.ndjson'
+
+DATA_DIR = Path('data')
+EDITOR_STATE_FILE = DATA_DIR / 'editor_state.json'
+MISSION_PACKAGE_FILE = DATA_DIR / 'mission_package.json'
+ATS_FILE = Path('ATS.txt')
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def _send_json(self, payload, status=HTTPStatus.OK):
+        raw = json.dumps(payload, ensure_ascii=True).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _read_json_body(self):
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            return None
+        if length <= 0 or length > 200_000:
+            return None
+        raw = self.rfile.read(length)
+        try:
+            return json.loads(raw.decode('utf-8'))
+        except json.JSONDecodeError:
+            return None
+
+    def _read_json_body_from(self, raw):
+        try:
+            return json.loads(raw.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+
+    def do_POST(self):
+        # ── Audio file upload endpoint ──
+        if self.path.startswith('/api/audio-upload'):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(self.path)
+            qs = parse_qs(parsed.query)
+            target = qs.get('target', [''])[0]
+
+            # Only allow writing into src/audio/ or src/music/
+            allowed_prefixes = ('src/audio/', 'src/music/')
+            if not target or '..' in target or target.startswith('/'):
+                self._send_json({'ok': False, 'error': 'Invalid path'}, HTTPStatus.BAD_REQUEST)
+                return
+            if not any(target.startswith(p) for p in allowed_prefixes):
+                self._send_json({'ok': False, 'error': 'Path must be in src/audio/ or src/music/'}, HTTPStatus.BAD_REQUEST)
+                return
+
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 50_000_000:
+                self._send_json({'ok': False, 'error': 'File too large or empty (max 50 MB)'}, HTTPStatus.BAD_REQUEST)
+                return
+
+            data = self.rfile.read(length)
+            target_path = Path(target)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with target_path.open('wb') as f:
+                f.write(data)
+
+            self._send_json({'ok': True, 'path': target, 'size': len(data)})
+            return
+
+        if self.path == '/api/editor-state':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 10_000_000:
+                self._send_json({'ok': False, 'error': 'Body too large or empty (max 10 MB)'}, HTTPStatus.BAD_REQUEST)
+                return
+            raw = self.rfile.read(length)
+            try:
+                data = json.loads(raw.decode('utf-8'))
+            except json.JSONDecodeError:
+                self._send_json({'ok': False, 'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
+                return
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with EDITOR_STATE_FILE.open('w', encoding='utf-8') as f:
+                json.dump(data, f)
+            self._send_json({'ok': True})
+            return
+
+        if self.path == '/api/mission-package':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 5_000_000:
+                self._send_json({'ok': False, 'error': 'Body too large or empty (max 5 MB)'}, HTTPStatus.BAD_REQUEST)
+                return
+            raw = self.rfile.read(length)
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with MISSION_PACKAGE_FILE.open('wb') as f:
+                f.write(raw)
+            self._send_json({'ok': True})
+            return
+
+        if self.path == '/api/ats':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 2_000_000:
+                self._send_json({'ok': False, 'error': 'Body too large or empty (max 2 MB)'}, HTTPStatus.BAD_REQUEST)
+                return
+            raw = self.rfile.read(length)
+            body = self._read_json_body_from(raw)
+            if not isinstance(body, dict) or 'content' not in body:
+                self._send_json({'ok': False, 'error': 'Expected JSON with "content" field'}, HTTPStatus.BAD_REQUEST)
+                return
+            content = str(body['content'])
+            with ATS_FILE.open('w', encoding='utf-8') as f:
+                f.write(content)
+            self._send_json({'ok': True, 'size': len(content)})
+            return
+
+        if self.path == '/api/tiled-build':
+            root = Path(__file__).resolve().parent
+            try:
+                result = subprocess.run(
+                    ['npm', 'run', 'build:tiled-maps'],
+                    cwd=root, capture_output=True, text=True, timeout=30
+                )
+                ok = result.returncode == 0
+                self._send_json({
+                    'ok': ok,
+                    'stdout': result.stdout[-4000:] if result.stdout else '',
+                    'stderr': result.stderr[-2000:] if result.stderr else '',
+                }, HTTPStatus.OK if ok else HTTPStatus.INTERNAL_SERVER_ERROR)
+            except subprocess.TimeoutExpired:
+                self._send_json({'ok': False, 'error': 'Build timed out'}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        if self.path == '/api/save-sound':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 50_000_000:
+                self._send_json({'ok': False, 'error': 'Body too large or empty (max 50 MB)'}, HTTPStatus.BAD_REQUEST)
+                return
+            raw_body = self.rfile.read(length)
+            try:
+                body = json.loads(raw_body.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send_json({'ok': False, 'error': 'Invalid JSON body'}, HTTPStatus.BAD_REQUEST)
+                return
+            save_path = body.get('path', '')
+            data_b64 = body.get('data', '')
+            if (not save_path or not isinstance(save_path, str) or '..' in save_path
+                    or not (save_path.startswith('/src/audio/') or save_path.startswith('/src/music/')
+                            or save_path.startswith('/assets/'))
+                    or not (save_path.endswith('.wav') or save_path.endswith('.ogg'))):
+                self._send_json({'ok': False, 'error': 'Invalid or disallowed path'}, HTTPStatus.BAD_REQUEST)
+                return
+            if not data_b64 or not isinstance(data_b64, str):
+                self._send_json({'ok': False, 'error': 'Missing data field'}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                wav_bytes = base64.b64decode(data_b64)
+            except Exception:
+                self._send_json({'ok': False, 'error': 'Invalid base64 data'}, HTTPStatus.BAD_REQUEST)
+                return
+            root = Path(__file__).resolve().parent
+            rel = save_path.lstrip('/')
+            target = (root / rel).resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                self._send_json({'ok': False, 'error': 'Path escape detected'}, HTTPStatus.FORBIDDEN)
+                return
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open('wb') as f:
+                f.write(wav_bytes)
+            self._send_json({'ok': True, 'path': rel, 'size': len(wav_bytes)})
+            return
+
+        if self.path == '/api/save-hud-config':
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 500_000:
+                self._send_json({'ok': False, 'error': 'Body too large or empty (max 500 KB)'}, HTTPStatus.BAD_REQUEST)
+                return
+            raw = self.rfile.read(length)
+            try:
+                data = json.loads(raw.decode('utf-8'))
+            except json.JSONDecodeError:
+                self._send_json({'ok': False, 'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
+                return
+            if not isinstance(data, dict):
+                self._send_json({'ok': False, 'error': 'Expected JSON object'}, HTTPStatus.BAD_REQUEST)
+                return
+            config_path = Path('src/data/hudConfig.js')
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            js_content = (
+                '// Auto-generated by HUD Editor — do not edit manually\n'
+                'export const HUD_CONFIG = ' + json.dumps(data, indent=2) + ';\n'
+            )
+            with config_path.open('w', encoding='utf-8') as f:
+                f.write(js_content)
+            self._send_json({'ok': True, 'path': str(config_path)})
+            return
+
+        if self.path != '/api/error-notes':
+            self.send_error(HTTPStatus.NOT_FOUND, 'Not Found')
+            return
+
+        data = self._read_json_body()
+        if not isinstance(data, dict):
+            self._send_json({'ok': False, 'error': 'Invalid JSON body'}, HTTPStatus.BAD_REQUEST)
+            return
+
+        title = str(data.get('title', '')).strip()[:160]
+        body = str(data.get('body', '')).strip()[:20000]
+        url = str(data.get('url', '')).strip()[:500]
+        source_time = str(data.get('time', '')).strip()[:120]
+
+        if not body:
+            self._send_json({'ok': False, 'error': 'Empty body'}, HTTPStatus.BAD_REQUEST)
+            return
+
+        record = {
+            'server_time_utc': datetime.now(timezone.utc).isoformat(),
+            'title': title or 'Untitled',
+            'body': body,
+            'url': url,
+            'source_time': source_time,
+            'remote_addr': self.client_address[0] if self.client_address else '',
+        }
+
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with LOG_FILE.open('a', encoding='utf-8') as f:
+            f.write(json.dumps(record, ensure_ascii=True) + '\n')
+
+        self._send_json({'ok': True, 'saved_to': str(LOG_FILE)})
+
+    def end_headers(self):
+        # Prevent the dev server from serving stale modules, media, or mockup assets.
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+
+    def do_GET(self):
+        if self.path == '/api/editor-state':
+            if not EDITOR_STATE_FILE.exists():
+                self._send_json({'ok': True, 'state': None})
+                return
+            with EDITOR_STATE_FILE.open('r', encoding='utf-8') as f:
+                data = json.load(f)
+            self._send_json({'ok': True, 'state': data})
+            return
+
+        if self.path == '/api/mission-package':
+            if not MISSION_PACKAGE_FILE.exists():
+                self._send_json({'ok': True, 'package': None})
+                return
+            with MISSION_PACKAGE_FILE.open('r', encoding='utf-8') as f:
+                pkg_str = f.read()
+            self._send_json({'ok': True, 'package': pkg_str})
+            return
+
+        if self.path == '/api/error-notes':
+            if not LOG_FILE.exists():
+                self._send_json({'ok': True, 'entries': []})
+                return
+            entries = []
+            with LOG_FILE.open('r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+            self._send_json({'ok': True, 'entries': entries[-200:]})
+            return
+
+        if self.path == '/api/ats':
+            if not ATS_FILE.exists():
+                self._send_json({'ok': True, 'content': ''})
+                return
+            with ATS_FILE.open('r', encoding='utf-8') as f:
+                content = f.read()
+            self._send_json({'ok': True, 'content': content})
+            return
+
+        # Auto-redirect root to /game, preserving query parameters
+        if self.path == '/' or self.path == '' or self.path.startswith('/?'):
+            from urllib.parse import urlparse
+            parsed = urlparse(self.path)
+            target = '/game'
+            if parsed.query:
+                target += '?' + parsed.query
+            self.send_response(HTTPStatus.FOUND)
+            self.send_header('Location', target)
+            self.end_headers()
+            return
+
+        super().do_GET()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='ALIENS dev server with error log API')
+    parser.add_argument('--host', default='0.0.0.0')
+    parser.add_argument('--port', type=int, default=8192)
+    parser.add_argument('--no-tiled-watch', action='store_true',
+                        help='Skip auto-launching the Tiled map watcher')
+    args = parser.parse_args()
+
+    os.chdir(Path(__file__).resolve().parent)
+
+    tiled_watcher = None
+    if not args.no_tiled_watch:
+        watcher_script = Path('scripts/watchTiled.mjs')
+        if watcher_script.exists():
+            try:
+                tiled_watcher = subprocess.Popen(
+                    ['node', str(watcher_script)],
+                    stdout=sys.stdout, stderr=sys.stderr
+                )
+                print(f'Tiled watcher started (pid={tiled_watcher.pid}) — watching maps/*.json')
+            except FileNotFoundError:
+                print('WARNING: node not found — Tiled watcher not started. Install Node.js or use --no-tiled-watch.')
+        else:
+            print(f'WARNING: {watcher_script} not found — Tiled watcher not started.')
+
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    print(f'Serving on http://{args.host}:{args.port} (cwd={os.getcwd()})')
+    print(f'Error log endpoint: http://{args.host}:{args.port}/api/error-notes')
+    print(f'Tiled build endpoint: http://{args.host}:{args.port}/api/tiled-build')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        if tiled_watcher is not None:
+            tiled_watcher.terminate()
+
+
+if __name__ == '__main__':
+    main()

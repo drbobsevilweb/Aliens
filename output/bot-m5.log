@@ -1,0 +1,27 @@
+[m5][INFO] === BOT START m5 (headless) ===
+[m5][INFO] Map 6656x4480, Extract(5792,4000), Waves=3
+[m5][INFO] Leader(544,416) HP=100/100
+[m5][INFO] Squad=4 Hostiles=18 Mode=combat
+[m5][INFO] Bot loop started
+[m5][STATUS] 0s | HP:100/100 | Sq:4/4 | H:18 | K:0 | combat P=0.09 W=1
+[m5][STATUS] 5s | HP:100/100 | Sq:4/4 | H:17 | K:1 | combat P=0.24 W=1
+[m5][ISSUE] SPAWN PROXIMITY: drone @ 50px from leader
+[m5][ISSUE] SPAWN PROXIMITY: drone @ 56px from tech
+[m5][ISSUE] SPAWN PROXIMITY: drone @ 42px from medic
+[m5][ISSUE] SPAWN PROXIMITY: warrior @ 47px from tech
+[m5][ISSUE] SPAWN PROXIMITY: warrior @ 63px from tech
+[m5][ISSUE] SPAWN PROXIMITY: warrior @ 53px from tech
+[m5][ISSUE] SPAWN PROXIMITY: drone @ 42px from leader
+[m5][EVENT] FOLLOWER DEATH: 1 lost () | 16 near | P=0.45
+[m5][ISSUE] SPAWN PROXIMITY: warrior @ 60px from leader
+[m5][ISSUE] SPAWN PROXIMITY: warrior @ 58px from tech
+[m5][STATUS] 10s | HP:4/100 | Sq:3/3 | H:18 | K:2 | combat P=0.48 W=1
+[m5][ISSUE] SPAWN PROXIMITY: drone @ 49px from leader
+[m5][EVENT] MODE: combat → defeat
+[m5][DEATH] DEFEAT 10.8s | suspicious — full-HP enemy inside melee range (spawn inside?)
+[m5][DEATH] Enemies: warrior(135px,79hp), warrior(74px,66hp), drone(73px,37hp), drone(112px,76hp), warrior(97px,92hp), warrior(200px,92hp), warrior(215px,53hp), warrior(174px,27hp), warrior(89px,92hp), warrior(164px,53hp), drone(84px,63hp), warrior(63px,53hp), warrior(112px,92hp), warrior(186px,79hp), drone(49px,115hp), facehugger(228px,61hp)
+[m5][DEATH] Followers alive=3 firing=3
+[m5][INFO] ════════════════════════════════════
+[m5][INFO] m5 DONE: defeat | 10.9s
+[m5][INFO] HP:0/100 Sq:3/3 K:2
+[m5][INFO] Issues: 15 | Modes: combat→defeat

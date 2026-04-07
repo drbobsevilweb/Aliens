@@ -1,0 +1,18 @@
+[Unit]
+Description=ALIENS: Corridor Ops Game Server (Node.js)
+After=network.target
+
+[Service]
+Type=simple
+User=drevilbob
+WorkingDirectory=/home/drevilbob/Aliens
+ExecStart=/usr/local/bin/node /home/drevilbob/Aliens/server.js
+Restart=always
+RestartSec=5
+Environment=PORT=8192
+Environment=HOST=0.0.0.0
+StandardOutput=append:/tmp/aliens-server.log
+StandardError=append:/tmp/aliens-server.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,11 +1,5 @@
 import { CONFIG } from '../config.js';
-
-function tileToWorld(tileX, tileY) {
-    return {
-        x: tileX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-        y: tileY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    };
-}
+import { tileToWorld } from '../data/enemyData.js';
 
 function collectMarkerTiles(markers, value) {
     if (!Array.isArray(markers)) return [];
@@ -25,30 +19,42 @@ export class MissionFlow {
         this.mission = mission;
         this.tilemap = tilemap;
         this.warriorOnly = options.warriorOnly === true;
-        this.terminalReached = false;
-        this.terminalHoldUntil = 0;
-        this.valvesActivated = 0;
-        this.valveTargets = collectMarkerTiles(tilemap?.markers, 3).slice(0, 2);
-        this.queenSpawnTile = collectMarkerTiles(tilemap?.markers, 4)[0] || null;
-        this.queenPhaseSpawned = false;
+        this.requiredCards = Math.max(0, Math.floor(Number(mission?.requiredCards) || 0));
+        this.requiredTerminals = Math.max(0, Math.floor(Number(mission?.requiredTerminals) || 0));
+        this.cardTargets = collectMarkerTiles(tilemap?.markers, 4);
+        this.terminalTargets = collectMarkerTiles(tilemap?.markers, 3);
+        this.extractionTargets = collectMarkerTiles(tilemap?.markers, 2);
         this.injectFallbackTargets();
-        this.activatedValveSet = new Set();
+        this.collectedCardSet = new Set();
+        this.activatedTerminalSet = new Set();
         this.objectiveRadius = 52;
+        this._lastSummary = null;
     }
 
     injectFallbackTargets() {
         const w = Math.max(1, this.tilemap?.width || 40);
         const h = Math.max(1, this.tilemap?.height || 26);
-        if (this.mission.id === 'm2' && this.valveTargets.length < 1) {
-            this.valveTargets.push({ x: Math.floor(w * 0.52), y: Math.floor(h * 0.5) });
+        while (this.cardTargets.length < this.requiredCards) {
+            const i = this.cardTargets.length;
+            const candidate = {
+                x: Math.floor(w * (0.22 + (i % 3) * 0.28)),
+                y: Math.floor(h * (0.24 + (i % 2) * 0.38)),
+            };
+            this.cardTargets.push(this.findNearestWalkableTile(candidate));
         }
-        if (this.mission.id === 'm3' && this.valveTargets.length < 2) {
-            if (this.valveTargets.length < 1) {
-                this.valveTargets.push({ x: Math.floor(w * 0.25), y: Math.floor(h * 0.35) });
-            }
-            if (this.valveTargets.length < 2) {
-                this.valveTargets.push({ x: Math.floor(w * 0.75), y: Math.floor(h * 0.65) });
-            }
+        while (this.terminalTargets.length < this.requiredTerminals) {
+            const i = this.terminalTargets.length;
+            const candidate = {
+                x: Math.floor(w * (0.2 + (i % 4) * 0.18)),
+                y: Math.floor(h * (0.2 + ((i + 1) % 3) * 0.24)),
+            };
+            this.terminalTargets.push(this.findNearestWalkableTile(candidate));
+        }
+        if (this.extractionTargets.length === 0) {
+            this.extractionTargets.push(this.findNearestWalkableTile({
+                x: Math.floor(w * 0.5),
+                y: Math.floor(h * 0.5)
+            }));
         }
     }
 
@@ -63,158 +69,138 @@ export class MissionFlow {
         };
 
         const wavesDone = stageState === 'extract' || stageState === 'victory';
-        if (!wavesDone) {
-            summary.phaseLabel = 'Clear all waves';
-            summary.objectiveLines = ['[ ] Phase 1: Clear all waves'];
-            return summary;
-        }
+        const cardsCollected = this.updateProximityObjectiveSet(
+            leader,
+            this.cardTargets,
+            this.collectedCardSet
+        );
+        const terminalsActivated = this.updateProximityObjectiveSet(
+            leader,
+            this.terminalTargets,
+            this.activatedTerminalSet
+        );
+        const cardsNeed = Math.max(0, this.requiredCards);
+        const terminalsNeed = Math.max(0, this.requiredTerminals);
+        const cardsDone = cardsCollected >= cardsNeed;
+        const terminalsDone = terminalsActivated >= terminalsNeed;
 
-        if (this.mission.id === 'm1') {
-            summary.readyForExtraction = true;
-            summary.phaseLabel = 'Reach extraction';
-            summary.objectiveLines = ['[x] Phase 1: Clear all waves', '[ ] Phase 2: Reach extraction'];
-            return summary;
-        }
+        const leaderTile = leader ? {
+            x: Math.round(leader.x / (CONFIG?.TILE_SIZE || 64)),
+            y: Math.round(leader.y / (CONFIG?.TILE_SIZE || 64))
+        } : null;
+        const nextCard = !cardsDone
+            ? this.findNextUnreachedTarget(this.cardTargets, this.collectedCardSet, leaderTile)
+            : null;
+        const nextTerminal = !terminalsDone
+            ? this.findNextUnreachedTarget(this.terminalTargets, this.activatedTerminalSet, leaderTile)
+            : null;
+        const nextTarget = nextCard || nextTerminal;
+        summary.targetWorld = nextTarget ? tileToWorld(nextTarget.x, nextTarget.y) : null;
 
-        if (this.mission.id === 'm2') {
-            const terminal = this.valveTargets[0];
-            if (!this.terminalReached && terminal) {
-                const world = tileToWorld(terminal.x, terminal.y);
-                summary.targetWorld = world;
-                if (Phaser.Math.Distance.Between(leader.x, leader.y, world.x, world.y) <= this.objectiveRadius) {
-                    this.terminalReached = true;
-                    this.terminalHoldUntil = time + 9000;
-                }
+        if (!cardsDone || !terminalsDone || !wavesDone) {
+            if (!wavesDone && (!cardsDone || !terminalsDone)) {
+                summary.phaseLabel = `Hold out / work objectives (${cardsCollected}/${cardsNeed} | ${terminalsActivated}/${terminalsNeed})`;
+            } else if (!wavesDone) {
+                summary.phaseLabel = 'Clear remaining waves';
+            } else if (!cardsDone && !terminalsDone) {
+                summary.phaseLabel = `Collect cards / terminals (${cardsCollected}/${cardsNeed} | ${terminalsActivated}/${terminalsNeed})`;
+            } else if (!cardsDone) {
+                summary.phaseLabel = `Collect security cards (${cardsCollected}/${cardsNeed})`;
+            } else {
+                summary.phaseLabel = `Activate terminals (${terminalsActivated}/${terminalsNeed})`;
             }
-            if (!this.terminalReached) {
-                summary.phaseLabel = 'Reach terminal';
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    '[ ] Phase 2: Reach terminal room',
-                    '[ ] Phase 3: Hold terminal',
-                    '[ ] Phase 4: Reach extraction',
-                ];
-                return summary;
-            }
-            const remainMs = Math.max(0, this.terminalHoldUntil - time);
-            if (remainMs > 0) {
-                summary.phaseLabel = `Hold terminal (${Math.ceil(remainMs / 1000)}s)`;
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    '[x] Phase 2: Reach terminal room',
-                    `[ ] Phase 3: Hold terminal ${Math.ceil(remainMs / 1000)}s`,
-                    '[ ] Phase 4: Reach extraction',
-                ];
-                return summary;
-            }
-            summary.readyForExtraction = true;
-            summary.phaseLabel = 'Reach extraction';
             summary.objectiveLines = [
-                '[x] Phase 1: Clear all waves',
-                '[x] Phase 2: Reach terminal room',
-                '[x] Phase 3: Hold terminal',
-                '[ ] Phase 4: Reach extraction',
+                `${wavesDone ? '[x]' : '[ ]'} Phase 1: Clear all waves`,
+                `${cardsDone ? '[x]' : '[ ]'} Phase 2A: Security cards ${cardsCollected}/${cardsNeed}`,
+                `${terminalsDone ? '[x]' : '[ ]'} Phase 2B: Terminal uplinks ${terminalsActivated}/${terminalsNeed}`,
+                `[ ] Phase 3: Reach extraction elevator`,
             ];
+            summary.objectives = [
+                { id: 'waves',     status: wavesDone ? 'complete' : 'pending' },
+                { id: 'cards',     status: cardsDone ? 'complete' : 'pending' },
+                { id: 'terminals', status: terminalsDone ? 'complete' : 'pending' },
+            ];
+            this._lastSummary = summary;
             return summary;
         }
 
-        if (this.mission.id === 'm3') {
-            for (let i = 0; i < this.valveTargets.length; i++) {
-                const t = this.valveTargets[i];
-                const key = `${t.x},${t.y}`;
-                if (this.activatedValveSet.has(key)) continue;
-                const world = tileToWorld(t.x, t.y);
-                if (Phaser.Math.Distance.Between(leader.x, leader.y, world.x, world.y) <= this.objectiveRadius) {
-                    this.activatedValveSet.add(key);
-                }
+        const nextExtract = this.findNextUnreachedTarget(this.extractionTargets, new Set(), leaderTile);
+        if (nextExtract) {
+            const extractWorld = tileToWorld(nextExtract.x, nextExtract.y);
+            summary.targetWorld = extractWorld;
+            const dist = leader ? Phaser.Math.Distance.Between(leader.x, leader.y, extractWorld.x, extractWorld.y) : Infinity;
+            if (dist <= this.objectiveRadius) {
+                summary.isComplete = true;
             }
-            this.valvesActivated = this.activatedValveSet.size;
-            if (this.valvesActivated < Math.max(1, this.valveTargets.length)) {
-                const next = this.valveTargets.find((t) => !this.activatedValveSet.has(`${t.x},${t.y}`));
-                summary.targetWorld = next ? tileToWorld(next.x, next.y) : null;
-                summary.phaseLabel = `Activate valves (${this.valvesActivated}/${Math.max(1, this.valveTargets.length)})`;
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    `[ ] Phase 2: Activate valves ${this.valvesActivated}/${Math.max(1, this.valveTargets.length)}`,
-                    '[ ] Phase 3: Reach extraction',
-                ];
-                return summary;
-            }
-            summary.readyForExtraction = true;
-            summary.phaseLabel = 'Reach extraction';
-            summary.objectiveLines = [
-                '[x] Phase 1: Clear all waves',
-                `[x] Phase 2: Activate valves ${this.valvesActivated}/${Math.max(1, this.valveTargets.length)}`,
-                '[ ] Phase 3: Reach extraction',
-            ];
-            return summary;
-        }
-
-        if (this.mission.id === 'm4') {
-            const eggsLeft = enemyManager.getEggAliveCount ? enemyManager.getEggAliveCount() : 0;
-            if (eggsLeft > 0) {
-                summary.phaseLabel = `Purge eggs (${eggsLeft} left)`;
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    `[ ] Phase 2: Destroy egg clusters (${eggsLeft} left)`,
-                    '[ ] Phase 3: Reach extraction',
-                ];
-                return summary;
-            }
-            summary.readyForExtraction = true;
-            summary.phaseLabel = 'Reach extraction';
-            summary.objectiveLines = [
-                '[x] Phase 1: Clear all waves',
-                '[x] Phase 2: Destroy egg clusters',
-                '[ ] Phase 3: Reach extraction',
-            ];
-            return summary;
-        }
-
-        if (this.mission.id === 'm5') {
-            if (this.warriorOnly) {
-                summary.readyForExtraction = true;
-                summary.phaseLabel = 'Reach extraction';
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    '[x] Phase 2: Queen phase deferred (warrior-only test)',
-                    '[ ] Phase 3: Reach extraction',
-                ];
-                return summary;
-            }
-            if (!this.queenPhaseSpawned) {
-                this.queenPhaseSpawned = true;
-                summary.requestQueenSpawn = true;
-                if (this.queenSpawnTile) {
-                    summary.queenSpawnWorld = tileToWorld(this.queenSpawnTile.x, this.queenSpawnTile.y);
-                }
-            }
-            const queensLeft = enemyManager.getAliveCountByType
-                ? enemyManager.getAliveCountByType('queen')
-                : 0;
-            if (queensLeft > 0) {
-                if (this.queenSpawnTile) summary.targetWorld = tileToWorld(this.queenSpawnTile.x, this.queenSpawnTile.y);
-                summary.phaseLabel = `Kill queen (${queensLeft} left)`;
-                summary.objectiveLines = [
-                    '[x] Phase 1: Clear all waves',
-                    `[ ] Phase 2: Eliminate queen (${queensLeft} left)`,
-                    '[ ] Phase 3: Reach extraction',
-                ];
-                return summary;
-            }
-            summary.readyForExtraction = true;
-            summary.phaseLabel = 'Reach extraction';
-            summary.objectiveLines = [
-                '[x] Phase 1: Clear all waves',
-                '[x] Phase 2: Eliminate queen',
-                '[ ] Phase 3: Reach extraction',
-            ];
-            return summary;
+        } else {
+            summary.isComplete = true;   
         }
 
         summary.readyForExtraction = true;
-        summary.phaseLabel = 'Reach extraction';
-        summary.objectiveLines = ['[x] Clear all waves', '[ ] Reach extraction'];
+        summary.phaseLabel = 'Reach extraction elevator';
+        summary.objectiveLines = [
+            '[x] Phase 1: Clear all waves',
+            `[x] Phase 2A: Security cards ${cardsCollected}/${cardsNeed}`,
+            `[x] Phase 2B: Terminal uplinks ${terminalsActivated}/${terminalsNeed}`,
+            '[ ] Phase 3: Reach extraction elevator',
+        ];
+        summary.objectives = [
+            { id: 'waves',     status: 'complete' },
+            { id: 'cards',     status: 'complete' },
+            { id: 'terminals', status: 'complete' },
+        ];
+        this._lastSummary = summary;
         return summary;
+    }
+
+    getState() {
+        return this._lastSummary || null;
+    }
+
+    updateProximityObjectiveSet(leader, targets, set) {
+        if (!leader || !Array.isArray(targets) || !(set instanceof Set)) return 0;
+        for (const t of targets) {
+            const key = `${t.x},${t.y}`;
+            if (set.has(key)) continue;
+            const world = tileToWorld(t.x, t.y);
+            if (Phaser.Math.Distance.Between(leader.x, leader.y, world.x, world.y) <= this.objectiveRadius) {
+                set.add(key);
+            }
+        }
+        return Number(set.size) || 0;
+    }
+
+    findNextUnreachedTarget(targets, set, leaderTile = null) {
+        if (!Array.isArray(targets) || !set) return null;
+        const unreached = targets.filter(t => !set.has(`${t.x},${t.y}`));
+        if (!unreached.length) return null;
+        if (!leaderTile) return unreached[0];
+        return unreached.reduce((best, t) => {
+            const d = Math.abs(t.x - leaderTile.x) + Math.abs(t.y - leaderTile.y);
+            return d < best.d ? { t, d } : best;
+        }, { t: unreached[0], d: Infinity }).t;
+    }
+
+    findNearestWalkableTile(tile) {
+        const terrain = this.tilemap?.terrain;
+        const w = Math.max(1, this.tilemap?.width || 1);
+        const h = Math.max(1, this.tilemap?.height || 1);
+        if (!Array.isArray(terrain)) return tile;
+        const sx = Math.max(0, Math.min(w - 1, Math.floor(tile?.x || 0)));
+        const sy = Math.max(0, Math.min(h - 1, Math.floor(tile?.y || 0)));
+        if (terrain[sy]?.[sx] === 0) return { x: sx, y: sy };
+        const maxR = Math.max(w, h);
+        for (let r = 1; r <= maxR; r++) {
+            for (let oy = -r; oy <= r; oy++) {
+                for (let ox = -r; ox <= r; ox++) {
+                    if (Math.abs(ox) !== r && Math.abs(oy) !== r) continue;
+                    const tx = sx + ox;
+                    const ty = sy + oy;
+                    if (tx < 0 || ty < 0 || tx >= w || ty >= h) continue;
+                    if (terrain[ty]?.[tx] === 0) return { x: tx, y: ty };
+                }
+            }
+        }
+        return { x: sx, y: sy };
     }
 }

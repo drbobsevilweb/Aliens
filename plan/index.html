@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALIENS Plan + Editors</title>
+    <link rel="stylesheet" href="/shared/nav.css">
     <style>
         :root {
-            --bg: #0b1014;
-            --panel: #121b23;
-            --line: #253545;
-            --text: #e8f1fa;
-            --muted: #8ea5bc;
-            --accent: #7dd3fc;
-            --ok: #6ee7b7;
+            --bg: #0a0e14;
+            --panel: #101820;
+            --line: #1a3a52;
+            --text: #f0f6ff;
+            --muted: #8ea8c0;
+            --accent: #4aa4d8;
+            --ok: #33ff66;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
+            padding-top: 28px;
             background: radial-gradient(1200px 600px at 20% -20%, #18314a66, transparent 65%), var(--bg);
             color: var(--text);
             font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -116,9 +118,16 @@
     </style>
 </head>
 <body>
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game">Game</a>
+        <a href="/editors">Editors</a>
+        <a href="/settings">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
     <div class="wrap">
         <h1>ALIENS Plan + Editors</h1>
-        <div class="sub">Routes: <a href="/game">/game</a> | <a href="/plan">/plan</a> | <a href="/editors">/editors</a> | <a href="/settings">/settings</a>. Plan and editors save locally in browser storage.</div>
+        <div class="sub">Plan and editors save locally in browser storage.</div>
 
         <div class="tabs">
             <button class="active" data-tab="gameplay">Gameplay Plan</button>

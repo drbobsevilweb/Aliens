@@ -1,0 +1,27 @@
+[--mission][INFO] === GRAPHICS BOT START --mission ===
+[--mission][INFO] Starting FPS sampling (60s)...
+[--mission][WARN] [.WebGL-0x2024024d0600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[--mission][WARN] [.WebGL-0x2024024d0600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[--mission][WARN] [.WebGL-0x2024024d0600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[--mission][WARN] [.WebGL-0x2024024d0600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+[--mission][INFO] Renderer: type=2 GL=WebGL 1.0 (OpenGL ES 2.0 Chromium) WebKit WebGL
+[--mission][INFO] MaxTexSize=8192 MaxTexUnits=32
+[--mission][INFO] Pipeline AlienTonePipeline: OK (type=AlienTonePipeline)
+[--mission][INFO] Pipeline ScanlinePipeline: OK (type=ScanlinePipeline)
+[--mission][INFO] Pipeline TiltShiftPipeline: OK (type=TiltShiftPipeline)
+[--mission][INFO] Pipeline DoorRipplePipeline: OK (type=DoorRipplePipeline)
+[--mission][INFO] Camera post-pipelines: 3 — [AlienTonePipeline, ScanlinePipeline, TiltShiftPipeline]
+[--mission][INFO] Textures: 9 found, 0 missing, 204 total
+[--mission][INFO] Lighting: overlay=true raycaster=true blockers=true
+[--mission][INFO]   Sources: 0 torch, 217 static, 14 segments nearby
+[--mission][INFO]   RenderTexture: 1280x720
+[--mission][INFO] Depth entities: 11, issues: 0
+[--mission][INFO] Starting FPS sampling (60s)...
+[--mission][INFO] FPS: min=2 max=4 avg=3 samples=3
+[--mission][INFO] Memory peak: 141MB
+[--mission][INFO] Entity FX: tails=0 dying=0 active=11
+[--mission][INFO] === GRAPHICS BOT COMPLETE --mission ===
+[--mission][INFO] FPS: min=1 max=3 avg=2 samples=4
+[--mission][INFO] Memory peak: 141MB
+[--mission][INFO] Entity FX: tails=0 dying=0 active=11
+[--mission][INFO] === GRAPHICS BOT COMPLETE --mission ===

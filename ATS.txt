@@ -1,278 +1,1294 @@
-Aliens: Corridor Ops — AI-Optimised Game Design & Development Rules
+Aliens: Corridor Ops -- Game Bible
 ================================================================
+Last verified against source code: 2026-03-30 (15 gameplay/graphics improvements added)
+All values in this document are extracted from live code.
+If code diverges from this document, update this document.
 
-THIS DOCUMENT IS AUTHORITATIVE
-- This file defines intent, scope, and constraints.
-- If code or behavior conflicts with this document, the document wins.
-- Do NOT invent features not listed here.
-- Do NOT refactor systems unless explicitly instructed.
+================================================================
+TABLE OF CONTENTS
+================================================================
+1.  Design Intent & Core Pillars
+2.  Engine & Architecture
+3.  Controls
+4.  Camera & Perspective
+5.  Player Character (Team Leader)
+6.  Follower Marines (AI Squad)
+7.  Weapons System
+8.  Enemy Types & Stats
+9.  Alien Eggs
+10. Combat Director & Tension Curve
+11. Mission Data (5 Campaigns)
+12. Wave Spawning & Reinforcements
+13. Door System
+14. Lighting & Vision
+15. Motion Tracker
+16. Acid System
+17. Pickups & Supplies
+18. Pathfinding & Movement
+19. Mission Flow & Stage Progression
+20. HUD & UI
+21. Audio System
+22. Visual Effects & Particles
+23. Post-Processing & CRT Effects
+24. Boot Sequence & Asset Generation
+25. Game Loop (per frame)
+26. Editor (5 Tabs)
+27. Runtime Settings (Tunable)
+28. Depth Sorting Order
+29. Guardrails & Gotchas
 
-----------------------------------------------------------------
-HIGH-LEVEL DESIGN INTENT (AI MUST RESPECT)
-----------------------------------------------------------------
-This is a slow-burn, tactical, information-driven survival shooter inspired by Aliens (1986).
+================================================================
+1. DESIGN INTENT & CORE PILLARS
+================================================================
+Top-down squad tactical shooter inspired by Aliens (1986).
+Colonial Marines aesthetic -- CRT HUD, procedural audio, raycasted
+lighting, wave-based alien combat.
 
 The core fantasy is NOT power, speed, or spectacle.
 The core fantasy IS:
-- uncertainty
-- pressure
-- incomplete information
-- risk vs reward decisions
+  - Uncertainty
+  - Pressure
+  - Incomplete information
+  - Risk vs reward decisions
 
-AI must always prioritize:
-1) clarity
-2) determinism
-3) debuggability
-4) incremental correctness
+Core Pillars:
+  - Tactical, slow-burn tension
+  - Information control over reflex skill
+  - Risk-reward decision making (light, sound, tracker, doors)
+  - Squad-based survival
+  - Winning comes from controlling space and information,
+    not killing everything
 
-NOT cleverness.
-NOT overengineering.
-NOT premature optimization.
+================================================================
+2. ENGINE & ARCHITECTURE
+================================================================
+- Phaser 3 (v3.90.0), vanilla ES modules, no bundler
+- Canvas renderer with Web Audio API
+- Served via Python dev server (port 8192 systemd, or 8000 manual)
+- All textures procedurally generated in BootScene (no external packs)
+- Exception: marine_sheet.png (256x64, 4 directional frames)
+- Data-driven and state-driven systems
+- 20+ systems initialized in GameScene
 
-----------------------------------------------------------------
-AI DEVELOPMENT PHILOSOPHY (MANDATORY)
-----------------------------------------------------------------
-AI must think and act like a senior gameplay engineer.
+URLs:
+  /game                       -- Default mission
+  /game?mission=m1..m5        -- Specific mission
+  /game?mission=m1&noaliens   -- Clean map test (no enemies)
+  /editors                    -- Browser-based mission/map editor
+  /settings                   -- Runtime settings (9 tabs)
+  /sound                      -- Audio test page
+  /plan                       -- Planning page
 
-Rules:
-- Build ONE reliable system at a time.
-- Prefer simple, explicit state machines over implicit logic.
-- Never combine multiple new mechanics in one step.
-- Always provide fallback behavior (nothing is allowed to idle or freeze).
-
-When modifying code:
-- Minimize diffs.
-- Do not rewrite working systems.
-- Add new files rather than touching existing ones.
-- If touching existing files, modify the smallest possible section.
-
-AI must never:
-- hallucinate engine features
-- assume assets exist
-- assume systems from future phases
-- skip error handling or fallback logic
-
-----------------------------------------------------------------
-CORE GAME PILLARS
-----------------------------------------------------------------
-- Tactical, slow-burn tension
-- Information control over reflex skill
-- Risk–reward decision making (light, sound, tracker, doors)
-- Squad-based survival (later phases)
-
-Winning comes from controlling space and information, not killing everything.
-
-----------------------------------------------------------------
-CAMERA & PERSPECTIVE
-----------------------------------------------------------------
-- 2D top-down
-- Camera follows the player
-- On-screen vs off-screen awareness matters
-
-----------------------------------------------------------------
-PLAYER & CONTROLS (LOCKED – NEVER CHANGE)
-----------------------------------------------------------------
-- Mouse-driven only
-- Left-click (hold): fire weapon continuously
-- Right-click: contextual action
-  - Floor: move to position
-  - Door: open door interaction menu
-- Player always rotates to face mouse cursor
-- No keyboard movement
-
+================================================================
+3. CONTROLS
+================================================================
+Mouse-driven only. No keyboard movement. LOCKED -- NEVER CHANGE.
 Any suggestion to add WASD or alternate schemes is INVALID.
 
-----------------------------------------------------------------
-PLAYER SQUAD
-----------------------------------------------------------------
-- Player directly controls one marine
-- Additional marines follow in later phases
-- Squad shares threat and visibility information
-- Individual marines can be assigned tasks
-- Tasked marines become temporarily vulnerable
+  LMB (click)        Move to position / interact with target
+  LMB (double-click)  Sprint request (within 300ms, 40px)
+  RMB (hold)         Fire current weapon continuously
+  Mouse Wheel        Cycle weapons (pulseRifle -> shotgun -> pistol)
+  Right-click Door   Opens context menu with valid door actions
 
-----------------------------------------------------------------
-MAP & ENVIRONMENT
-----------------------------------------------------------------
-- Corridor-based layouts (Hadley’s Hope style)
-- Grid-based or tile-friendly logic
-- Simple geometry preferred over complex shapes
+Mobile touch support:
+  Tap                Move (short press <300ms, <20px)
+  Long press (300ms)  Fire
+  Two-finger touch   Auto-fire
+  Double-Tap    Sprint request (within 300ms, 40px)
 
-Environment exists to:
-- restrict vision
-- create choke points
-- enable flanking
-- support door tactics
+Player always rotates to face mouse cursor.
 
-----------------------------------------------------------------
-DOOR SYSTEM (CRITICAL TACTICAL LAYER)
-----------------------------------------------------------------
-Each door has independent states:
-- is_open
-- is_locked
-- is_welded
+================================================================
+4. CAMERA & PERSPECTIVE
+================================================================
+- 2D top-down view
+- Camera follows the player (Team Leader)
+- Game resolution: 1280x720 (Phaser.Scale.FIT -- do NOT change)
+- On-screen vs off-screen awareness matters
+  (motion tracker covers off-screen threats)
 
-Rules:
-- Doors do NOT animate physically
-- State change only
-- Collision reflects state
+================================================================
+5. PLAYER CHARACTER (TEAM LEADER)
+================================================================
+The player controls a single Team Leader marine directly.
 
-Interaction:
-- Right-click door opens a context menu
-- Menu always appears to the RIGHT of the door
-- Menu shows ONLY valid actions
+Base Stats (runtime settings override CONFIG defaults):
+  Max Health             100 HP
+  Start Health           100 HP
+  Movement Speed         120 px/s (CONFIG base: 180, runtime: 120)
+  Turn Speed             8.5 rad/s
+  Body Size              36px (LEADER_SIZE 40 minus 4px physics)
+  Movement Rigidity      0.98
+  Move Response Rate     9.5
 
-Valid actions:
-- OPEN DOOR
-- CLOSE DOOR
-- WELD
-- UNWELD
-- LOCK
-- HACK / UNLOCK
+Acceleration-Based Movement:
+  Acceleration:          2200 px/s^2 (ramp-up to target speed)
+  Deceleration:          2600 px/s^2 (braking/stopping)
+  Rigidity scales both:  x(1 + rigidity * 2) -- higher = snappier
+  Speed capped at:       entity moveSpeed (leaderSpeed at runtime)
+  Gives brief ramp-up and short slide-to-stop feel
 
-Timed actions:
-- Welding, unwelding, hacking take time (~2 seconds)
-- Progress bar shown near door
-- Performing marine is inactive and vulnerable
-- Action may cancel if attacked
+Damage Feedback:
+  Camera shake:          120ms, intensity 0.008 (scales with damage, cap 0.015)
+  Red flash overlay:     Alpha 0.15-0.45, fades over 300ms
+  Both triggered on any leader health loss
 
-AI MUST:
-- Explicitly check door state before allowing actions
-- Never allow impossible actions
-- Disable menu during timed actions
+Sprite:
+  256x64 spritesheet, 4 directional frames
+  Frames: 0=NE, 1=NW, 2=SE, 3=SW (diagonal quadrants)
+  Scale: (LEADER_SIZE / 64) x sprite_scale setting
 
-----------------------------------------------------------------
-FOG OF WAR & VISIBILITY (CORE IDENTITY)
-----------------------------------------------------------------
-Aliens are invisible by default.
+Walking Animation:
+  Bob Phase -- continuous sinusoidal sway affected by speed
+  Primary sway:    sin(phase) x 0.09 x speed_intensity
+  Secondary ripple: sin(phase*2 + 0.4) x 0.018 x intensity
+  Fire shake: +/-1.5px random jitter during shooting (~100ms)
 
-Visibility states:
-- Hidden
-- Lit (inside flashlight cone)
-- Spotted (lit recently, visible for ~2 seconds)
-- TrackerVisible
+Muzzle Light:
+  Positioned ~184px right, ~542px up from display bounds
 
-Render rule:
-Alien is visible if Lit OR Spotted OR TrackerVisible.
+Morale System:
+  Range: -100 to +100
+  Degraded by: hits taken, low health
+  Recovered by: objectives completed, kills
+  Affects: combat accuracy, willingness to advance
 
-Flashlights:
-- Every marine has a shoulder-mounted flashlight
-- Cone-based detection
-- Entering beam triggers alert state
+================================================================
+6. FOLLOWER MARINES (AI SQUAD)
+================================================================
+3 AI-controlled followers accompany the Team Leader (4 total squad).
 
-Spotted memory:
-- Timer refreshes while lit
-- Decays when not lit
+--- Roles ---
 
-----------------------------------------------------------------
-MOTION TRACKER SYSTEM
-----------------------------------------------------------------
-- Can be activated by player or delegated marine
-- Operator is frozen for ~5 seconds
-- While active:
-  - All aliens currently on-screen are visible
-- Tracker cancels instantly if operator is attacked
+  HEAVY (Armor Specialist)
+    Accuracy:        x1.15
+    Reaction:        220ms
+    Damage taken:    x0.82 (toughest)
+    Jam sensitivity: Best resistance
+    Scan sector:     West (pi rad)
+    Formation pos:   Left flank (nx=-0.55, ny=-1.05)
 
-AI MUST:
-- Treat tracker as a temporary global reveal
-- Never override flashlight or spotted logic
-- Ensure tracker has clear start/end states
+  TECH (Support)
+    Accuracy:        x1.00
+    Reaction:        340ms
+    Damage taken:    x0.96
+    Jam sensitivity: Mid
+    Scan sector:     East (0 rad)
+    Formation pos:   Right flank (nx=-0.55, ny=+1.05)
 
-----------------------------------------------------------------
-ALIEN DESIGN & AI PHILOSOPHY
-----------------------------------------------------------------
-Aliens are:
-- Fast
-- Dangerous
-- Weak in sustained light
-- Strong in darkness
+  MEDIC (Combat Medic)
+    Accuracy:        x0.92
+    Reaction:        460ms
+    Damage taken:    x0.98
+    Jam sensitivity: Worst resistance
+    Scan sector:     North (-pi/2 rad)
+    Formation pos:   Rear (nx=-1.85, ny=0)
 
-Alien AI rules:
-- Aliens must NEVER freeze or idle unintentionally
-- Every state must have a timeout or fallback
-- If navigation/pathfinding fails, fallback to direct pursuit or search
+--- Movement ---
+  Base Speed:           200 px/s (snaking formation)
+  Follow Lerp:          0.1 (how aggressively they chase leader)
+  Turn Speed:           7.2 rad/s (slightly slower than leader)
+  Min Spacing:          40px between marines
+  Formup Speed:         140 px/s (when reforming)
+  Catchup Gain:         x1.8 when falling behind
+  Stagger:              380ms between follower movements (min 500, max 1000)
 
-Core states:
-- IDLE / PATROL
-- HUNT / CHASE
-- SEARCH (last known position)
-- ATTACK
+--- Formation ---
+  Diamond shape around leader
+  Micro-patrol idle movement every 2.5-4.5s (no static turret)
+  All should face in a different direction to other followers
+  Should not rotate to face a wall less than 4 tiles away.
 
-Detection:
-- Light exposure
-- Proximity (later)
-- Sound (later)
+--- Stuck Recovery ---
+  Stuck detection:      < 3px movement over 180ms
+  Stuck trigger:        800ms of stalling
+  Detour attempts:      Perpendicular nudges at 8 angles x 2 radii
+  Hard warp failsafe:   After 3000ms stuck AND > 5 tiles from leader
+                        -> teleport to nearest walkable tile near leader
 
-----------------------------------------------------------------
-PACK BEHAVIOR (LATER PHASES)
-----------------------------------------------------------------
-- <3 aliens: direct attack
-- ≥3 aliens:
-  - one pressures
-  - others flank
+--- Combat AI ---
+  Max Health:           100 HP each
+  Firing cone:          53 deg standard, 70 deg close-range emergency
+  Firing range:         ~560px (120% of torch range)
+  Focus fire:           Shared targets get damage reduction (splits threats)
+  Independent firing:   Followers fire on their own threat assessment
 
-Fallback rule:
-If flanking path invalid, revert to direct attack.
+--- Morale ---
+  Self-hit loss:        -10 per hit
+  Ally-hit loss:        -3 per ally hit
+  Low-health drain:     -9 per second
+  Kill gain:            +5 per kill
+  Objective gain:       +10 per objective
+  Natural recovery:     7 per second (calm), 6/s (swarm)
+  Recovery cap:         30-60s windows
 
-----------------------------------------------------------------
-TACTICAL GAMEPLAY LOOP
-----------------------------------------------------------------
-1) Advance carefully
-2) Control doors behind you
-3) Use light deliberately
-4) Listen to tracker pings
-5) Choose between speed, safety, or information
-6) Aliens probe, retreat, ambush
-7) Tension escalates as visibility collapses
+--- Weapon Jam ---
+  Min duration:         700ms
+  Max duration:         1500ms
+  Scales with combat pressure and role sensitivity (0.62-0.95)
 
-----------------------------------------------------------------
-ENGINE & IMPLEMENTATION NOTES
-----------------------------------------------------------------
-- Code-first development (Lua / LÖVE)
-- Systems should be data-driven and state-driven
-- Avoid engine-specific shortcuts
-- Prefer readability over performance
+================================================================
+7. WEAPONS SYSTEM
+================================================================
+3 weapons, cycled via mouse wheel.
+Order: pulseRifle -> shotgun -> pistol
+No damage offscreen. only onscreen
 
-----------------------------------------------------------------
-AI EXECUTION CHECKLIST (USE EVERY TIME)
-----------------------------------------------------------------
-Before outputting code, AI must verify:
-- Does this introduce more than one new system? (If yes, STOP.)
-- Does every state have a fallback?
-- Are all interactions explicitly validated?
-- Are assumptions documented?
-- Is this compatible with existing phases?
+--- PULSE RIFLE (Primary) ---
+  Ammo:            Unlimited (overheat-limited)
+  Damage:          13 per shot
+  Bullet Speed:    1800 px/s
+  Bullet Lifespan: 900ms
+  Bullet Size:     3px
+  Bullet Color:    0xffff00 (yellow)
+  Spread:          0 deg (single shot)
+  Tracer Ratio:    33% visible, 67% invisible
+  Recoil:          0.08 per shot, decay 2.4/s
 
-If unsure: ASK or STOP.
+  Overheat System:
+    Heat per shot:      6 units
+    Passive cool rate:  32 units/sec
+    Overheat threshold: 145 units
+    Active cool rate:   44 units/sec (during overheat lockout)
+    Unlock at:          24 units (can fire again)
 
-----------------------------------------------------------------
+--- SHOTGUN (Secondary) ---
+  Ammo:            Limited, 60 max
+  Damage:          18 per pellet
+  Pellets/Shot:    5
+  Fire Rate:       500ms between shots
+  Bullet Speed:    1500 px/s
+  Bullet Lifespan: 800ms
+  Bullet Size:     2px
+  Bullet Color:    0xff8800 (orange)
+  Spread:          0.3 rad (~17 deg)
+  Pellet Jitter:   +/-0.04 rad per pellet
+  Tracer Ratio:    100% (all visible)
+  Recoil:          0.35/shot, decay 1.8/s
+  Default Unlock:  24 rounds
+  Pickup Amount:   15 rounds
+
+--- PISTOL (Tertiary) ---
+  Ammo:            Limited
+  Damage:          12 per shot
+  Fire Rate:       250ms between shots
+  Bullet Speed:    1600 px/s
+  Bullet Lifespan: 1500ms
+  Bullet Size:     2px
+  Bullet Color:    0xccccff (pale blue)
+  Spread:          0 deg (single shot)
+  Tracer Ratio:    50%
+  Recoil:          0.12/shot, decay 3.2/s
+  Default Unlock:  36 rounds
+  Pickup Amount:   20 rounds
+
+--- Bullet Pool ---
+  Pool Size:       80 bullets (CONFIG.BULLET_POOL_SIZE)
+
+--- Recoil Angle Perturbation ---
+  Accumulated recoil tracks per weapon (0.0 to 1.0 cap)
+  Each shot adds weapon recoil value, decays by recoilDecay/s
+  Shot angle offset: (random -0.5..0.5) x accumulatedRecoil x 0.15
+  Sustained fire progressively widens spread; releasing fire recovers
+
+--- Muzzle Flash ---
+  Bright white dot FX at muzzle position, 50-80ms duration
+  Scale by weapon: pulseRifle 1.0x, shotgun 1.8x, pistol 0.7x
+  Random +/-15% size variation per shot for organic feel
+  Fades from alpha 0.9 to 0
+
+--- Bullet Tracer Trails ---
+  Tracer bullets store last 3 positions in ring buffer
+  Trail circles drawn at previous positions with fading alpha:
+    Position 1: alpha 0.50, 2.0px
+    Position 2: alpha 0.30, 1.6px
+    Position 3: alpha 0.15, 1.2px
+  Color: warm tint 0xffeebb
+  Shared Graphics object at depth 14 (bullet layer)
+  Cleared/redrawn each frame
+
+--- Runtime Multipliers (apply on top of base values) ---
+  globalDamageMultiplier:   1.0
+  globalSpeedMultiplier:    1.0
+  globalFireRateMultiplier: 1.0
+  Per-weapon overrides available for damage, speed, fire rate
+
+================================================================
+8. ENEMY TYPES & STATS
+================================================================
+5 alien types. All values are base stats before difficulty scaling.
+
+--- WARRIOR (Baseline Melee) ---
+  Speed:                98 px/s
+  HP:                   34
+  Contact Damage:       15
+  Attack Cooldown:      750ms
+  Detection Range:      640px (~10 tiles)
+  Patrol Radius:        6 tiles
+  Separation Radius:    54px
+  Separation Force:     0.95
+  Flank Strength:       0.52
+  Door Damage:          1 per hit
+  Door Attack Cooldown: 600ms
+  Can Open Doors:       No
+  Can Breach Any Door:  No
+  Can Spit:             No
+  Can Use Vents:        No
+  Sprite Scale:         0.44x leader width
+  Walk Anim Rate:       1.56x
+  Behavior: Rush-and-swipe melee with oscillation
+  Intents: assault / flank / probe / retreat
+
+--- DRONE (Fast Vent Crawler) ---
+  Speed:                120 px/s
+  HP:                   44
+  Contact Damage:       18
+  Attack Cooldown:      560ms
+  Detection Range:      520px
+  Patrol Radius:        8 tiles
+  Separation Radius:    60px
+  Separation Force:     1.35 (highest evasion)
+  Flank Strength:       0.16
+  Door Damage:          2 per hit
+  Can Open Doors:       Yes (unlocked only)
+  Can Breach Any Door:  No
+  Can Spit:             No
+  Sprite Scale:         0.44x
+  Walk Anim Rate:       1.71x
+  Vent System:
+    Vent cooldown:      9000ms
+    Min vent distance:  200px
+    Max vent distance:  460px
+    Becomes invisible during vent travel
+    Feeds weak tracker signal (~60% confidence)
+    Reappears at random vent after ~3s
+
+--- FACEHUGGER (Leaping Parasite) ---
+  Speed:                100 px/s
+  HP:                   24
+  Contact Damage:       7
+  Attack Cooldown:      310ms
+  Detection Range:      600px
+  Patrol Radius:        10 tiles
+  Separation Radius:    40px
+  Separation Force:     0.8
+  Random Pattern:       0.75 (wobble movement)
+  Flank Strength:       0.3
+  Door Damage:          0 (cannot damage doors)
+  Can Open Doors:       No
+  Can Breach Any Door:  No
+  Can Spit:             No
+  Sprite Scale:         0.20x (smallest)
+  Body Radius:          4px (tight collision)
+  Walk Anim Rate:       1.98x
+  Depth:                4.5 (can slip under walls/doors)
+  Leap Attack:
+    Min range:          70px
+    Max range:          210px
+    Leap speed:         380 px/s
+    Leap cooldown:      1900ms
+    During leap: immune to collision
+  Leap Telegraph (PRE_LEAP phase):
+    Duration:           300-400ms before actual leap
+    During telegraph:   Slows to 20% speed, crouches (0.85x scale)
+    Tracks target during windup, then leaps with fresh angle
+    Gives player brief reaction window for fairness
+  Latch Attack:
+    Latch duration:     900ms
+    Damage per tick:    5
+    Tick interval:      260ms (~3.4 ticks = ~17 damage per latch)
+  Also: teleport-flank capability, flee behavior
+
+--- LESSER QUEEN (Mid-Tier Boss) ---
+  Speed:                120 px/s
+  HP:                   82
+  Contact Damage:       30
+  Attack Cooldown:      620ms
+  Detection Range:      1200px (map-wide)
+  Patrol Radius:        9 tiles
+  Separation Radius:    78px
+  Separation Force:     1.2
+  Flank Strength:       0.22
+  Door Damage:          2 per hit
+  Door Attack Cooldown: 520ms
+  Can Open Doors:       Yes (unlocked)
+  Can Breach Any Door:  No
+  Can Spit:             No
+  Can Use Vents:        No
+  Sprite Scale:         1.45x (large)
+  Walk Anim Rate:       1.44x
+  Formidable alone or in pairs
+
+--- ALIEN QUEEN (Final Boss) ---
+  Speed:                125 px/s
+  HP:                   132
+  Contact Damage:       38 (highest)
+  Attack Cooldown:      690ms
+  Detection Range:      1200px (map-wide)
+  Patrol Radius:        12 tiles
+  Separation Radius:    84px
+  Separation Force:     1.4
+  Flank Strength:       0.18
+  Door Damage:          3 per hit (fastest door breaker)
+  Door Attack Cooldown: 420ms
+  Can Open Doors:       Yes
+  Can Breach ANY Door:  YES (even welded -- movie-accurate)
+  Can Spit:             No
+  Can Use Vents:        No
+  Sprite Scale:         1.8x (largest)
+  Walk Anim Rate:       1.35x
+  Signature death FX planned (acid geyser + shake + particle storm)
+
+--- Difficulty Scaling (applied to all types) ---
+  Health:  difficulty x 2.85 x type_durability(1.08-1.18) x healthScale
+  Speed:   min(difficulty x 1.72 x speedScale, marine_speed x 2.1)
+  Damage:  difficulty x damageScale(0.8-1.2)
+  Runtime globalHealthScale: 0.8 (enemies 20% weaker than raw stats)
+  Runtime globalSpeedScale:  1.0
+  Runtime globalDamageScale: 1.0
+
+--- Hit Slow (on bullet impact) ---
+  Min slow: 25% speed reduction
+  Max slow: 50% speed reduction
+  Min duration: 180ms
+  Max duration: 320ms
+
+--- Hit Feedback (on bullet impact) ---
+  White flash:     setTintFill(0xffffff) for ~60ms, then clear
+  Hitstop:         Velocity frozen to 0 for ~50ms on hit
+  Skipped during death animation (isDying check)
+  Combined effect gives strong impact/punch feel per hit
+
+--- Movement Variation (per-frame jitter) ---
+  Warriors:        +/-4% speed jitter per frame
+  Drones/Queens:   +/-6% speed jitter per frame
+  Facehuggers:     +/-10% speed jitter (scrambling feel)
+  Applied after velocity computation, before physics body set
+  Skipped during leap attacks and special movement states
+  Gives organic, insect-like erratic movement quality
+
+--- Alien Visibility Shimmer ---
+  Partially visible aliens (0.05 < alpha < 0.75) get flicker:
+  Formula: alpha *= 0.85 + 0.15 * sin(time*8 + patternSeed*2.7)
+  Each alien has unique patternSeed for independent shimmer
+  Fully lit (>= 0.75) and near-invisible (<= 0.05): no shimmer
+  Creates "did I see something?" uncertainty at detection edges
+
+--- Alien AI States ---
+  IDLE / PATROL -> HUNT / CHASE -> ATTACK
+  SEARCH (last known position) -> fallback to direct pursuit
+  4 warrior intents: assault, flank, probe, retreat
+  Aliens must NEVER freeze or idle -- every state has timeout/fallback
+
+--- Alien Death Flow ---
+  die() -> isDying=true, disable physics body, start corpse fade
+  EnemyManager._dyingEnemies handles updateCorpse(delta) each frame
+  setActive(false) excludes dying aliens from all targeting
+  8-second corpse fade (quadratic ease-out)
+  Corpse drift: random velocity +/-4 px/s assigned at death,
+    decelerates 0.995x/frame -- subtle settling slide during fade
+  Body part gibs spawn: tail, limb, crest, shard + abstract fragments
+  Acid splash burst on death and spurts
+
+--- Alien Tail Physics (TailComponent) ---
+  Verlet chain: 10 points per alien
+  Anchor offset: 22px from body center
+  Stiffness: 0.6, Drag: 0.85
+  Base width: 28px -> tip: 2px (tapered)
+  Wave frequency: 2.15 (oscillation)
+  Colors: dark chitin (0x0f1210), mid (0x1a1f18), acid-green edge (0x3a4535)
+  Facehugger: vestigial thin tail, 14 points, pale tan (0xc8b89a)
+
+================================================================
+9. ALIEN EGGS
+================================================================
+  Max Health:       26 HP
+  Base Scale:       1.3x nominal
+  Trigger Range:    180px (proximity to marine)
+  Open Duration:    1700ms (facehugger bursts out)
+  Cooldown:         5200ms (before can trigger again)
+  Max Simultaneous: 2 open eggs (runtime setting)
+
+  State Machine:
+    closed -> open (tint 0xffcc88, scale x1.08) -> closed (cooldown)
+    -> spent (after release, tint 0xa88f72, scale x0.96)
+    -> destroyed (if killed, health <= 0)
+  Damage tint: 0xff8888 on hit
+
+================================================================
+10. COMBAT DIRECTOR & TENSION CURVE
+================================================================
+Controls the feel of combat through a 3-state tension cycle:
+build -> peak -> release -> build -> ...
+
+--- BUILD (Ramp-Up) ---
+  Pressure range:   0.12 -> 0.74
+  Min duration:     2.6s
+  Dynamic spawns:   Enabled
+  Aggression mod:   x0.72
+  Flank mod:        x0.84
+  Door damage mod:  x0.82
+
+--- PEAK (Climax) ---
+  Triggers at:      pressure >= 0.74 + hysteresis(0.04)
+  Max duration:     9.5s (force-releases after)
+  Aggression mod:   x1.72 (most dangerous)
+  Flank mod:        x1.24
+  Door damage mod:  x1.0
+
+--- RELEASE (Relief) ---
+  Pressure range:   0.74 -> 0.26
+  Min duration:     2.2s, Max: 10.5s
+  Aggression mod:   x0.68
+  Flank mod:        x0.78
+  Door damage mod:  x0.82
+
+--- Pressure Calculation (per frame) ---
+  target = max(0.05, min(1.0,
+    hostiles x 0.36 + damage x 0.24 + doors x 0.20
+    + firing x 0.08 + panic x 0.12))
+
+  Normalization:
+    hostiles / 15
+    recentDamage / 55
+    doorPressure / 5
+    max(0, -avgMorale) / 75
+
+--- Morale Shock Cycles ---
+  After heavy damage: 2400ms relief period (no escalation)
+  Prevents cascading failure loops
+
+================================================================
+11. MISSION DATA (5 CAMPAIGNS)
+================================================================
+
+--- MISSION 1: Cargo Concourse (m1) ---
+  Map:             lv1_colony_hub
+  Difficulty:      normal
+  Enemy Budget:    24 (DO NOT increase above 24)
+  Required Cards:  1
+  Required Terms:  0
+  Objective:       Reach elevator with access credentials
+  Setpiece:        m1_intro_push
+    Trigger:       28s elapsed, pressure 30%-95%
+    Spawns:        3 warriors from East
+    Directive:     "HOLD FORMATION E"
+    Once:          Yes
+    Cooldown:      15s
+
+--- MISSION 2: Reactor Spine (m2) ---
+  Map:             lv2_reactor_spine
+  Difficulty:      normal
+  Enemy Budget:    32
+  Required Cards:  1
+  Required Terms:  1
+  Objective:       Collect card then reactivate security terminal
+  Setpiece:        m2_reactor_sweep
+    Trigger:       18s, pressure >= 42%
+    Spawns:        4 warriors + 1 facehugger from North
+    Directive:     "SPLIT N/E FIRE"
+    Once:          Yes
+    Cooldown:      18s
+
+--- MISSION 3: Queen Cathedral (m3) ---
+  Map:             lv5_queen_cathedral
+  Difficulty:      normal
+  Enemy Budget:    40
+  Required Cards:  1
+  Required Terms:  1
+  Objective:       Cross lockdown sectors and secure elevator route
+  Setpiece:        m3_cathedral_wave
+    Trigger:       22s, pressure >= 52%, source: gunfire
+    Spawns:        5 warriors + 1 facehugger from North
+    Directive:     "FALL BACK N ARC"
+    Once:          Yes
+    Cooldown:      16s
+    Formation:     7600ms hold
+
+--- MISSION 4: Hydroponics Array (m4) ---
+  Map:             lv6_hydroponics_array
+  Difficulty:      normal
+  Enemy Budget:    46
+  Required Cards:  2
+  Required Terms:  1
+  Objective:       Collect two cards and route power to elevator
+  Setpiece:        m4_hydro_flank
+    Trigger:       24s, pressure >= 54%
+    Spawns:        4 warriors + 1 facehugger from East
+    Directive:     "SPLIT E/S FIRE"
+    Once:          Yes
+    Cooldown:      16.5s
+
+--- MISSION 5: Docking Ring (m5) -- HARD ---
+  Map:             lv9_docking_ring
+  Difficulty:      hard
+  Enemy Budget:    56 (largest)
+  Required Cards:  2
+  Required Terms:  2
+  Objective:       Unlock ring sectors and board freight elevator
+  Setpiece:        m5_ring_pincer
+    Trigger:       28s, pressure >= 56%, source: gunfire
+    Spawns:        5 warriors + 1 facehugger from East
+    Directive:     "SPLIT E/N FIRE"
+    Once:          Yes
+    Cooldown:      14.5s
+
+--- CORRIDOR TEST ---
+  Map:             corridor_test
+  Enemy Budget:    0
+  Purpose:         Tile texture testing only
+
+================================================================
+12. WAVE SPAWNING & REINFORCEMENTS
+================================================================
+
+--- Initial Wave (M1 Example) ---
+  Wave 1: 8 aliens total
+    6x Warrior (grid-placed across map)
+    1x Drone (top-center)
+    1x Facehugger (far-left flank)
+
+--- Spawn Pressure Scaling ---
+  difficulty = 1.0 + (waveNumber - 1) x 0.22
+
+--- Dynamic Spawning (CombatDirector) ---
+  Budget:           12 extra aliens + reinforcements per mission
+  Min interval:     20 seconds between spawn checks
+  Idle threshold:   8 seconds since last gunfire
+  Max per event:    3 aliens
+  Spawns only during "build" state (not peak/release)
+
+--- Reinforcement System ---
+  Idle pressure interval:     16000ms x mission scale (min 8000ms)
+  Gunfire reinforce cooldown: 4500ms x mission scale (min 2200ms)
+  Inactivity ambush delay:    10000ms
+  Reinforce cap:              6 aliens
+  Idle reinforce cap:         3 aliens
+  Gunfire burst duration:     8000ms with 9000ms cooldown
+  Door noise memory:          16000ms window
+
+--- Vent Points ---
+  12 hardcoded locations (editor override capable)
+  Drone vent escape: invisible travel, weak tracker signal
+  Reappearance: fades in at random vent after ~3s
+
+--- Sector Spawning ---
+  SectorMapper class (compass-sector based)
+  Distributes spawns around the squad perimeter
+
+================================================================
+13. DOOR SYSTEM
+================================================================
+Doors are a critical tactical layer. They control alien routing,
+create choke points, and provide defensive options.
+
+--- Door States ---
+  closed -> open -> closed (toggle)
+  closed -> locked (electronic doors only)
+  closed -> welded (any door)
+  any -> destroyed (integrity depleted)
+
+--- Integrity System ---
+  Base integrity:      105 hits (runtime setting)
+  Bullet damage scale: x0.34 (guns don't one-shot)
+  Alien melee damage:
+    Warrior:      1 per hit (600ms cooldown)
+    Drone:        2 per hit
+    Lesser Queen: 2 per hit (520ms cooldown)
+    Queen:        3 per hit (420ms cooldown -- fastest breacher)
+
+--- Damage Visualization ---
+  4-stage crack progression:
+    Stage 0: None
+    Stage 1: Minor (below 66% integrity)
+    Stage 2: Heavy (below 40%)
+    Stage 3: Critical (below 20%)
+  Damage spark VFX: orange-white burst at door center
+
+--- Door Proximity QoL ---
+  80px auto-approach: if marine is within 80px but not adjacent,
+    automatically moves to door before starting action
+  Eliminates "clicked but nothing happened" frustration
+  Already-adjacent marines proceed immediately
+
+--- Door Interactions (Context Menu) ---
+  Right-click a door to see valid actions:
+    OPEN DOOR     -- Opens a closed door (will automove to door adjacency)
+    CLOSE DOOR    -- Closes an open door
+    LOCK          -- Locks electronic door (requires adjacency)
+    HACK/UNLOCK   -- Hacks a locked door (3000ms)
+    WELD          -- Welds door shut (4000ms, any door type)
+    UNWELD        -- Removes weld (3000ms)
+
+  During timed actions:
+    Progress bar shown near door
+    Performing marine is inactive and vulnerable
+    Action cancels if marine is attacked
+
+--- Door Delegation ---
+  Lock/weld/hack can be delegated to followers:
+    Tech primary, Any secondary
+  Door sync lock: followers wait for leader confirmation
+  Recovery: sync clears after action or 2s/10s timeout
+  All Marines should move to be on the same side as Team Leader or Marine actioning a door
+
+--- Breaching Rules ---
+  Facehuggers:   Cannot interact with doors at all
+  Warriors:      Can only crack via melee damage (slow)
+  Drones:        Can open unlocked doors
+  Lesser Queen:  Can open unlocked, melee crack (2 damage/hit)
+  Queen:         Can open AND breach ANY door, even welded
+
+--- Pathfinding Gotcha ---
+  Door tiles default WALKABLE in path grid.
+  Must call setWalkable(false) on creation.
+  isPassable = (state === 'open' || state === 'destroyed')
+
+================================================================
+14. LIGHTING & VISION
+================================================================
+Aliens are invisible by default. Light reveals them.
+
+--- Lighting System ---
+  RenderTexture with MULTIPLY blend mode
+  Ambient darkness: 0.72 (runtime setting, CONFIG base: 0.50)
+
+--- Torch (all marines) ---
+  Range:           560px (~8.75 tiles, runtime setting)
+  Cone half-angle: 0.28 rad (~16 deg, 32 deg total, runtime setting)
+  Core alpha:      0.9
+  Soft radius:     220px (feathered falloff)
+  Beam flash:      x1.8 alpha boost, x1.4 width during fire
+
+--- Flashlight Flicker ---
+  Primary oscillation:   +/-4.5% at 3.2 Hz (slow breathing)
+  Secondary oscillation: +/-2.0% at 7.8 Hz (fast wobble overlay)
+  Per-marine phase offset from position coords (no sync)
+  Combat boost (peak state): amplitudes increase to +/-7% / +/-3.5%
+  Applied as multiplier to coreAlpha in cone rendering
+
+--- Alien Visibility States ---
+  Hidden:          Default, fully invisible
+  Lit:             Inside flashlight cone
+  Spotted:         Recently lit stays visible
+  TrackerVisible:  Shown on motion tracker
+
+  Render rule: visible if Lit OR Spotted
+
+--- Proximity Fade-In ---
+  Aliens fade in as they approach (0.67x torch range)
+  Beam ramp rate:  1.5 units/s (~660ms full reveal)
+  Beam decay:      0.35 units/s when beam leaves (~3s fade-out)
+
+--- Occlusion ---
+  Closed doors block LOS for raycasting
+  Aliens behind doors retain hitRevealed flag
+  Motion tracker still tracks weak signal for occluded aliens
+  LightBlockerGrid: separate grid for wall/door raycasting
+
+================================================================
+15. MOTION TRACKER
+================================================================
+CRT-style radar sweep display.
+
+  Range:           15 tiles (CONFIG.TILE_SIZE x 15 = 960px)
+  Cone:            60 deg arc (+/-30 deg from leader facing)
+
+  6-Stage Urgency (cadence scales with distance + count):
+    Stage 1 (Far):   1400ms between beeps
+    Stage 2:          900ms
+    Stage 3:          600ms
+    Stage 4:          400ms
+    Stage 5:          200ms
+    Stage 6 (Close):  100ms (rapid-fire)
+
+  Occlusion Penalty: +400px added to distance for door-blocked enemies
+  (Occluded enemies appear weaker/farther on radar)
+
+  Count flash rate: faster = more enemies or closer proximity
+
+--- CRT Breathing Effects ---
+  Background pulse:     Alpha oscillates 0.85-1.0 at 4 Hz
+  Count label pulse:    Scale 1.0-1.1 at 6 Hz when contacts visible
+  Gives living CRT glow -- tracker feels alive, not static
+
+================================================================
+16. ACID SYSTEM
+================================================================
+
+--- Acid Pools ---
+  Duration:         5000ms (5 seconds)
+  Damage per sec:   10 HP/s
+  Max active pools: 16 concurrent
+  Slowly spreads out
+  Animation:
+    Scale pulse: +/-5% oscillation at ~0.4 Hz per pool
+    Rotation wobble: +/-1.7 deg at ~0.3 Hz
+    Per-pool random phase offset (no sync)
+    Makes acid pools feel alive/bubbling, not static decals
+
+--- Acid Projectile Pool ---
+  Pool size:        40 active projectiles
+
+--- Splash Mechanics ---
+  On melee hit:     48% chance acid splash pool
+  On alien kill:    42% chance hazard pool
+  On latch attack:  34% chance splash
+  Melee pool:       26% chance (separate from splash)
+
+--- Wound Effects ---
+  Steam VFX: hissing vapor trail while alien bleeds
+  Spawn interval: every 300-500ms while acid-damaged
+  SVG-rendered blood/acid splatter decals
+
+================================================================
+17. PICKUPS & SUPPLIES
+================================================================
+
+--- Medkits ---
+  Heal amount:      28 HP
+  Spawn locations (5 hardcoded):
+    (7,5)  (21,7)  (34,7)  (7,20)  (34,20)
+
+--- Ammo Pickups ---
+  Shotgun pickup:   10 rounds
+  Pistol pickup:    20 rounds
+  Spawn locations (5 hardcoded):
+    (9,8)  (19,5)  (32,5)  (19,19)  (32,19)
+
+--- Collection ---
+  Pickup radius:    52px (proximity detection)
+
+================================================================
+18. PATHFINDING & MOVEMENT
+================================================================
+
+--- Grid ---
+  Tile size:            64px
+  Map dimensions:       40x26 tiles (2560x1664px world)
+  Walkable terrain:     Floor tiles (value 0)
+  Walls:                Block by default
+  Doors:                Default walkable (must setWalkable(false) on creation)
+
+--- A* Pathfinding ---
+  Diagonal cost:        1.414
+  Cardinal cost:        1.0
+  Arrival threshold:    4px
+  Uses EasyStarAdapter for async pathfinding
+
+--- Stuck Recovery (shared by all units) ---
+  Stall threshold:      < 3px moved over 180ms
+  Unstick cooldown:     500-520ms between attempts
+  Perpendicular nudge before waypoint skip
+  NavRecover checks walkability, tries perpendicular directions
+  Hard warp after 3000ms + 5 tiles distance (followers only)
+
+--- Movement Order Gotcha ---
+  DoorActionSystem.update() must run AFTER movementSystem.update()
+
+================================================================
+19. MISSION FLOW & STAGE PROGRESSION
+================================================================
+
+--- StageFlow State Machine ---
+  combat -> intermission (1500ms pause) -> combat -> ...
+  combat -> extract (all waves cleared + objectives done)
+  extract -> victory (squad reaches extraction within 52px)
+  any -> defeat (leader HP <= 0)
+
+--- Wave Advancement ---
+  Triggers when aliveEnemies <= 0 AND currentWave < totalWaves
+  1500ms pause before next wave spawns
+  Wave counter: currentWave / totalWaves shown in HUD
+
+--- Objectives ---
+  Security cards:    Up to 2 per mission (collect within 52px)
+  Uplink terminals:  Up to 2 per mission (activate within 52px)
+  Extraction point:  1 per mission (elevator/departure zone)
+  Fallback:          Grid-placed or auto-generated if missing from map
+
+--- Campaign Progress ---
+  Stored in localStorage (campaignProgress.js)
+  Tracks: per-mission completion, wave stats, best times
+  Reset available via settings page
+
+================================================================
+20. HUD & UI
+================================================================
+
+--- Squad Cards (Horizontal Top Bar) ---
+  Leader card:  210x116px at (10, 30)
+  Tech card:    165x90px at (228, 30)
+  Medic card:   165x90px at (402, 30)
+  Heavy card:   165x90px at (576, 30)
+  Card spacing: 8px
+
+--- Card Data ---
+  Video feed:     Live portrait (scaled/tinted)
+  Health bar:     EKG-style green line (health %)
+  Ammo display:   Weapon status + ammo count
+  Morale:         Bar color shifts green -> amber -> red
+  Name:           Marine role name (e.g. "R. RODRIGUEZ")
+  Status icons:   Jam indicator, low-ammo warning, wounds
+
+--- HUD Colors (CRT Aesthetic) ---
+  Panel fill:      0x020810 (deep blue-black)
+  Panel edge:      0x4aa4d8 (bright cyan)
+  Vitals green:    #33ff66
+  Health warning:  0xffaa00
+  Health critical: 0xff4444
+  Terminal blue:   #7ecfff
+
+--- Context Menu ---
+  Right-click on doors shows radial menu
+  Shows only VALID actions based on door state
+  Disabled during timed actions
+
+--- Other UI ---
+  Objectives panel: real-time objective tracking
+  Debug overlay: development stats
+  Controls overlay: help display
+
+================================================================
+21. AUDIO SYSTEM
+================================================================
+SfxEngine -- Web Audio API, procedural + sample hybrid.
+
+--- Weapon Sounds ---
+  Pulse Rifle:   Procedural tone synthesis or sample playback
+  Shotgun:       Burst noise + bark tone
+  Pistol:        Mid-frequency click + tail
+  Tracer:        Optional wobble audio (frequency sweep)
+
+--- Ambient Soundscape (AtmosphereSystem) ---
+  Ventilation hum:  60Hz fundamental + 120Hz harmonic
+    Gain: 0.04, filtered noise overlay (280Hz lowpass, Q=0.7)
+  Pipe groans:      140Hz sawtooth + noise burst (0.4-0.8s)
+    Scales with combat pressure
+  Distant thumps:   Subharmonic heartbeat effects
+
+--- Motion Tracker Audio ---
+  Far (>12 tiles):  1400ms beep interval
+  Close (<3 tiles): 100-200ms rapid bleeps
+  Amplitude decays with distance
+
+--- Door Audio ---
+  Weld loop:  Continuous sizzle managed via playDoorWeld(true/false)
+  Weld spark: Burst sound effect
+
+--- Alien Vocalizations ---
+  Hiss:    Attack warning
+  Screech: Pain/death cry
+  Chitter: Ambient hive noise (rare)
+
+--- Audio Rules ---
+  Use canPlay(key, minGap) to prevent buffer saturation
+  Prefers samples (playSample) with procedural fallback
+
+================================================================
+22. VISUAL EFFECTS & PARTICLES
+================================================================
+
+--- Particle System ---
+  8 pools, 1500+ total sprites
+  Bullet impacts, blood splatter, acid splash, corpse gibs,
+  door breach debris, muzzle flash, weld sparks
+
+--- Corpse Debris (AlienCorpseDebris) ---
+  Body part types:
+    alien_part_tail   -- segment piece
+    alien_part_limb   -- appendage
+    alien_part_crest  -- chitin headpiece
+    alien_part_shard  -- bone/shell fragment
+  9 graphics pieces spawned per death:
+    3 large chunks (14-28px, 52-124 speed)
+    6 small shards (5-15px, 78-216 speed)
+  Shapes: 60% diamond, 40% triangle
+  Profiles: spine, fork, barb
+  2-3 image-based pieces (0.8-1.4x scale)
+  Lifetime: 30000ms per piece
+  Steam tints: yellow-green -> olive over time
+  Depth: 4.5 (above floor, below entities)
+
+--- Corpse Fade ---
+  Duration: 8 seconds
+  Curve: quadratic ease-out
+  Gibs spawn at 100% opacity, fade with corpse
+  Auto-destroy after 8s
+
+--- Acid Effects ---
+  Hit blood splatter (SVG-based)
+  Kill splash burst (multi-pool)
+  Hazard pools on ground (damage zone)
+  Wound steam/trails on bleeding aliens
+
+--- Door Effects ---
+  Weld spark VFX: orange-white particle burst + spark light
+  Damage crack progression (4 visual stages)
+  Door damage visuals currently handled without a standalone DoorRipplePipeline file
+
+================================================================
+23. POST-PROCESSING & CRT EFFECTS
+================================================================
+
+--- Post-FX Controls ---
+  Standalone shader pipeline class files have been removed from src/graphics
+  Post-FX tuning is still driven from GameScene/runtime settings
+  Scanline intensity:    0.10
+  Tilt-shift strength:   0.35, range 0.48, focus 0.50
+  Cinematic color treatment remains configurable at runtime
+
+--- Film & CRT Settings ---
+  Film grain:              0.07
+  Cinematic bloom:         0.28
+  Cinematic warp:          0.18
+  Film flicker:            0.14
+  Cinematic halation:      0.20
+  Cinematic exposure:      1.04
+  Cinematic bleach bypass: 0.12
+  Pressure chromatic aberration: enabled (scales with director)
+  Pressure color bleed:    enabled
+
+--- Vignette ---
+  Alpha: 0.10, edge fade: 8px
+  Dark vignette -- do NOT remove
+
+================================================================
+24. BOOT SEQUENCE & ASSET GENERATION
+================================================================
+BootScene runs multi-frame sequential tasks before game starts:
+
+  1.  Generate/import tileset (procedural or Alien Breed atlas)
+  2.  Load/generate marine sprites
+  3.  Generate leader texture
+  4.  Generate follower variants (heavy/tech/medic tints)
+  5.  Generate alien textures (5 types + queen)
+  6.  Initialize alien walk animation (strip-based)
+  7.  Generate alien overlay textures (ghost blur, specular)
+  8.  Generate bullet textures (3 weapon types)
+  9.  Generate FX textures (sparks, splatter)
+  10. Generate prop textures (decorative objects)
+  11. Generate decal textures (floor cracks, scorch)
+  12. Generate blood SVG textures (dynamic splatter)
+  13. Generate light textures (torch hotspot, gradients)
+  14. Generate weapon icons (HUD display)
+  15. Generate door textures (5 states)
+  16. Register post-FX pipelines
+
+Preloaded Assets:
+  Spritesheets: Marine (256x64), Alien Walk (64x64), Warrior (128x128)
+  Videos: 4x marine portraits, interference, test pattern
+  Audio: weapon samples, door weld, facehugger crawl, alien vocals
+  Imported textures: wall corridor, floor grill
+
+================================================================
+25. GAME LOOP (PER FRAME -- 60Hz TARGET)
+================================================================
+  1.  Input polling (mouse position, LMB/RMB, wheel)
+  2.  Movement system (apply paths, target seeking, velocity)
+  3.  DoorActionSystem (execute pending door actions)
+  4.  FollowerCombatSystem (AI targeting, firing, morale)
+  5.  WeaponManager (heat management, fire requests)
+  6.  CombatDirector (pressure calc, state transitions)
+  7.  Enemy systems:
+      - EnemyDetection (visibility, tracker signals)
+      - EnemyTargeting (target selection, lane assignment)
+      - EnemyMovement (velocity per intent)
+      - Physics step (collision resolution)
+  8.  EnemyManager (corpse fade, dying cleanup)
+  9.  Lighting overlay (raycasting, torch updates)
+  10. MotionTracker (contact filtering, blip rendering)
+  11. SetpieceSystem (spawn waves, mission cues)
+  12. ReinforcementSystem (idle/gunfire spawns)
+  13. AtmosphereSystem (ambient audio, groans)
+  14. Targeting system (reticle drawing)
+  15. HUD update (health, ammo, morale)
+  16. ObjectiveSystem (target marker, progress)
+  17. MissionFlow (objective completion, extraction)
+  18. StageFlow (wave advancement, stage transitions)
+
+================================================================
+26. EDITOR (5 TABS)
+================================================================
+Browser-based mission/map editor at /editors.
+Publishes mission packages to localStorage; game reads via
+missionPackageRuntime.js.
+
+Storage keys:
+  State:   aliens_dev_editors_v1
+  Package: aliens_mission_package_v1
+  History: max 16 backups
+
+--- Tab 1: Sprite ---
+  Pixel editor for creating custom sprites
+
+--- Tab 2: Animation ---
+  Frame editing and animation preview
+
+--- Tab 3: Tilemap ---
+  Full map editor with layers:
+    Terrain:     floor (0), wall (1)
+    Doors:       none / standard / electronic / locked / welded
+    Markers:     spawn, extract, terminal, security_card,
+                 alien_spawn, warning_strobe, vent_point, egg_cluster
+    Lights:      Cool Lamp, Warm Spot, Emergency, Dim Fill presets
+    Props:       Decorative objects
+    Story points: Narrative markers
+
+--- Tab 4: Missions ---
+  Mission package authoring
+  Event nodes, audio cues, story point references
+
+--- Tab 5: Game Config ---
+  Codeless tuning -- squad, weapons, enemies, global settings
+  Changes apply via runtimeSettings (no restart needed)
+
+================================================================
+27. RUNTIME SETTINGS (TUNABLE)
+================================================================
+All settings stored in localStorage, applied each frame.
+No game restart required. Adjustable via /settings (9 tabs)
+or /editors Game Config tab.
+
+Settings page tabs: Marines, Enemies, Objects, Walls, Other,
+Game, Map Tile, Scripting, Sprite & Animate
+
+--- Player ---
+  leaderSpeed:         120 px/s
+  leaderTurnSpeed:     8.5 rad/s
+  movementRigidity:    0.98
+  moveResponseRate:    9.5
+  maxHealth:           100
+  startHealth:         100
+
+--- Squad ---
+  reactionDelayMs:     70
+  followLerp:          0.1
+  followerTurnMul:     1.0
+  snakeBaseSpeed:      200 px/s
+  snakeCatchupGain:    1.8
+  formupSpeed:         140 px/s
+  snakeStaggerMs:      380 (min 500, max 1000)
+  minSpacing:          40px
+
+--- Enemies ---
+  globalHealthScale:   0.8
+  globalSpeedScale:    1.0
+  globalDamageScale:   1.0
+  warriorOnly:         0 (set to 1 to force all warriors)
+  hitSlowMinPct:       25%
+  hitSlowMaxPct:       50%
+  hitSlowDurMinMs:     180
+  hitSlowDurMaxMs:     320
+
+--- Weapons ---
+  globalDamageMultiplier:   1.0
+  globalSpeedMultiplier:    1.0
+  globalFireRateMultiplier: 1.0
+  Per-weapon damage/speed/fireRate multipliers: all 1.0
+
+--- Doors ---
+  integrityHits:       105
+  hackDurationMs:      3000
+  weldDurationMs:      4000
+  unweldDurationMs:    3000
+  bulletDamageScale:   0.34
+
+--- Lighting ---
+  ambientDarkness:     0.72
+  torchRange:          560px
+  torchConeHalfAngle:  0.28 rad
+  softRadius:          220px
+  coreAlpha:           0.9
+  beamFlashAlphaMul:   1.8
+  beamFlashWidthMul:   1.4
+
+--- Objects (Acid) ---
+  acidDurationMs:         5000
+  acidDamagePerSec:       10
+  acidHazardMaxActive:    16
+  acidPoolChanceOnSplash: 0.42
+  acidMeleeSplashChance:  0.48
+  acidMeleePoolChance:    0.26
+  acidLatchSplashChance:  0.34
+
+--- Marines (AI) ---
+  heavyAccuracyMul:    1.15
+  techAccuracyMul:     1.00
+  medicAccuracyMul:    0.92
+  panicCalmPerSec:     7
+  panicSwarmPerSec:    6
+  panicLowHealthPerSec: 9
+  panicSelfHitLoss:    10
+  panicAllyHitLoss:    3
+  moraleKillGain:      5
+  panicObjectiveGain:  10
+
+--- Graphics ---
+  tiltShift:           enabled, strength 0.35
+  scanline:            enabled, strength 0.10
+  filmGrain:           0.07
+  cinematicBloom:      0.28
+  cinematicWarp:       0.18
+  filmFlicker:         0.14
+  cinematicHalation:   0.20
+  cinematicExposure:   1.04
+  bleachBypass:        0.12
+
+--- Scripting ---
+  directorEnabled:     1
+  eventTickMs:         80
+  aiThinkIntervalMs:   100
+
+================================================================
+28. DEPTH SORTING ORDER
+================================================================
+  -1           Floor BG tileSprite
+   0           Floor layer + decals
+   2-3         Props, decorations, floor decals
+   4.5         Facehuggers (slip under walls), corpse debris
+   5           Walls, door light-blockers
+   6-7         Doors, spark lights
+   9 + y-sort  Followers
+   9.5 + y-sort Leader
+   10 + y-sort  Aliens
+   12          Acid projectiles
+   14          Bullets, tracer effects
+   50          Motion tracker
+   188-193     Lighting overlays (multiply/additive/flare)
+   200+        HUD (cards, overlays)
+
+================================================================
+29. GUARDRAILS & GOTCHAS
+================================================================
+
+--- Do NOT ---
+  - Increase m1 enemyBudget above 24
+  - Change Phaser.Scale.FIT in main.js
+  - Revert HUD / FollowerCombatSystem work
+  - Bottom-dock the HUD cards
+  - Remove the dark vignette
+  - Add WASD or keyboard movement
+
+--- Technical Gotchas ---
+  - Door tiles default walkable -- setWalkable(false) on creation
+  - DoorActionSystem.update() must run AFTER movementSystem.update()
+  - Use leader.facingAngle for bullet direction, NOT leader.rotation
+    (rotation is 0 when spritesheet active)
+  - Alien die() sets isDying=true and setActive(false) immediately
+    -- all targeting checks must exclude dying enemies
+  - Audio: use canPlay(key, minGap) to prevent saturation
+  - Weld sound: SfxEngine.playDoorWeld(true/false) manages loop state
+  - SquadSystem warp: warpAccumMs > 3000 AND > 5 tiles from leader
+  - CONFIG values are overridden by runtimeSettings (localStorage)
+    -- effective values are always the runtime settings
+
+--- Ownership ---
+  Check md/handoff.md before editing shared files
+  Claim work with role-first names (Coding AI, Graphics AI, etc.)
+  Verify after edits: node --check <file> or bash ./scripts/verify.sh
+
+================================================================
 END OF DOCUMENT
-----------------------------------------------------------------
-
-----------------------------------------------------------------
-UNKNOWN / AMBIGUOUS CASE HANDLING (MANDATORY)
-----------------------------------------------------------------
-If the AI does NOT know something, is uncertain, or encounters ambiguity:
-
-AI MUST DO ONE OF THE FOLLOWING (IN THIS ORDER):
-1) ASK a clarifying question to the user BEFORE writing code.
-2) If explicitly permitted, RESEARCH the topic using reliable, up-to-date sources.
-3) If neither clarification nor research is possible, STOP and state what is unknown.
-
-AI MUST NOT:
-- Guess
-- Hallucinate APIs, engine features, or behaviors
-- Assume intent
-- Fill gaps with invented logic
-
-Acceptable phrasing examples:
-- “This detail is not specified. I need clarification on X before proceeding.”
-- “There are two valid approaches. Which do you want?”
-- “This depends on an external constraint not yet defined.”
-
-Failure handling:
-- If uncertainty affects correctness, AI must halt output.
-- Partial or speculative implementations are forbidden.
-
-The goal is correctness and alignment, not speed.
-----------------------------------------------------------------
+================================================================

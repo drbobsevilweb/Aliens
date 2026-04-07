@@ -19,34 +19,31 @@ let viewX = 0, viewY = 0, zoom = 1;
 let isDragging = false, dragStartX = 0, dragStartY = 0, viewStartX = 0, viewStartY = 0;
 
 // Editing state
-const LAYERS = ['terrain', 'doors', 'markers', 'props', 'lights'];
-const LAYER_LABELS = { terrain: 'Floor', doors: 'Wall/Doors', markers: 'Objects', props: 'Sprites', lights: 'Lighting' };
+const LAYERS = ['terrain', 'doors', 'markers', 'props', 'lights', 'story'];
+const LAYER_LABELS = { terrain: 'Floor', doors: 'Wall/Doors', markers: 'Objects', props: 'Sprites', lights: 'Lighting', story: 'Story Markers' };
 const LAYER_COLORS = {
     terrain: 'rgba(47,63,76,0.6)',
     doors: 'rgba(163,80,78,0.7)',
     markers: 'rgba(79,219,142,0.7)',
     props: 'rgba(110,184,255,0.5)',
     lights: 'rgba(255,238,187,0.5)',
+    story: 'rgba(180,100,255,0.7)',
 };
 
 let activeLayer = 'terrain';
 let activeTool = 'paint';   // paint, erase, select, pan
 let activeBrush = 1;        // tile value for paint
 let showGrid = true;
-let layerVisibility = { terrain: true, doors: true, markers: true, props: true, lights: true };
-let showCollision = false;  // Collision/walkability overlay
+let layerVisibility = { terrain: true, doors: true, markers: true, props: true, lights: true, story: true };
 let dirty = false;
 
 // Selection state
 let selectedTiles = [];      // [{x, y, layer}, ...]
 let selectedObjects = [];    // [obj_id, ...]
-let selectedObject = null;   // Currently inspected object
 let isRectSelecting = false;
 let selectionStart = null;   // {x, y} in screen coords
 let selectionEnd = null;     // {x, y} in screen coords
-
-// Clipboard state
-let clipboard = { tiles: [], objects: [] };  // [{tileData}, {objData}, ...]
+let objectDragState = null;  // drag move state for selected objects
 
 // Undo/redo
 const MAX_UNDO = 50;
@@ -59,10 +56,11 @@ let brushSize = 1;
 
 // Hover tile for brush preview
 let hoverTile = null;
-
-// Tile texture images
-const tileImages = {};
-let tileImagesLoaded = false;
+let activeObjectPresetByLayer = { props: 'lamp', lights: 'point' };
+let activeObjectRotationByLayer = { doors: 0, props: 0, lights: 0 };
+let spriteAssetList = [];
+let spriteAssetLoadPromise = null;
+let assetSearchByLayer = { props: '', lights: '' };
 
 // Tile palettes for each tile-layer
 const TILE_VALUES = {
@@ -89,11 +87,269 @@ const TILE_VALUES = {
         { value: 7, label: 'Vent Point',    color: '#88ffdd' },
         { value: 8, label: 'Egg Cluster',   color: '#cc66ff' },
     ],
+    story: [
+        { value: 0, label: 'None',          color: 'transparent' },
+        { value: 1, label: 'Story Trigger', color: '#b464ff' },
+        { value: 2, label: 'Objective',     color: '#ff9f40' },
+        { value: 3, label: 'Action Zone',   color: '#ff4f8b' },
+        { value: 4, label: 'Condition',     color: '#40d9ff' },
+    ],
 };
+
+const OBJECT_PRESETS = {
+    props: [
+        { id: 'prop', label: 'Generic Prop', name: 'Prop', type: 'prop', imageKey: '', radius: 18, widthTiles: 1, heightTiles: 1 },
+        { id: 'lamp', label: 'Lamp', name: 'Lamp', type: 'lamp', imageKey: 'prop_lamp', radius: 8, widthTiles: 1, heightTiles: 1 },
+        { id: 'barrel', label: 'Barrel', name: 'Barrel', type: 'barrel', imageKey: 'prop_barrel', radius: 12, widthTiles: 1, heightTiles: 1 },
+        { id: 'container', label: 'Container', name: 'Container', type: 'container', imageKey: 'prop_container', radius: 16, widthTiles: 1, heightTiles: 1 },
+        { id: 'zone_colony', label: 'Zone: Colony', name: 'Colony Zone', type: 'zone_colony', imageKey: 'zone_colony', radius: 128, widthTiles: 1, heightTiles: 1, color: '#88ccff' },
+        { id: 'zone_damaged', label: 'Zone: Damaged', name: 'Damaged Zone', type: 'zone_damaged', imageKey: 'zone_damaged', radius: 128, widthTiles: 1, heightTiles: 1, color: '#ffaa44' },
+        { id: 'zone_hive', label: 'Zone: Hive', name: 'Hive Zone', type: 'zone_hive', imageKey: 'zone_hive', radius: 128, widthTiles: 1, heightTiles: 1, color: '#44ff88' },
+    ],
+    lights: [
+        { id: 'point', label: 'Point Light', name: 'Point Light', type: 'point', color: '#ffeebb', radius: 150, intensity: 1 },
+        { id: 'spot', label: 'Spot Light', name: 'Spot Light', type: 'spot', color: '#ffeebb', radius: 180, intensity: 1.15 },
+        { id: 'alarm', label: 'Alarm Light', name: 'Alarm Light', type: 'alarm', color: '#ff6688', radius: 140, intensity: 1.2 },
+    ],
+};
+
+const DOOR_ROTATION_OPTIONS = [
+    { value: 0, label: '0° Horizontal' },
+    { value: 90, label: '90° Vertical' },
+    { value: 180, label: '180° Horizontal' },
+    { value: 270, label: '270° Vertical' },
+];
+
+const ZONE_PROP_META = Object.freeze({
+    zone_colony: { color: '#88ccff', shortLabel: 'COL' },
+    zone_damaged: { color: '#ffaa44', shortLabel: 'DMG' },
+    zone_hive: { color: '#44ff88', shortLabel: 'HIVE' },
+});
+
+function normalizeRightAngleRotation(value, fallback = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    const snapped = Math.round(n / 90) * 90;
+    return ((snapped % 360) + 360) % 360;
+}
+
+function isDoorVerticalRotation(rotation = 0) {
+    const next = normalizeRightAngleRotation(rotation, 0);
+    return next === 90 || next === 270;
+}
+
+function getDoorRotationValue(obj, fallback = 0) {
+    const width = Number(obj?.width) || (currentMap?.tilewidth || 64);
+    const height = Number(obj?.height) || (currentMap?.tileheight || 64);
+    const orientation = String(getObjectProperty(obj, 'orientation', '') || '').toLowerCase();
+    const rawRotation = Number(obj?.rotation);
+    if (Number.isFinite(rawRotation) && (rawRotation !== 0 || (orientation !== 'vertical' && height <= width))) {
+        return normalizeRightAngleRotation(rawRotation, fallback);
+    }
+    if (orientation === 'vertical' || height > width) return 90;
+    return normalizeRightAngleRotation(rawRotation, fallback);
+}
+
+function applyDoorRotationGeometry(obj, rotation = null) {
+    if (!obj) return;
+    const tw = currentMap?.tilewidth || 64;
+    const th = currentMap?.tileheight || 64;
+    const nextRotation = rotation == null ? getDoorRotationValue(obj, 0) : normalizeRightAngleRotation(rotation, 0);
+    const vertical = isDoorVerticalRotation(nextRotation);
+    obj.rotation = nextRotation;
+    obj.width = vertical ? tw : tw * 2;
+    obj.height = vertical ? th * 2 : th;
+    setObjectProperty(obj, 'orientation', 'string', vertical ? 'vertical' : 'horizontal');
+}
+
+function ensureMapAtmosphere(map) {
+    if (!map || typeof map !== 'object') return;
+    map.atmosphere = map.atmosphere && typeof map.atmosphere === 'object' ? map.atmosphere : {};
+    if (!Number.isFinite(Number(map.atmosphere.ambientDarkness))) map.atmosphere.ambientDarkness = 0.82;
+    if (!Number.isFinite(Number(map.atmosphere.torchRange))) map.atmosphere.torchRange = 560;
+    if (!Number.isFinite(Number(map.atmosphere.softRadius))) map.atmosphere.softRadius = 220;
+    if (!Number.isFinite(Number(map.atmosphere.coreAlpha))) map.atmosphere.coreAlpha = 0.9;
+    if (!Number.isFinite(Number(map.atmosphere.featherLayers))) map.atmosphere.featherLayers = 14;
+    if (!Number.isFinite(Number(map.atmosphere.featherSpread))) map.atmosphere.featherSpread = 1.2;
+    if (!Number.isFinite(Number(map.atmosphere.featherDecay))) map.atmosphere.featherDecay = 0.68;
+    if (!Number.isFinite(Number(map.atmosphere.glowStrength))) map.atmosphere.glowStrength = 1.15;
+    if (!Number.isFinite(Number(map.atmosphere.dustDensity))) map.atmosphere.dustDensity = 0.5;
+    if (typeof map.atmosphere.ventHum !== 'boolean') map.atmosphere.ventHum = true;
+    if (typeof map.atmosphere.pipeGroans !== 'boolean') map.atmosphere.pipeGroans = true;
+    if (typeof map.atmosphere.distantThumps !== 'boolean') map.atmosphere.distantThumps = true;
+    if (typeof map.atmosphere.alienChittering !== 'boolean') map.atmosphere.alienChittering = true;
+}
+
+function bindAtmosphereControls(root) {
+    if (!root || !currentMap) return;
+    ensureMapAtmosphere(currentMap);
+    const map = currentMap;
+    const markDirty = () => {
+        dirty = true;
+        API.setDirty(true);
+    };
+    const sliderConfigs = [
+        ['atmosDarknessSlider', 'ambientDarkness', 'Ambient Darkness', (value) => `${Number(value).toFixed(2)}`],
+        ['atmosTorchSlider', 'torchRange', 'Torch Range', (value) => `${Math.round(Number(value))}px`],
+        ['atmosSoftRadiusSlider', 'softRadius', 'Torch Soft Radius', (value) => `${Math.round(Number(value))}px`],
+        ['atmosCoreAlphaSlider', 'coreAlpha', 'Core Alpha', (value) => `${Number(value).toFixed(2)}`],
+        ['atmosFeatherLayersSlider', 'featherLayers', 'Feather Layers', (value) => `${Math.round(Number(value))}`],
+        ['atmosFeatherSpreadSlider', 'featherSpread', 'Feather Spread', (value) => `${Number(value).toFixed(2)}`],
+        ['atmosFeatherDecaySlider', 'featherDecay', 'Feather Decay', (value) => `${Number(value).toFixed(2)}`],
+        ['atmosGlowStrengthSlider', 'glowStrength', 'Glow Strength', (value) => `${Number(value).toFixed(2)}`],
+        ['atmosDustSlider', 'dustDensity', 'Dust Density', (value) => `${Number(value).toFixed(2)}`],
+    ];
+    sliderConfigs.forEach(([id, key, label, format]) => {
+        const input = root.querySelector(`#${id}`);
+        const output = root.querySelector(`[data-atmo-label="${id}"]`);
+        if (!input || !output) return;
+        input.addEventListener('input', (evt) => {
+            const value = Number(evt.target.value);
+            map.atmosphere[key] = key === 'featherLayers' ? Math.round(value) : value;
+            output.textContent = `${label} (${format(map.atmosphere[key])})`;
+            markDirty();
+        });
+    });
+    for (const [id, key] of [['atmosVentHum', 'ventHum'], ['atmosPipeGroans', 'pipeGroans'], ['atmosDistantThumps', 'distantThumps'], ['atmosAlienChitter', 'alienChittering']]) {
+        root.querySelector(`#${id}`)?.addEventListener('change', (evt) => {
+            map.atmosphere[key] = evt.target.checked;
+            markDirty();
+        });
+    }
+}
+
+function isZonePropType(type = '') {
+    return Object.prototype.hasOwnProperty.call(ZONE_PROP_META, String(type || ''));
+}
+
+function getZonePropMeta(type = '') {
+    return ZONE_PROP_META[String(type || '')] || null;
+}
+
+function getZoneRadiusValue(obj, fallback = 128) {
+    const raw = Number(getObjectProperty(obj, 'radius', obj?.radius ?? fallback));
+    if (!Number.isFinite(raw) || raw <= 0) return fallback;
+    return Math.max(32, Math.min(512, raw));
+}
+
+function drawZonePropPreviewShape(context, obj, options = {}) {
+    if (!context || !obj) return;
+    const meta = getZonePropMeta(obj.type || options.type);
+    if (!meta) return;
+    const x = Number(obj.x) || 0;
+    const y = Number(obj.y) || 0;
+    const width = Math.max(1, Number(obj.width) || (currentMap?.tilewidth || 64));
+    const height = Math.max(1, Number(obj.height) || (currentMap?.tileheight || 64));
+    const radius = getZoneRadiusValue(obj, Number(options.radius) || 128);
+    const lineWidth = Number(options.lineWidth) > 0 ? Number(options.lineWidth) : 2;
+    const fillAlpha = Number.isFinite(Number(options.fillAlpha)) ? Number(options.fillAlpha) : 0.12;
+    const centerX = x + width * 0.5;
+    const centerY = y + height * 0.5;
+    const fontSize = Number(options.fontSize) > 0 ? Number(options.fontSize) : 12;
+
+    context.save();
+    if (Array.isArray(options.dash)) context.setLineDash(options.dash);
+    context.globalAlpha = fillAlpha;
+    context.fillStyle = meta.color;
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.fill();
+
+    context.globalAlpha = Math.min(1, fillAlpha * 3.5);
+    context.strokeStyle = meta.color;
+    context.lineWidth = lineWidth;
+    context.stroke();
+
+    context.globalAlpha = Math.min(1, fillAlpha * 3.2);
+    context.strokeRect(x, y, width, height);
+    context.fillStyle = '#0d1117';
+    context.fillRect(x + lineWidth, y + lineWidth, Math.max(1, width - lineWidth * 2), Math.max(1, height - lineWidth * 2));
+
+    context.globalAlpha = 1;
+    context.fillStyle = meta.color;
+    context.font = `bold ${fontSize}px monospace`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(meta.shortLabel, centerX, centerY);
+    context.restore();
+}
+
+function isDoorObjectVertical(obj) {
+    if (!obj) return false;
+    const rotation = getDoorRotationValue(obj, 0);
+    if (isDoorVerticalRotation(rotation)) return true;
+    const orientation = String(getObjectProperty(obj, 'orientation', '') || '').toLowerCase();
+    if (orientation === 'vertical') return true;
+    const width = Number(obj.width || 0);
+    const height = Number(obj.height || 0);
+    return height > width;
+}
+
+function drawDoorPreviewShape(context, obj, color, options = {}) {
+    if (!context || !obj) return;
+    const x = Number(obj.x) || 0;
+    const y = Number(obj.y) || 0;
+    const width = Math.max(1, Number(obj.width) || 1);
+    const height = Math.max(1, Number(obj.height) || 1);
+    const lineWidth = Number(options.lineWidth) > 0 ? Number(options.lineWidth) : 2;
+    const fillAlpha = Number.isFinite(Number(options.fillAlpha)) ? Number(options.fillAlpha) : 0.18;
+    const dash = Array.isArray(options.dash) ? options.dash : null;
+    const vertical = isDoorObjectVertical(obj);
+    const minSide = Math.min(width, height);
+    const inset = Math.max(minSide * 0.1, lineWidth * 1.5);
+    const capThickness = Math.max(minSide * 0.18, lineWidth * 2.5);
+    const seamThickness = Math.max(minSide * 0.05, lineWidth * 0.85);
+
+    context.save();
+    if (dash) context.setLineDash(dash);
+
+    context.globalAlpha = fillAlpha;
+    context.fillStyle = color;
+    context.fillRect(x, y, width, height);
+
+    context.globalAlpha = 0.38;
+    context.fillStyle = '#0d1117';
+    if (vertical) {
+        context.fillRect(x + inset, y, Math.max(1, width - inset * 2), capThickness);
+        context.fillRect(x + inset, y + height - capThickness, Math.max(1, width - inset * 2), capThickness);
+    } else {
+        context.fillRect(x, y + inset, capThickness, Math.max(1, height - inset * 2));
+        context.fillRect(x + width - capThickness, y + inset, capThickness, Math.max(1, height - inset * 2));
+    }
+
+    context.globalAlpha = 0.14;
+    context.fillStyle = '#ffffff';
+    if (vertical) {
+        context.fillRect(x + inset, y + capThickness, Math.max(1, width - inset * 2), Math.max(1, height - capThickness * 2));
+    } else {
+        context.fillRect(x + capThickness, y + inset, Math.max(1, width - capThickness * 2), Math.max(1, height - inset * 2));
+    }
+
+    context.globalAlpha = 1;
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    context.strokeRect(x, y, width, height);
+    context.setLineDash([]);
+
+    context.strokeStyle = 'rgba(255,255,255,0.45)';
+    context.lineWidth = Math.max(seamThickness, lineWidth * 0.75);
+    context.beginPath();
+    if (vertical) {
+        const seamY = y + height / 2;
+        context.moveTo(x + inset, seamY);
+        context.lineTo(x + width - inset, seamY);
+    } else {
+        const seamX = x + width / 2;
+        context.moveTo(seamX, y + inset);
+        context.lineTo(seamX, y + height - inset);
+    }
+    context.stroke();
+    context.restore();
+}
 
 function buildUI(root) {
     root.innerHTML = `
-        <div class="layout-split" style="height:100%">
+        <div class="layout-three" style="height:100%">
             <!-- Left: Map list + layer panel -->
             <aside class="sidebar" style="width:240px; display:flex; flex-direction:column; gap:4px;">
                 <div class="panel" style="max-height:200px; display:flex; flex-direction:column;">
@@ -111,9 +367,9 @@ function buildUI(root) {
                     <div class="panel-header">Tile Palette</div>
                     <div class="panel-body" style="flex:1;overflow-y:auto;padding:4px;" id="tm-palette"></div>
                 </div>
-                <div class="panel" style="flex:0 0 auto;">
+                <div class="panel" style="flex:0 0 auto;min-height:140px;max-height:300px;display:flex;flex-direction:column;overflow:hidden;">
                     <div class="panel-header">Properties</div>
-                    <div class="panel-body" style="padding:6px;font-size:11px;" id="tm-props">
+                    <div class="panel-body" style="flex:1;overflow-y:auto;padding:6px;font-size:11px;" id="tm-props">
                         <div style="color:var(--text-muted);">Select a map to begin editing</div>
                     </div>
                 </div>
@@ -151,11 +407,6 @@ function buildUI(root) {
                         </label>
                     </div>
                     <div class="toolbar-group">
-                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;" title="Show walkable/blocked areas">
-                            <input type="checkbox" id="tm-collision"> Collision
-                        </label>
-                    </div>
-                    <div class="toolbar-group">
                         <button class="btn btn-sm btn-secondary" id="tm-zoom-in" title="Zoom in">+</button>
                         <span id="tm-zoom-label" style="font-size:11px;min-width:40px;text-align:center;">100%</span>
                         <button class="btn btn-sm btn-secondary" id="tm-zoom-out" title="Zoom out">−</button>
@@ -174,6 +425,15 @@ function buildUI(root) {
                     <canvas id="tm-canvas"></canvas>
                 </div>
             </div>
+
+            <aside class="sidebar sidebar-right" style="width:300px;display:flex;flex-direction:column;gap:4px;">
+                <div class="panel" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                    <div class="panel-header">Tool / Selection</div>
+                    <div class="panel-body" style="flex:1;overflow-y:auto;padding:8px;font-size:11px;" id="tm-inspector">
+                        <div style="color:var(--text-muted);">Pick a layer or object to edit it here.</div>
+                    </div>
+                </div>
+            </aside>
         </div>
     `;
 
@@ -186,7 +446,6 @@ function buildUI(root) {
     });
 
     document.getElementById('tm-grid').addEventListener('change', (e) => { showGrid = e.target.checked; draw(); });
-    document.getElementById('tm-collision').addEventListener('change', (e) => { showCollision = e.target.checked; draw(); });
     document.getElementById('tm-zoom-in').addEventListener('click', () => setZoom(zoom * 1.25));
     document.getElementById('tm-zoom-out').addEventListener('click', () => setZoom(zoom / 1.25));
     document.getElementById('tm-zoom-fit').addEventListener('click', fitMap);
@@ -217,13 +476,13 @@ function buildUI(root) {
         draw();
     });
     ro.observe(wrap);
-    loadTileTextures();
 }
 
 function setTool(tool) {
     activeTool = tool;
     document.querySelectorAll('.tm-tool').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
     canvas.style.cursor = tool === 'pan' ? 'grab' : (tool === 'paint' || tool === 'erase' || tool === 'fill') ? 'crosshair' : 'default';
+    renderInspector();
 }
 
 function setZoom(z) {
@@ -261,8 +520,12 @@ function renderLayers() {
         row.addEventListener('click', (e) => {
             if (e.target.type === 'checkbox') return;
             activeLayer = row.dataset.layer;
+            selectedTiles = [];
+            selectedObjects = [];
             renderLayers();
             renderPalette();
+            renderInspector();
+            setTool(activeTool); // refresh sidebar visibility for new layer
             draw();
         });
     });
@@ -272,6 +535,137 @@ function renderLayers() {
             draw();
         });
     });
+}
+
+function humanizeAssetLabel(value) {
+    return String(value || '')
+        .replace(/\.[^.]+$/, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function inferPropPresetFromAsset(asset) {
+    const assetName = String(asset?.name || '').trim();
+    const lower = assetName.toLowerCase();
+    let type = 'prop';
+    let radius = 18;
+    let label = humanizeAssetLabel(assetName);
+
+    if (lower.includes('lamp')) {
+        type = 'lamp';
+        radius = 8;
+        label = 'Lamp';
+    } else if (lower.includes('barrel')) {
+        type = 'barrel';
+        radius = 12;
+        label = 'Barrel';
+    } else if (lower.includes('container') || lower.includes('crate')) {
+        type = 'container';
+        radius = 16;
+        label = humanizeAssetLabel(assetName);
+    }
+
+    return {
+        id: `asset:${assetName}`,
+        label,
+        name: label,
+        type,
+        imageKey: assetName,
+        radius,
+        widthTiles: 1,
+        heightTiles: 1,
+        color: '#33556d',
+        thumbnail: asset?.path || '',
+    };
+}
+
+async function loadSpriteAssetCatalog() {
+    if (spriteAssetLoadPromise) return spriteAssetLoadPromise;
+    spriteAssetLoadPromise = API.apiFetch('/api/sprites')
+        .then((resp) => resp.json())
+        .then((data) => {
+            if (!data?.ok) throw new Error(data?.error || 'Failed to load asset catalog');
+            spriteAssetList = Array.isArray(data.sprites) ? data.sprites : [];
+            renderPalette();
+            renderInspector();
+            return spriteAssetList;
+        })
+        .catch((err) => {
+            console.warn('[tilemaps] asset catalog load failed:', err?.message || err);
+            spriteAssetList = [];
+            return [];
+        })
+        .finally(() => {
+            spriteAssetLoadPromise = null;
+        });
+    return spriteAssetLoadPromise;
+}
+
+function getObjectPresetOptions(layerName) {
+    const base = [...(OBJECT_PRESETS[layerName] || [])];
+    if (layerName !== 'props') return base;
+
+    const dynamic = spriteAssetList
+        .filter((asset) => String(asset?.dir || '').replace(/\\/g, '/').includes('assets/objects'))
+        .map((asset) => inferPropPresetFromAsset(asset));
+
+    const seen = new Set(base.map((preset) => String(preset.imageKey || preset.id || '')));
+    for (const preset of dynamic) {
+        const dedupeKey = String(preset.imageKey || preset.id || '');
+        if (!dedupeKey || seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        base.push(preset);
+    }
+    return base;
+}
+
+function getFilteredObjectPresetOptions(layerName) {
+    const all = getObjectPresetOptions(layerName);
+    const query = String(assetSearchByLayer[layerName] || '').trim().toLowerCase();
+    if (!query) return all;
+    return all.filter((preset) => {
+        const hay = `${preset.label || ''} ${preset.name || ''} ${preset.type || ''} ${preset.imageKey || ''}`.toLowerCase();
+        return hay.includes(query);
+    });
+}
+
+function getActiveObjectPreset(layerName) {
+    const options = getObjectPresetOptions(layerName);
+    if (!options.length) return null;
+    const activeId = activeObjectPresetByLayer[layerName];
+    return options.find((opt) => opt.id === activeId) || options[0];
+}
+
+function getLayerTypeOptions(layerName) {
+    if (layerName === 'doors') {
+        return [
+            { value: 'standard', label: 'Standard Door', brush: 1 },
+            { value: 'electronic', label: 'Electronic Door', brush: 2 },
+            { value: 'locked', label: 'Locked Door', brush: 3 },
+            { value: 'welded', label: 'Welded Door', brush: 4 },
+        ];
+    }
+    if (layerName === 'markers') {
+        return [
+            { value: 'spawn', label: 'Spawn Marker', brush: 1 },
+            { value: 'extract', label: 'Extract Marker', brush: 2 },
+            { value: 'terminal', label: 'Terminal', brush: 3 },
+            { value: 'security_card', label: 'Security Card', brush: 4 },
+            { value: 'alien_spawn', label: 'Alien Spawn', brush: 5 },
+            { value: 'warning_strobe', label: 'Warning Strobe', brush: 6 },
+            { value: 'vent_point', label: 'Vent Point', brush: 7 },
+            { value: 'egg_cluster', label: 'Egg Cluster', brush: 8 },
+        ];
+    }
+    if (layerName === 'story') {
+        return [
+            { value: 'story_trigger', label: 'Story Trigger', brush: 1 },
+            { value: 'objective', label: 'Objective', brush: 2 },
+            { value: 'action_zone', label: 'Action Zone', brush: 3 },
+            { value: 'condition', label: 'Condition', brush: 4 },
+        ];
+    }
+    return getObjectPresetOptions(layerName).map((preset) => ({ value: preset.type, label: preset.label, presetId: preset.id }));
 }
 
 // ── Palette panel ──────────────────────────────────────────────────────────
@@ -287,7 +681,7 @@ function renderPalette() {
         if (activeBrush === 0) activeBrush = tiles.find(t => t.value > 0)?.value || 1;
         el.innerHTML = `
             <div style="padding:4px;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
-                Select type, then click canvas to place.<br>Right-click objects to edit/delete.
+                Select type, then click canvas to place.<br>Use <b>Select</b> or right-click to edit existing objects in the inspector.
             </div>
         ` + tiles.filter(t => t.value > 0).map(t => `
             <div class="tm-palette-item ${activeBrush === t.value ? 'active' : ''}" data-value="${t.value}"
@@ -307,9 +701,45 @@ function renderPalette() {
     }
 
     if (isObjectLayer) {
+        const presetOptions = getObjectPresetOptions(activeLayer);
+        if (presetOptions.length) {
+            const activePreset = getActiveObjectPreset(activeLayer);
+            const filteredPresets = getFilteredObjectPresetOptions(activeLayer);
+            el.innerHTML = `
+                <div style="padding:4px;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+                    Pick a preset, then paint to place it. Use <b>Select</b> to drag or edit existing objects in the right panel.
+                </div>
+                ${activeLayer === 'props' ? `<input id="tm-palette-search" class="input" placeholder="Search props…" value="${esc(assetSearchByLayer.props || '')}" style="width:100%;margin-bottom:6px;">` : ''}
+                ${(filteredPresets.length ? filteredPresets : presetOptions).map((preset) => `
+                    <div class="tm-palette-item ${activePreset?.id === preset.id ? 'active' : ''}" data-preset="${preset.id}"
+                         style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;border-radius:3px;margin-bottom:2px;
+                                ${activePreset?.id === preset.id ? 'background:rgba(74,164,216,0.2);outline:1px solid var(--accent);' : ''}">
+                        ${preset.thumbnail
+                            ? `<img src="${preset.thumbnail}" alt="${esc(preset.label)}" style="width:26px;height:26px;object-fit:contain;image-rendering:pixelated;background:#111820;border:1px solid #35566d;border-radius:3px;flex-shrink:0;">`
+                            : `<div style="width:18px;height:18px;border-radius:2px;border:1px solid #555;background:${preset.color || '#3a5870'};"></div>`}
+                        <span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preset.label}</span>
+                    </div>
+                `).join('')}
+                <button class="btn btn-sm btn-primary" id="tm-add-object" style="margin:4px 0 0;">+ Add ${activePreset?.label || 'Object'}</button>
+            `;
+            el.querySelector('#tm-palette-search')?.addEventListener('input', (evt) => {
+                assetSearchByLayer[activeLayer] = evt.target.value || '';
+                renderPalette();
+            });
+            el.querySelectorAll('[data-preset]').forEach((item) => {
+                item.addEventListener('click', () => {
+                    activeObjectPresetByLayer[activeLayer] = item.dataset.preset;
+                    renderPalette();
+                    renderInspector();
+                });
+            });
+            document.getElementById('tm-add-object')?.addEventListener('click', addObjectAtCenter);
+            return;
+        }
+
         el.innerHTML = `
             <div style="padding:4px;font-size:11px;color:var(--text-muted);">
-                Object layers use click-to-place. Right-click to edit/delete objects.
+                Object layers use click-to-place. Use <b>Select</b> to edit or move objects in the right panel.
             </div>
             <button class="btn btn-sm btn-primary" id="tm-add-object" style="margin:4px;">+ Add Object</button>
         `;
@@ -371,12 +801,16 @@ async function loadMap(name) {
         if (!data.ok) throw new Error(data.error);
         currentMap = data.map;
         currentMapName = name;
+        ensureMapAtmosphere(currentMap);
         dirty = false;
+        selectedTiles = [];
+        selectedObjects = [];
+        objectDragState = null;
         undoStack = [];
         redoStack = [];
         updateUndoButtons();
 
-        // Ensure all 5 layers exist
+        // Ensure all layers exist (adds 'story' to pre-existing maps automatically)
         for (const layerName of LAYERS) {
             if (!currentMap.layers.find(l => l.name === layerName)) {
                 if (layerName === 'terrain') {
@@ -392,7 +826,7 @@ async function loadMap(name) {
                         opacity: 1, x: 0, y: 0,
                     });
                 } else {
-                    // doors, markers, props, lights are objectgroups in Tiled format
+                    // doors, markers, props, lights, story are objectgroups in Tiled format
                     currentMap.layers.push({
                         id: currentMap.layers.length + 1,
                         name: layerName,
@@ -410,6 +844,7 @@ async function loadMap(name) {
         renderLayers();
         renderPalette();
         updateProps();
+        renderInspector();
         fitMap();
         API.setStatus(`Loaded map: ${name}`);
     } catch (err) {
@@ -423,13 +858,459 @@ function updateProps() {
         el.innerHTML = '<div style="color:var(--text-muted);">No map loaded</div>';
         return;
     }
+    ensureMapAtmosphere(currentMap);
     el.innerHTML = `
         <div><b>Map:</b> ${currentMapName}</div>
         <div><b>Size:</b> ${currentMap.width}×${currentMap.height} tiles</div>
         <div><b>Tile:</b> ${currentMap.tilewidth}×${currentMap.tileheight}px</div>
         <div><b>Layers:</b> ${currentMap.layers.length}</div>
         <div><b>Tiled v:</b> ${currentMap.tiledversion || '—'}</div>
+        <div><b>Selection:</b> ${selectedObjects.length || selectedTiles.length || 0}</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">
+            <div style="font-weight:600;">Map Lighting</div>
+            <div>
+                <label data-atmo-label="atmosDarknessSlider" style="display:block">Ambient Darkness (${Number(currentMap.atmosphere?.ambientDarkness ?? 0.82).toFixed(2)})</label>
+                <input id="atmosDarknessSlider" type="range" min="0.45" max="1" step="0.01" value="${currentMap.atmosphere?.ambientDarkness ?? 0.82}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosTorchSlider" style="display:block">Torch Range (${Math.round(Number(currentMap.atmosphere?.torchRange ?? 560))}px)</label>
+                <input id="atmosTorchSlider" type="range" min="80" max="1200" step="10" value="${currentMap.atmosphere?.torchRange ?? 560}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosSoftRadiusSlider" style="display:block">Torch Soft Radius (${Math.round(Number(currentMap.atmosphere?.softRadius ?? 220))}px)</label>
+                <input id="atmosSoftRadiusSlider" type="range" min="10" max="600" step="1" value="${currentMap.atmosphere?.softRadius ?? 220}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosCoreAlphaSlider" style="display:block">Core Alpha (${Number(currentMap.atmosphere?.coreAlpha ?? 0.9).toFixed(2)})</label>
+                <input id="atmosCoreAlphaSlider" type="range" min="0" max="1" step="0.01" value="${currentMap.atmosphere?.coreAlpha ?? 0.9}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosFeatherLayersSlider" style="display:block">Feather Layers (${Math.round(Number(currentMap.atmosphere?.featherLayers ?? 14))})</label>
+                <input id="atmosFeatherLayersSlider" type="range" min="4" max="24" step="1" value="${currentMap.atmosphere?.featherLayers ?? 14}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosFeatherSpreadSlider" style="display:block">Feather Spread (${Number(currentMap.atmosphere?.featherSpread ?? 1.2).toFixed(2)})</label>
+                <input id="atmosFeatherSpreadSlider" type="range" min="0.4" max="2.5" step="0.01" value="${currentMap.atmosphere?.featherSpread ?? 1.2}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosFeatherDecaySlider" style="display:block">Feather Decay (${Number(currentMap.atmosphere?.featherDecay ?? 0.68).toFixed(2)})</label>
+                <input id="atmosFeatherDecaySlider" type="range" min="0.2" max="0.95" step="0.01" value="${currentMap.atmosphere?.featherDecay ?? 0.68}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosGlowStrengthSlider" style="display:block">Glow Strength (${Number(currentMap.atmosphere?.glowStrength ?? 1.15).toFixed(2)})</label>
+                <input id="atmosGlowStrengthSlider" type="range" min="0.1" max="2" step="0.01" value="${currentMap.atmosphere?.glowStrength ?? 1.15}" style="width:100%">
+            </div>
+            <div>
+                <label data-atmo-label="atmosDustSlider" style="display:block">Dust Density (${Number(currentMap.atmosphere?.dustDensity ?? 0.5).toFixed(2)})</label>
+                <input id="atmosDustSlider" type="range" min="0" max="1" step="0.01" value="${currentMap.atmosphere?.dustDensity ?? 0.5}" style="width:100%">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <label><input type="checkbox" id="atmosVentHum" ${currentMap.atmosphere?.ventHum !== false ? 'checked' : ''}> Vent Hum</label>
+                <label><input type="checkbox" id="atmosPipeGroans" ${currentMap.atmosphere?.pipeGroans !== false ? 'checked' : ''}> Pipe Groans</label>
+                <label><input type="checkbox" id="atmosDistantThumps" ${currentMap.atmosphere?.distantThumps !== false ? 'checked' : ''}> Distant Thumps</label>
+                <label><input type="checkbox" id="atmosAlienChitter" ${currentMap.atmosphere?.alienChittering !== false ? 'checked' : ''}> Alien Chittering</label>
+            </div>
+        </div>
     `;
+    bindAtmosphereControls(el);
+}
+
+function esc(v) {
+    return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function getObjectProperty(obj, name, fallback = '') {
+    return obj?.properties?.find((p) => p.name === name)?.value ?? fallback;
+}
+
+function setObjectProperty(obj, name, type, value) {
+    if (!obj.properties) obj.properties = [];
+    const existing = obj.properties.find((p) => p.name === name);
+    if (existing) {
+        existing.type = type;
+        existing.value = value;
+    } else {
+        obj.properties.push({ name, type, value });
+    }
+}
+
+function markDirtyAndRefresh() {
+    dirty = true;
+    API.setDirty(true);
+    updateProps();
+    renderInspector();
+    draw();
+}
+
+function getSelectedLayerObjects() {
+    const layer = currentMap?.layers.find((entry) => entry.name === activeLayer);
+    if (!layer || layer.type !== 'objectgroup') return [];
+    return (layer.objects || []).filter((obj) => selectedObjects.includes(obj.id));
+}
+
+function applyLayerTypeSelection(obj, nextValue) {
+    const options = getLayerTypeOptions(activeLayer);
+    const match = options.find((entry) => entry.value === nextValue || String(entry.brush) === String(nextValue) || entry.presetId === nextValue);
+    if (!match || !obj) return;
+
+    if (activeLayer === 'doors') {
+        obj.type = 'door';
+        setObjectProperty(obj, 'doorType', 'string', match.value);
+        setObjectProperty(obj, 'doorValue', 'int', Number(match.brush || 1));
+        applyDoorRotationGeometry(obj);
+        return;
+    }
+    if (activeLayer === 'markers') {
+        obj.type = match.value;
+        if (!obj.name || obj.name === 'Prop') obj.name = match.label;
+        setObjectProperty(obj, 'markerValue', 'int', Number(match.brush || 1));
+        return;
+    }
+    if (activeLayer === 'story') {
+        obj.type = match.value;
+        if (!obj.name || obj.name === 'Prop') obj.name = match.label;
+        setObjectProperty(obj, 'storyValue', 'int', Number(match.brush || 1));
+        return;
+    }
+
+    const preset = getObjectPresetOptions(activeLayer).find((entry) => entry.id === match.presetId || entry.type === match.value);
+    if (!preset) {
+        obj.type = nextValue;
+        return;
+    }
+    obj.type = preset.type;
+    if (!obj.name || obj.name === 'Prop' || obj.name === 'Light') obj.name = preset.name;
+    if (preset.imageKey !== undefined) setObjectProperty(obj, 'imageKey', 'string', preset.imageKey);
+    if (preset.radius !== undefined) setObjectProperty(obj, 'radius', 'float', preset.radius);
+    if (preset.color !== undefined) setObjectProperty(obj, 'color', 'string', preset.color);
+    if (preset.intensity !== undefined) setObjectProperty(obj, 'intensity', 'float', preset.intensity);
+}
+
+function deleteSelectedObjects() {
+    const layer = currentMap?.layers.find((entry) => entry.name === activeLayer);
+    if (!layer || layer.type !== 'objectgroup' || selectedObjects.length === 0) return;
+    const removedEntries = [];
+    selectedObjects.forEach((id) => {
+        const idx = layer.objects.findIndex((obj) => obj.id === id);
+        if (idx >= 0) {
+            removedEntries.push({ object: JSON.parse(JSON.stringify(layer.objects[idx])), objectIndex: idx });
+            layer.objects.splice(idx, 1);
+        }
+    });
+    removedEntries.forEach((entry) => pushUndo({ type: 'objectRemove', layerName: activeLayer, ...entry }));
+    selectedObjects = [];
+    markDirtyAndRefresh();
+}
+
+function renderAssetBrowserHtml(layerName, selectedValue = '') {
+    if (layerName !== 'props') return '';
+    const presets = getFilteredObjectPresetOptions(layerName);
+    if (!getObjectPresetOptions(layerName).length) {
+        return '<div style="padding:8px;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);">Loading prop thumbnails…</div>';
+    }
+    return `
+        <div style="padding:8px;border:1px solid var(--border);border-radius:4px;">
+            <div style="font-weight:600;margin-bottom:6px;">Asset thumbnails</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Pick an authored prop image directly from the browser.</div>
+            <input id="tm-asset-search" class="input" placeholder="Filter thumbnails…" value="${esc(assetSearchByLayer[layerName] || '')}" style="width:100%;margin-bottom:6px;">
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-height:210px;overflow-y:auto;">
+                ${presets.length ? presets.map((preset) => {
+                    const selected = selectedValue && (selectedValue === preset.id || selectedValue === preset.imageKey);
+                    const searchText = `${preset.label || ''} ${preset.name || ''} ${preset.type || ''} ${preset.imageKey || ''}`.toLowerCase();
+                    return `
+                        <button type="button" class="btn btn-sm tm-asset-thumb ${selected ? 'active' : ''}" data-asset-preset="${esc(preset.id)}" data-search-text="${esc(searchText)}"
+                                title="${esc(preset.label)}"
+                                style="padding:4px;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:flex-start;border:${selected ? '1px solid var(--accent)' : '1px solid var(--border)'};background:${selected ? 'rgba(74,164,216,0.12)' : 'var(--bg-raised)'};min-height:78px;">
+                            ${preset.thumbnail
+                                ? `<img src="${preset.thumbnail}" alt="${esc(preset.label)}" style="width:100%;height:38px;object-fit:contain;image-rendering:pixelated;background:#111820;border-radius:2px;">`
+                                : `<div style="width:100%;height:38px;border-radius:2px;background:${preset.color || '#33556d'};"></div>`}
+                            <span style="font-size:10px;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(preset.label)}</span>
+                        </button>`;
+                }).join('') : '<div style="grid-column:1 / -1;color:var(--text-muted);font-size:11px;padding:8px;">No prop thumbnails match this filter.</div>'}
+                <div id="tm-asset-empty" style="display:none;grid-column:1 / -1;color:var(--text-muted);font-size:11px;padding:8px;">No prop thumbnails match this filter.</div>
+            </div>
+        </div>
+    `;
+}
+
+function bindInspectorAssetPicker(root, onSelect) {
+    root.querySelector('#tm-asset-search')?.addEventListener('input', (evt) => {
+        const query = String(evt.target.value || '').trim().toLowerCase();
+        assetSearchByLayer[activeLayer] = evt.target.value || '';
+        let visibleCount = 0;
+        root.querySelectorAll('[data-asset-preset]').forEach((button) => {
+            const hay = String(button.dataset.searchText || button.title || '').toLowerCase();
+            const visible = !query || hay.includes(query);
+            button.style.display = visible ? 'flex' : 'none';
+            if (visible) visibleCount += 1;
+        });
+        const empty = root.querySelector('#tm-asset-empty');
+        if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+    });
+    root.querySelectorAll('[data-asset-preset]').forEach((button) => {
+        button.addEventListener('click', () => onSelect(button.dataset.assetPreset));
+    });
+}
+
+function renderInspector() {
+    const el = document.getElementById('tm-inspector');
+    if (!el) return;
+    if (!currentMap) {
+        el.innerHTML = '<div style="color:var(--text-muted);">Load a map to start painting and editing.</div>';
+        return;
+    }
+
+    const layer = currentMap.layers.find((entry) => entry.name === activeLayer);
+    const isObjectLayer = layer?.type === 'objectgroup';
+    const selected = getSelectedLayerObjects();
+    const layerOptions = getLayerTypeOptions(activeLayer);
+    const layerPalette = TILE_VALUES[activeLayer] || [];
+    const selectedPreset = getActiveObjectPreset(activeLayer);
+
+    if (!isObjectLayer || selected.length === 0) {
+        const brushOptions = layerPalette.filter((item) => item.value > 0);
+        el.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Mode</div>
+                    <div><b>Layer:</b> ${esc(LAYER_LABELS[activeLayer] || activeLayer)}</div>
+                    <div><b>Tool:</b> ${esc(activeTool)}</div>
+                    <div style="margin-top:4px;color:var(--text-muted);">${isObjectLayer ? 'Paint to place objects. Switch to Select to auto-open editing for any existing object.' : 'Choose the brush and paint directly on the map.'}</div>
+                </div>
+                ${isObjectLayer ? `
+                    <div style="padding:8px;border:1px solid var(--border);border-radius:4px;">
+                        <div style="font-weight:600;margin-bottom:6px;">Placement preset</div>
+                        <div style="margin-bottom:6px;color:var(--text-muted);">Current: ${esc(selectedPreset?.label || 'Default')}</div>
+                        ${layerOptions.length ? `<select id="tm-inspector-type" class="input" style="width:100%;"><option value="">Select type…</option>${layerOptions.map((entry) => `<option value="${esc(entry.presetId || entry.value)}" ${(selectedPreset && (entry.presetId === selectedPreset.id || entry.value === selectedPreset.type)) ? 'selected' : ''}>${esc(entry.label)}</option>`).join('')}</select>` : ''}
+                        ${activeLayer === 'doors' ? `<select id="tm-inspector-rotation" class="input" style="width:100%;margin-top:6px;">${DOOR_ROTATION_OPTIONS.map((entry) => `<option value="${entry.value}" ${normalizeRightAngleRotation(activeObjectRotationByLayer.doors || 0) === entry.value ? 'selected' : ''}>${entry.label}</option>`).join('')}</select>` : ''}
+                    </div>
+                    ${renderAssetBrowserHtml(activeLayer, selectedPreset?.id || selectedPreset?.imageKey || '')}
+                ` : `
+                    <div style="padding:8px;border:1px solid var(--border);border-radius:4px;">
+                        <div style="font-weight:600;margin-bottom:6px;">Brush</div>
+                        ${brushOptions.length ? `<select id="tm-inspector-brush" class="input" style="width:100%;">${brushOptions.map((entry) => `<option value="${entry.value}" ${activeBrush === entry.value ? 'selected' : ''}>${esc(entry.label)}</option>`).join('')}</select>` : '<div style="color:var(--text-muted);">No brush options for this layer.</div>'}
+                    </div>
+                `}
+            </div>
+        `;
+
+        el.querySelector('#tm-inspector-brush')?.addEventListener('change', (evt) => {
+            activeBrush = Number(evt.target.value) || activeBrush;
+            renderPalette();
+            renderInspector();
+            draw();
+        });
+        el.querySelector('#tm-inspector-type')?.addEventListener('change', (evt) => {
+            const nextValue = evt.target.value;
+            if (nextValue) {
+                const match = layerOptions.find((entry) => String(entry.presetId || entry.value) === String(nextValue));
+                if (match?.brush) activeBrush = match.brush;
+                if (match?.presetId || getObjectPresetOptions(activeLayer).length) {
+                    activeObjectPresetByLayer[activeLayer] = String(match?.presetId || nextValue);
+                }
+                renderPalette();
+            }
+            renderInspector();
+        });
+        el.querySelector('#tm-inspector-rotation')?.addEventListener('change', (evt) => {
+            activeObjectRotationByLayer.doors = normalizeRightAngleRotation(evt.target.value, 0);
+        });
+        bindInspectorAssetPicker(el, (presetId) => {
+            activeObjectPresetByLayer[activeLayer] = String(presetId || activeObjectPresetByLayer[activeLayer] || '');
+            renderPalette();
+            renderInspector();
+        });
+        return;
+    }
+
+    if (selected.length > 1) {
+        el.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);">
+                    <div style="font-weight:600;">${selected.length} objects selected</div>
+                    <div style="color:var(--text-muted);margin-top:4px;">Use drag on the canvas or apply a shared type change below.</div>
+                </div>
+                ${layerOptions.length ? `<label style="display:flex;flex-direction:column;gap:4px;"><span>Swap selected type</span><select id="tm-bulk-type" class="input">${layerOptions.map((entry) => `<option value="${esc(entry.presetId || entry.value)}">${esc(entry.label)}</option>`).join('')}</select></label>` : ''}
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-secondary" data-nudge="0,-1">↑</button>
+                    <button class="btn btn-sm btn-secondary" data-nudge="-1,0">←</button>
+                    <button class="btn btn-sm btn-secondary" data-nudge="1,0">→</button>
+                    <button class="btn btn-sm btn-secondary" data-nudge="0,1">↓</button>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    ${layerOptions.length ? '<button class="btn btn-sm btn-primary" id="tm-bulk-apply">Apply Type</button>' : ''}
+                    <button class="btn btn-sm btn-danger" id="tm-bulk-delete">Delete Selected</button>
+                </div>
+            </div>
+        `;
+        el.querySelectorAll('[data-nudge]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const [dx, dy] = String(button.dataset.nudge || '0,0').split(',').map((v) => Number(v) || 0);
+                const tw = currentMap.tilewidth;
+                const th = currentMap.tileheight;
+                selected.forEach((obj) => {
+                    obj.x += dx * tw;
+                    obj.y += dy * th;
+                });
+                markDirtyAndRefresh();
+            });
+        });
+        el.querySelector('#tm-bulk-apply')?.addEventListener('click', () => {
+            const nextValue = el.querySelector('#tm-bulk-type')?.value;
+            if (nextValue) {
+                selected.forEach((obj) => applyLayerTypeSelection(obj, nextValue));
+                markDirtyAndRefresh();
+            }
+        });
+        el.querySelector('#tm-bulk-delete')?.addEventListener('click', deleteSelectedObjects);
+        return;
+    }
+
+    const obj = selected[0];
+    const tileX = Math.round((Number(obj.x) || 0) / currentMap.tilewidth);
+    const tileY = Math.round((Number(obj.y) || 0) / currentMap.tileheight);
+    const isZoneProp = activeLayer === 'props' && isZonePropType(obj.type);
+    const rotationValue = activeLayer === 'doors'
+        ? getDoorRotationValue(obj, 0)
+        : normalizeRightAngleRotation(obj.rotation || 0, 0);
+    const objectTypeValue = activeLayer === 'doors'
+        ? String(getObjectProperty(obj, 'doorType', 'standard'))
+        : (activeLayer === 'markers'
+            ? String(obj.type || 'spawn')
+            : (activeLayer === 'story' ? String(obj.type || 'story_trigger') : String(obj.type || 'prop')));
+
+    el.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Selected Object</div>
+                <div><b>${esc(obj.name || obj.type || 'Object')}</b></div>
+                <div style="color:var(--text-muted);">Layer: ${esc(LAYER_LABELS[activeLayer] || activeLayer)} · ID ${esc(obj.id)}</div>
+                <div style="margin-top:4px;color:var(--text-muted);">Drag on the canvas to reposition, or edit fields below.</div>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:4px;"><span>Name</span><input id="tm-obj-name" class="input" value="${esc(obj.name || '')}"></label>
+            ${layerOptions.length ? `<label style="display:flex;flex-direction:column;gap:4px;"><span>Type</span><select id="tm-obj-kind" class="input">${layerOptions.map((entry) => `<option value="${esc(entry.presetId || entry.value)}" ${objectTypeValue === String(entry.value) || getActiveObjectPreset(activeLayer)?.id === entry.presetId && objectTypeValue === String(getActiveObjectPreset(activeLayer)?.type || '') ? 'selected' : ''}>${esc(entry.label)}</option>`).join('')}</select></label>` : `<label style="display:flex;flex-direction:column;gap:4px;"><span>Type</span><input id="tm-obj-type" class="input" value="${esc(obj.type || '')}"></label>`}
+            ${activeLayer === 'doors'
+                ? `<label style="display:flex;flex-direction:column;gap:4px;"><span>Rotation</span><select id="tm-obj-rotation" class="input">${DOOR_ROTATION_OPTIONS.map((entry) => `<option value="${entry.value}" ${rotationValue === entry.value ? 'selected' : ''}>${entry.label}</option>`).join('')}</select></label>`
+                : `<label style="display:flex;flex-direction:column;gap:4px;"><span>Rotation</span><input id="tm-obj-rotation" type="number" step="1" class="input" value="${Number(obj.rotation || 0)}"></label>`}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Tile X</span><input id="tm-obj-tilex" type="number" class="input" value="${tileX}"></label>
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Tile Y</span><input id="tm-obj-tiley" type="number" class="input" value="${tileY}"></label>
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Width</span><input id="tm-obj-w" type="number" class="input" value="${Number(obj.width || currentMap.tilewidth)}" ${activeLayer === 'doors' ? 'readonly' : ''}></label>
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Height</span><input id="tm-obj-h" type="number" class="input" value="${Number(obj.height || currentMap.tileheight)}" ${activeLayer === 'doors' ? 'readonly' : ''}></label>
+            </div>
+            ${activeLayer === 'props' || activeLayer === 'lights' ? `
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>Image Key</span><input id="tm-obj-image" class="input" value="${esc(getObjectProperty(obj, 'imageKey', ''))}"></label>
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>${isZoneProp ? 'Zone Radius' : 'Radius'}</span><input id="tm-obj-radius" type="number" class="input" value="${Number(getObjectProperty(obj, 'radius', activeLayer === 'lights' ? 150 : (isZoneProp ? 128 : 18)))}"></label>
+                </div>
+            ` : ''}
+            ${isZoneProp ? `<div style="padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);color:var(--text-muted);">Zone profiles apply localized darkness and torch softness when the leader enters the painted area.</div>` : ''}
+            ${activeLayer === 'props' ? renderAssetBrowserHtml(activeLayer, getObjectProperty(obj, 'imageKey', '')) : ''}
+            ${activeLayer === 'lights' ? `
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>Color</span><input id="tm-obj-color" class="input" value="${esc(getObjectProperty(obj, 'color', '#ffeebb'))}"></label>
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>Intensity</span><input id="tm-obj-intensity" type="number" step="0.05" class="input" value="${Number(getObjectProperty(obj, 'intensity', 1))}"></label>
+                </div>
+            ` : ''}
+            ${activeLayer === 'markers' || activeLayer === 'story' ? `
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Trigger ID / marker_type</span><input id="tm-obj-marker-type" class="input" value="${esc(getObjectProperty(obj, 'marker_type', ''))}" placeholder="mission_intro"></label>
+            ` : ''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-primary" id="tm-obj-apply">Apply</button>
+                <button class="btn btn-sm btn-secondary" id="tm-obj-duplicate">Duplicate</button>
+                <button class="btn btn-sm btn-danger" id="tm-obj-delete">Delete</button>
+            </div>
+        </div>
+    `;
+
+    el.querySelector('#tm-obj-kind')?.addEventListener('change', (evt) => {
+        const nextValue = evt.target.value;
+        const preset = getObjectPresetOptions(activeLayer).find((entry) => entry.id === nextValue || entry.type === nextValue);
+        if (!preset) return;
+        activeObjectPresetByLayer[activeLayer] = String(preset.id || activeObjectPresetByLayer[activeLayer] || '');
+        renderPalette();
+        if (el.querySelector('#tm-obj-image') && preset.imageKey !== undefined) el.querySelector('#tm-obj-image').value = preset.imageKey;
+        if (el.querySelector('#tm-obj-radius') && preset.radius !== undefined) el.querySelector('#tm-obj-radius').value = String(preset.radius);
+        if (el.querySelector('#tm-obj-color') && preset.color !== undefined) el.querySelector('#tm-obj-color').value = preset.color;
+        if (el.querySelector('#tm-obj-intensity') && preset.intensity !== undefined) el.querySelector('#tm-obj-intensity').value = String(preset.intensity);
+    });
+    el.querySelector('#tm-obj-rotation')?.addEventListener('change', (evt) => {
+        if (activeLayer !== 'doors') return;
+        const vertical = isDoorVerticalRotation(evt.target.value);
+        const tw = currentMap?.tilewidth || 64;
+        const th = currentMap?.tileheight || 64;
+        const widthEl = el.querySelector('#tm-obj-w');
+        const heightEl = el.querySelector('#tm-obj-h');
+        if (widthEl) widthEl.value = String(vertical ? tw : tw * 2);
+        if (heightEl) heightEl.value = String(vertical ? th * 2 : th);
+    });
+    bindInspectorAssetPicker(el, (presetId) => {
+        const preset = getObjectPresetOptions(activeLayer).find((entry) => entry.id === presetId || entry.type === presetId);
+        if (!preset) return;
+        activeObjectPresetByLayer[activeLayer] = String(preset.id || activeObjectPresetByLayer[activeLayer] || '');
+        renderPalette();
+        const typeEl = el.querySelector('#tm-obj-kind');
+        if (typeEl) {
+            typeEl.value = String(preset.id || preset.type || '');
+        }
+        if (el.querySelector('#tm-obj-image') && preset.imageKey !== undefined) el.querySelector('#tm-obj-image').value = preset.imageKey;
+        if (el.querySelector('#tm-obj-radius') && preset.radius !== undefined) el.querySelector('#tm-obj-radius').value = String(preset.radius);
+        if (el.querySelector('#tm-obj-color') && preset.color !== undefined) el.querySelector('#tm-obj-color').value = preset.color;
+        if (el.querySelector('#tm-obj-intensity') && preset.intensity !== undefined) el.querySelector('#tm-obj-intensity').value = String(preset.intensity);
+        if (el.querySelector('#tm-obj-name') && (!el.querySelector('#tm-obj-name').value || el.querySelector('#tm-obj-name').value === obj.name)) {
+            el.querySelector('#tm-obj-name').value = preset.name || preset.label || obj.name || '';
+        }
+    });
+
+    el.querySelector('#tm-obj-apply')?.addEventListener('click', () => {
+        obj.name = el.querySelector('#tm-obj-name')?.value?.trim() || obj.name || obj.type || 'Object';
+        const nextType = el.querySelector('#tm-obj-kind')?.value;
+        if (nextType) applyLayerTypeSelection(obj, nextType);
+        const explicitType = el.querySelector('#tm-obj-type')?.value?.trim();
+        if (explicitType) obj.type = explicitType;
+        const nextTileX = Number(el.querySelector('#tm-obj-tilex')?.value);
+        const nextTileY = Number(el.querySelector('#tm-obj-tiley')?.value);
+        if (Number.isFinite(nextTileX)) obj.x = Math.round(nextTileX) * currentMap.tilewidth;
+        if (Number.isFinite(nextTileY)) obj.y = Math.round(nextTileY) * currentMap.tileheight;
+        const nextRotation = Number(el.querySelector('#tm-obj-rotation')?.value);
+        if (activeLayer === 'doors') {
+            applyDoorRotationGeometry(obj, nextRotation);
+            activeObjectRotationByLayer.doors = obj.rotation;
+        } else {
+            obj.rotation = Number.isFinite(nextRotation) ? nextRotation : (Number(obj.rotation) || 0);
+            obj.width = Math.max(1, Number(el.querySelector('#tm-obj-w')?.value) || currentMap.tilewidth);
+            obj.height = Math.max(1, Number(el.querySelector('#tm-obj-h')?.value) || currentMap.tileheight);
+        }
+
+        if (activeLayer === 'props' || activeLayer === 'lights') {
+            setObjectProperty(obj, 'imageKey', 'string', el.querySelector('#tm-obj-image')?.value?.trim() || '');
+            const defaultRadius = activeLayer === 'lights' ? 150 : (isZonePropType(obj.type) ? 128 : 18);
+            setObjectProperty(obj, 'radius', 'float', Number(el.querySelector('#tm-obj-radius')?.value) || defaultRadius);
+        }
+        if (activeLayer === 'lights') {
+            setObjectProperty(obj, 'color', 'string', el.querySelector('#tm-obj-color')?.value?.trim() || '#ffeebb');
+            setObjectProperty(obj, 'intensity', 'float', Number(el.querySelector('#tm-obj-intensity')?.value) || 1);
+        }
+        if (activeLayer === 'markers' || activeLayer === 'story') {
+            setObjectProperty(obj, 'marker_type', 'string', el.querySelector('#tm-obj-marker-type')?.value?.trim() || '');
+        }
+        markDirtyAndRefresh();
+    });
+    el.querySelector('#tm-obj-duplicate')?.addEventListener('click', () => {
+        const clone = JSON.parse(JSON.stringify(obj));
+        clone.id = Date.now() + Math.floor(Math.random() * 1000);
+        clone.x += currentMap.tilewidth;
+        const objectLayer = currentMap.layers.find((entry) => entry.name === activeLayer);
+        objectLayer?.objects?.push(clone);
+        selectedObjects = [clone.id];
+        pushUndo({ type: 'objectAdd', layerName: activeLayer, object: JSON.parse(JSON.stringify(clone)) });
+        markDirtyAndRefresh();
+    });
+    el.querySelector('#tm-obj-delete')?.addEventListener('click', deleteSelectedObjects);
 }
 
 // ── Drawing ────────────────────────────────────────────────────────────────
@@ -474,13 +1355,8 @@ function draw() {
 
                     const tileDef = palette.find(t => t.value === val);
                     if (tileDef && tileDef.color !== 'transparent') {
-                        const tileKey = layerName === 'terrain' ? (val === 1 ? 'floor' : val === 2 ? 'wall' : null) : null;
-                        if (tileKey && tileImages[tileKey]) {
-                            ctx.drawImage(tileImages[tileKey], x * tw, y * th, tw, th);
-                        } else {
-                            ctx.fillStyle = tileDef.color;
-                            ctx.fillRect(x * tw, y * th, tw, th);
-                        }
+                        ctx.fillStyle = tileDef.color;
+                        ctx.fillRect(x * tw, y * th, tw, th);
                     }
 
                     // For non-terrain layers, draw value label
@@ -514,15 +1390,25 @@ function draw() {
                     }
                 }
 
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2 / zoom;
-                ctx.strokeRect(ox, oy, ow, oh);
-                ctx.globalAlpha = 0.15;
-                ctx.fillStyle = color;
-                ctx.fillRect(ox, oy, ow, oh);
-                ctx.globalAlpha = 1;
+                if (layerName === 'doors' || obj.type === 'door') {
+                    drawDoorPreviewShape(ctx, obj, color, { lineWidth: 2 / zoom, fillAlpha: 0.18 });
+                } else if (layerName === 'props' && isZonePropType(obj.type)) {
+                    drawZonePropPreviewShape(ctx, obj, {
+                        lineWidth: 2 / zoom,
+                        fillAlpha: 0.14,
+                        fontSize: 11 / zoom,
+                    });
+                } else {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2 / zoom;
+                    ctx.strokeRect(ox, oy, ow, oh);
+                    ctx.globalAlpha = 0.15;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(ox, oy, ow, oh);
+                    ctx.globalAlpha = 1;
+                }
 
-                if (zoom > 0.25) {
+                if (zoom > 0.25 && !(layerName === 'props' && isZonePropType(obj.type))) {
                     ctx.fillStyle = color;
                     ctx.font = `${Math.max(8, Math.min(11, tw * 0.25))}px monospace`;
                     ctx.fillText(obj.name || obj.type || layerName, ox + 2, oy + 12);
@@ -550,18 +1436,57 @@ function draw() {
 
     // Brush size preview on hover
     if (hoverTile && currentMap && (activeTool === 'paint' || activeTool === 'erase' || activeTool === 'fill')) {
-        const previewSize = activeTool === 'fill' ? 1 : brushSize;
-        const previewHalf = activeTool === 'fill' ? 0 : Math.floor((brushSize - 1) / 2);
-        ctx.strokeStyle = activeTool === 'erase' ? 'rgba(255,80,80,0.7)' : 'rgba(74,164,216,0.7)';
-        ctx.lineWidth = 2 / zoom;
-        ctx.setLineDash([4 / zoom, 4 / zoom]);
-        ctx.strokeRect(
-            (hoverTile.tx - previewHalf) * tw,
-            (hoverTile.ty - previewHalf) * th,
-            previewSize * tw,
-            previewSize * th
-        );
-        ctx.setLineDash([]);
+        if (activeLayer === 'doors' && activeTool === 'paint') {
+            const rotation = normalizeRightAngleRotation(activeObjectRotationByLayer.doors || 0, 0);
+            const vertical = isDoorVerticalRotation(rotation);
+            const doorDef = (TILE_VALUES.doors || []).find((entry) => entry.value === activeBrush);
+            const previewDoor = {
+                x: hoverTile.tx * tw,
+                y: hoverTile.ty * th,
+                width: vertical ? tw : tw * 2,
+                height: vertical ? th * 2 : th,
+                rotation,
+                properties: [
+                    { name: 'orientation', type: 'string', value: vertical ? 'vertical' : 'horizontal' },
+                ],
+            };
+            drawDoorPreviewShape(ctx, previewDoor, doorDef?.color || 'rgba(74,164,216,0.85)', {
+                lineWidth: 2 / zoom,
+                fillAlpha: 0.08,
+                dash: [6 / zoom, 4 / zoom],
+            });
+        } else if (activeLayer === 'props' && activeTool === 'paint' && isZonePropType(getActiveObjectPreset(activeLayer)?.type)) {
+            const preset = getActiveObjectPreset(activeLayer);
+            const previewZone = {
+                x: hoverTile.tx * tw,
+                y: hoverTile.ty * th,
+                width: tw,
+                height: th,
+                type: preset?.type,
+                properties: [
+                    { name: 'radius', type: 'float', value: Number(preset?.radius) || 128 },
+                ],
+            };
+            drawZonePropPreviewShape(ctx, previewZone, {
+                lineWidth: 2 / zoom,
+                fillAlpha: 0.08,
+                dash: [6 / zoom, 4 / zoom],
+                fontSize: 11 / zoom,
+            });
+        } else {
+            const previewSize = activeTool === 'fill' ? 1 : brushSize;
+            const previewHalf = activeTool === 'fill' ? 0 : Math.floor((brushSize - 1) / 2);
+            ctx.strokeStyle = activeTool === 'erase' ? 'rgba(255,80,80,0.7)' : 'rgba(74,164,216,0.7)';
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([4 / zoom, 4 / zoom]);
+            ctx.strokeRect(
+                (hoverTile.tx - previewHalf) * tw,
+                (hoverTile.ty - previewHalf) * th,
+                previewSize * tw,
+                previewSize * th
+            );
+            ctx.setLineDash([]);
+        }
     }
 
     // Render selected tiles (cyan highlight)
@@ -583,59 +1508,16 @@ function draw() {
             ctx.lineWidth = 2 / zoom;
             for (const objId of selectedObjects) {
                 const obj = layer.objects.find(o => o.id === objId);
-                if (obj) {
-                    ctx.strokeRect(obj.x, obj.y, obj.width || tw, obj.height || th);
+                if (!obj) continue;
+                if (layer.name === 'props' && isZonePropType(obj.type)) {
+                    drawZonePropPreviewShape(ctx, obj, {
+                        lineWidth: 2 / zoom,
+                        fillAlpha: 0.05,
+                        fontSize: 11 / zoom,
+                    });
+                    continue;
                 }
-            }
-        }
-    }
-
-    // Collision layer visualization (if enabled)
-    if (showCollision) {
-        const terrainLayer = currentMap.layers.find(l => l.name === 'terrain');
-        const doorsLayer = currentMap.layers.find(l => l.name === 'doors');
-
-        if (terrainLayer) {
-            ctx.fillStyle = 'rgba(79, 219, 142, 0.15)'; // Green for walkable
-            ctx.strokeStyle = 'rgba(79, 219, 142, 0.5)';
-            ctx.lineWidth = 0.5 / zoom;
-
-            for (let y = 0; y < mh; y++) {
-                for (let x = 0; x < mw; x++) {
-                    const idx = y * mw + x;
-                    const val = terrainLayer.data[idx];
-                    // Walkable = floor (value 1)
-                    if (val === 1) {
-                        ctx.fillRect(x * tw, y * th, tw, th);
-                    }
-                }
-            }
-
-            // Draw blocked (walls and doors) in red
-            ctx.fillStyle = 'rgba(255, 80, 80, 0.15)'; // Red for blocked
-            ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)';
-
-            for (let y = 0; y < mh; y++) {
-                for (let x = 0; x < mw; x++) {
-                    const idx = y * mw + x;
-                    const val = terrainLayer.data[idx];
-                    // Blocked = wall (value 2) or empty (value 0)
-                    if (val === 0 || val === 2) {
-                        ctx.fillRect(x * tw, y * th, tw, th);
-                    }
-                }
-            }
-
-            // Draw door obstacles in orange
-            if (doorsLayer) {
-                ctx.fillStyle = 'rgba(255, 170, 0, 0.2)'; // Orange for doors
-                ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
-                ctx.lineWidth = 1 / zoom;
-
-                for (const door of doorsLayer.objects || []) {
-                    ctx.fillRect(door.x, door.y, door.width || tw, door.height || th);
-                    ctx.strokeRect(door.x, door.y, door.width || tw, door.height || th);
-                }
+                ctx.strokeRect(obj.x, obj.y, obj.width || tw, obj.height || th);
             }
         }
     }
@@ -674,7 +1556,6 @@ function finishRectSelection() {
     if (!currentMap) return;
     selectedTiles = [];
     selectedObjects = [];
-    selectedObject = null;
 
     // Get selection bounds in tile coordinates
     const minX = Math.min(selectionStart.x, selectionEnd.x);
@@ -704,7 +1585,6 @@ function finishRectSelection() {
             }
         }
         API.toast(`Selected ${selectedTiles.length} tiles`, 'info');
-        renderMapProps();
     } else if (layer.type === 'objectgroup') {
         // Collect objects in selection bounds
         const tw = currentMap.tilewidth, th = currentMap.tileheight;
@@ -718,109 +1598,10 @@ function finishRectSelection() {
                 selectedObjects.push(obj.id);
             }
         }
-        // Auto-select first object for inspection
-        if (selectedObjects.length > 0) {
-            selectedObject = layer.objects.find(o => o.id === selectedObjects[0]);
-        }
         API.toast(`Selected ${selectedObjects.length} objects`, 'info');
-        renderObjectProps();
     }
-}
-
-// ── Object Inspector ──────────────────────────────────────────────────────
-function renderMapProps() {
-    const el = document.getElementById('tm-props');
-    if (!currentMap) {
-        el.innerHTML = '<div style="color:var(--text-muted);">No map loaded</div>';
-        return;
-    }
-    el.innerHTML = `
-        <div><b>Map:</b> ${currentMapName}</div>
-        <div><b>Size:</b> ${currentMap.width}×${currentMap.height}</div>
-        <div><b>Tile:</b> ${currentMap.tilewidth}×${currentMap.tileheight}px</div>
-        ${selectedTiles.length > 0 ? `<div style="margin-top:8px;color:var(--accent);"><b>📍 ${selectedTiles.length} tiles selected</b></div>` : ''}
-    `;
-}
-
-function renderObjectProps() {
-    const el = document.getElementById('tm-props');
-    if (!selectedObject) {
-        renderMapProps();
-        return;
-    }
-
-    const obj = selectedObject;
-    let propsHtml = '';
-
-    if (obj.properties && obj.properties.length > 0) {
-        propsHtml = '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;">';
-        for (const prop of obj.properties) {
-            propsHtml += `
-                <div style="display:flex;gap:4px;margin-bottom:4px;align-items:center;">
-                    <label style="font-size:11px;min-width:80px;">${prop.name}:</label>
-                    <input type="text" class="input input-sm obj-prop-input" data-prop="${prop.name}" value="${prop.value}"
-                           style="flex:1;font-size:11px;" placeholder="value">
-                </div>
-            `;
-        }
-        propsHtml += '</div>';
-    }
-
-    el.innerHTML = `
-        <div style="margin-bottom:6px;font-weight:600;color:var(--accent);">📦 ${obj.name || 'Object'}</div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;font-size:11px;">
-            <label>ID:</label><span style="font-family:monospace;">${obj.id}</span>
-            <label>Type:</label><span>${obj.type || '—'}</span>
-            <label>X:</label><input type="number" class="input input-sm obj-num-input" data-key="x" value="${Math.round(obj.x)}" style="width:70px;">
-            <label>Y:</label><input type="number" class="input input-sm obj-num-input" data-key="y" value="${Math.round(obj.y)}" style="width:70px;">
-            <label>Width:</label><input type="number" class="input input-sm obj-num-input" data-key="width" value="${Math.round(obj.width || 0)}" style="width:70px;">
-            <label>Height:</label><input type="number" class="input input-sm obj-num-input" data-key="height" value="${Math.round(obj.height || 0)}" style="width:70px;">
-        </div>
-        ${propsHtml}
-        <div style="display:flex;gap:4px;margin-top:8px;">
-            <button class="btn btn-sm btn-secondary" id="obj-apply">Apply</button>
-            <button class="btn btn-sm btn-danger" id="obj-delete">Delete</button>
-        </div>
-    `;
-
-    // Wire up event listeners
-    document.getElementById('obj-apply')?.addEventListener('click', () => {
-        obj.x = parseInt(document.querySelector('[data-key="x"]').value) || obj.x;
-        obj.y = parseInt(document.querySelector('[data-key="y"]').value) || obj.y;
-        obj.width = parseInt(document.querySelector('[data-key="width"]').value) || obj.width;
-        obj.height = parseInt(document.querySelector('[data-key="height"]').value) || obj.height;
-
-        // Update custom properties
-        document.querySelectorAll('.obj-prop-input').forEach(inp => {
-            const propName = inp.dataset.prop;
-            const prop = obj.properties.find(p => p.name === propName);
-            if (prop) prop.value = inp.value;
-        });
-
-        const layer = currentMap.layers.find(l => l.name === activeLayer);
-        pushUndo({ type: 'objectEdit', layerName: activeLayer, objectId: obj.id, oldData: JSON.parse(JSON.stringify(obj)), newData: JSON.parse(JSON.stringify(obj)) });
-        dirty = true;
-        API.setDirty(true);
-        draw();
-        API.toast(`Updated ${obj.name}`, 'success');
-    });
-
-    document.getElementById('obj-delete')?.addEventListener('click', () => {
-        const layer = currentMap.layers.find(l => l.name === activeLayer);
-        if (!layer) return;
-        const idx = layer.objects.findIndex(o => o.id === obj.id);
-        if (idx >= 0) {
-            const removed = layer.objects.splice(idx, 1)[0];
-            pushUndo({ type: 'objectRemove', layerName: activeLayer, object: JSON.parse(JSON.stringify(removed)), objectIndex: idx });
-            selectedObject = null;
-            selectedObjects = [];
-            dirty = true;
-            API.setDirty(true);
-            renderMapProps();
-            draw();
-            API.toast(`Deleted ${removed.name}`, 'info');
-        }
-    });
+    updateProps();
+    renderInspector();
 }
 
 function paintTile(tx, ty) {
@@ -878,11 +1659,20 @@ function paintTile(tx, ty) {
 function placeObjectAtTile(tx, ty, layer) {
     const tw = currentMap.tilewidth, th = currentMap.tileheight;
     const x = tx * tw, y = ty * th;
+    const doorRotation = normalizeRightAngleRotation(activeObjectRotationByLayer.doors || 0, 0);
+    const doorVertical = isDoorVerticalRotation(doorRotation);
+    const placementPreset = getActiveObjectPreset(activeLayer);
+    const candidateWidth = activeLayer === 'doors'
+        ? (doorVertical ? tw : tw * 2)
+        : ((placementPreset?.widthTiles || 1) * tw);
+    const candidateHeight = activeLayer === 'doors'
+        ? (doorVertical ? th * 2 : th)
+        : ((placementPreset?.heightTiles || 1) * th);
 
     // Don't place if overlapping an existing object
     const existing = layer.objects.find(o => {
         const oR = o.x + (o.width || tw), oB = o.y + (o.height || th);
-        return x < oR && (x + tw) > o.x && y < oB && (y + th) > o.y;
+        return x < oR && (x + candidateWidth) > o.x && y < oB && (y + candidateHeight) > o.y;
     });
     if (existing) return;
 
@@ -895,15 +1685,16 @@ function placeObjectAtTile(tx, ty, layer) {
             name: `door_${layer.objects.length + 1}`,
             type: 'door',
             x, y,
-            width: tw * 2, height: th,
-            rotation: 0, visible: true,
+            width: candidateWidth, height: candidateHeight,
+            rotation: doorRotation, visible: true,
             properties: [
                 { name: 'doorType', type: 'string', value: dtype },
                 { name: 'initialState', type: 'string', value: 'closed' },
-                { name: 'orientation', type: 'string', value: 'horizontal' },
+                { name: 'orientation', type: 'string', value: doorVertical ? 'vertical' : 'horizontal' },
                 { name: 'doorValue', type: 'int', value: activeBrush },
             ],
         };
+        applyDoorRotationGeometry(obj, doorRotation);
     } else if (activeLayer === 'markers') {
         const markerTypes = { 1:'spawn', 2:'extract', 3:'terminal', 4:'security_card',
             5:'alien_spawn', 6:'warning_strobe', 7:'vent_point', 8:'egg_cluster' };
@@ -913,21 +1704,49 @@ function placeObjectAtTile(tx, ty, layer) {
             name: mtype, type: mtype,
             x, y, width: tw, height: th,
             rotation: 0, visible: true,
-            properties: [{ name: 'markerValue', type: 'int', value: activeBrush }],
+            // marker_type: story trigger ID — must match a Story editor Start node markerId
+            properties: [
+                { name: 'markerValue', type: 'int', value: activeBrush },
+                { name: 'marker_type', type: 'string', value: '' },
+            ],
         };
-    } else {
+    } else if (activeLayer === 'story') {
+        const storyTypes = { 1: 'story_trigger', 2: 'objective', 3: 'action_zone', 4: 'condition' };
+        const stype = storyTypes[activeBrush] || 'story_trigger';
         obj = {
             id: Date.now() + Math.floor(Math.random() * 1000),
-            name: activeLayer === 'lights' ? 'Light' : 'Prop',
-            type: activeLayer === 'lights' ? 'spot' : 'prop',
+            name: stype, type: stype,
             x, y, width: tw, height: th,
+            rotation: 0, visible: true,
+            properties: [
+                { name: 'marker_type', type: 'string', value: '' },
+                { name: 'storyValue',  type: 'int', value: activeBrush },
+            ],
+        };
+    } else {
+        const preset = getActiveObjectPreset(activeLayer);
+        obj = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            name: preset?.name || (activeLayer === 'lights' ? 'Light' : 'Prop'),
+            type: preset?.type || (activeLayer === 'lights' ? 'spot' : 'prop'),
+            x, y,
+            width: candidateWidth,
+            height: candidateHeight,
+            rotation: 0,
+            visible: true,
             properties: [],
         };
+        if (preset?.imageKey !== undefined) setObjectProperty(obj, 'imageKey', 'string', preset.imageKey);
+        if (preset?.radius !== undefined) setObjectProperty(obj, 'radius', 'float', preset.radius);
+        if (preset?.color !== undefined) setObjectProperty(obj, 'color', 'string', preset.color);
+        if (preset?.intensity !== undefined) setObjectProperty(obj, 'intensity', 'float', preset.intensity);
     }
 
     layer.objects.push(obj);
+    selectedTiles = [];
+    selectedObjects = [obj.id];
     pushUndo({ type: 'objectAdd', layerName: activeLayer, object: JSON.parse(JSON.stringify(obj)) });
-    dirty = true; API.setDirty(true); draw();
+    dirty = true; API.setDirty(true); updateProps(); renderInspector(); draw();
 }
 
 let isPainting = false;
@@ -957,11 +1776,48 @@ function onCanvasMouseDown(e) {
     if (!tile) return;
 
     if (e.button === 2) {
-        // Right-click: object context menu for object layers
+        // Right-click: select object for inspector editing on object layers
         const rlayer = currentMap.layers.find(l => l.name === activeLayer);
         if (rlayer && rlayer.type === 'objectgroup') {
             showObjectContextMenu(e, tile);
         }
+        return;
+    }
+
+    if (activeTool === 'select') {
+        const layer = currentMap.layers.find((entry) => entry.name === activeLayer);
+        if (layer?.type === 'objectgroup') {
+            const hit = findObjectAtWorld(tile.mx, tile.my, layer);
+            if (hit) {
+                if (e.shiftKey) {
+                    if (selectedObjects.includes(hit.id)) selectedObjects = selectedObjects.filter((id) => id !== hit.id);
+                    else selectedObjects = [...selectedObjects, hit.id];
+                } else {
+                    selectedObjects = [hit.id];
+                }
+                selectedTiles = [];
+                objectDragState = {
+                    layerName: activeLayer,
+                    startMx: tile.mx,
+                    startMy: tile.my,
+                    before: selectedObjects.map((id) => {
+                        const obj = layer.objects.find((entry) => entry.id === id);
+                        return obj ? { id: obj.id, x: obj.x, y: obj.y } : null;
+                    }).filter(Boolean),
+                };
+            } else if (!e.shiftKey) {
+                selectedObjects = [];
+            }
+            updateProps();
+            renderInspector();
+            draw();
+            return;
+        }
+        selectedTiles = [{ x: tile.tx, y: tile.ty, layer: activeLayer }];
+        selectedObjects = [];
+        updateProps();
+        renderInspector();
+        draw();
         return;
     }
 
@@ -985,6 +1841,24 @@ function onCanvasMouseMove(e) {
     if (isRectSelecting && selectionStart) {
         selectionEnd = { x: sx, y: sy };
         draw();
+        return;
+    }
+
+    if (objectDragState && currentMap) {
+        const tile = screenToTile(sx, sy);
+        if (tile) {
+            const dx = Math.round((tile.mx - objectDragState.startMx) / currentMap.tilewidth) * currentMap.tilewidth;
+            const dy = Math.round((tile.my - objectDragState.startMy) / currentMap.tileheight) * currentMap.tileheight;
+            const layer = currentMap.layers.find((entry) => entry.name === objectDragState.layerName);
+            for (const before of objectDragState.before) {
+                const obj = layer?.objects?.find((entry) => entry.id === before.id);
+                if (!obj) continue;
+                obj.x = before.x + dx;
+                obj.y = before.y + dy;
+            }
+            updateProps();
+            draw();
+        }
         return;
     }
 
@@ -1024,6 +1898,22 @@ function onCanvasMouseUp() {
     }
 
     isDragging = false;
+    if (objectDragState) {
+        const layer = currentMap?.layers?.find((entry) => entry.name === objectDragState.layerName);
+        const after = objectDragState.before.map((before) => {
+            const obj = layer?.objects?.find((entry) => entry.id === before.id);
+            return obj ? { id: obj.id, x: obj.x, y: obj.y } : before;
+        });
+        const moved = after.some((entry, index) => entry.x !== objectDragState.before[index]?.x || entry.y !== objectDragState.before[index]?.y);
+        if (moved) {
+            pushUndo({ type: 'objectMove', layerName: objectDragState.layerName, before: objectDragState.before, after });
+            dirty = true;
+            API.setDirty(true);
+            updateProps();
+            renderInspector();
+        }
+        objectDragState = null;
+    }
     if (isPainting && currentStroke && currentStroke.changes.length > 0) {
         pushUndo(currentStroke);
     }
@@ -1059,177 +1949,100 @@ function onKeyDown(e) {
         redo();
         return;
     }
-    // Copy/Paste
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjects.length > 0) {
         e.preventDefault();
-        copySelection();
+        deleteSelectedObjects();
         return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+
+    if (selectedObjects.length > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
-        pasteSelection();
+        const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+        const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+        const tw = currentMap?.tilewidth || 64;
+        const th = currentMap?.tileheight || 64;
+        const selected = getSelectedLayerObjects();
+        selected.forEach((obj) => {
+            obj.x += dx * tw;
+            obj.y += dy * th;
+        });
+        markDirtyAndRefresh();
         return;
     }
+
+    if (selectedObjects.length > 0 && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        const selected = getSelectedLayerObjects();
+        selected.forEach((obj) => {
+            const nextRotation = normalizeRightAngleRotation((Number(obj.rotation) || 0) + 90, 0);
+            if (activeLayer === 'doors') {
+                applyDoorRotationGeometry(obj, nextRotation);
+                activeObjectRotationByLayer.doors = nextRotation;
+            } else {
+                obj.rotation = nextRotation;
+            }
+        });
+        markDirtyAndRefresh();
+        return;
+    }
+
     switch (e.key.toLowerCase()) {
         case 'p': setTool('paint'); break;
         case 'e': setTool('erase'); break;
         case 'f': setTool('fill'); break;
         case 's': if (!e.ctrlKey && !e.metaKey) setTool('select'); break;
-        case 'r': if (selectedObject && activeLayer === 'doors') rotateDoor(); break;
         case 'g': showGrid = !showGrid; document.getElementById('tm-grid').checked = showGrid; draw(); break;
     }
 }
 
-// ── Clipboard & Transform ─────────────────────────────────────────────────
-function copySelection() {
-    clipboard = { tiles: [], objects: [] };
-
-    const layer = currentMap.layers.find(l => l.name === activeLayer);
-    if (!layer) return;
-
-    if (selectedTiles.length > 0) {
-        // Copy tiles (with their position)
-        for (const sel of selectedTiles) {
-            const idx = sel.y * currentMap.width + sel.x;
-            const val = layer.data[idx];
-            clipboard.tiles.push({ x: sel.x, y: sel.y, value: val });
-        }
-        API.toast(`Copied ${clipboard.tiles.length} tiles`, 'info');
-    } else if (selectedObjects.length > 0 && layer.type === 'objectgroup') {
-        // Copy objects
-        for (const objId of selectedObjects) {
-            const obj = layer.objects.find(o => o.id === objId);
-            if (obj) clipboard.objects.push(JSON.parse(JSON.stringify(obj)));
-        }
-        API.toast(`Copied ${clipboard.objects.length} objects`, 'info');
-    }
-}
-
-function pasteSelection() {
-    if (clipboard.tiles.length === 0 && clipboard.objects.length === 0) {
-        API.toast('Clipboard is empty', 'error');
-        return;
-    }
-
-    if (!currentMap) return;
-    const layer = currentMap.layers.find(l => l.name === activeLayer);
-    if (!layer) return;
-
-    if (clipboard.tiles.length > 0 && layer.type === 'tilelayer') {
-        // Paste tiles (offset by 1 tile for visual separation)
-        const changes = [];
-        for (const tile of clipboard.tiles) {
-            const newX = tile.x + 1;
-            const newY = tile.y + 1;
-            if (newX >= 0 && newX < currentMap.width && newY >= 0 && newY < currentMap.height) {
-                const idx = newY * currentMap.width + newX;
-                const oldVal = layer.data[idx];
-                layer.data[idx] = tile.value;
-                changes.push({ idx, oldVal, newVal: tile.value });
-            }
-        }
-        if (changes.length > 0) {
-            pushUndo({ type: 'tiles', layerName: activeLayer, changes });
-            dirty = true;
-            API.setDirty(true);
-            draw();
-            API.toast(`Pasted ${changes.length} tiles`, 'success');
-        }
-    } else if (clipboard.objects.length > 0 && layer.type === 'objectgroup') {
-        // Paste objects (offset by tile size for visual separation)
-        const tw = currentMap.tilewidth, th = currentMap.tileheight;
-        const pastedIds = [];
-        for (const objData of clipboard.objects) {
-            const newObj = JSON.parse(JSON.stringify(objData));
-            newObj.id = Date.now() + Math.random() * 10000; // New unique ID
-            newObj.x += tw;
-            newObj.y += th;
-            // Clamp to map bounds
-            newObj.x = Math.min(newObj.x, (currentMap.width - 1) * tw);
-            newObj.y = Math.min(newObj.y, (currentMap.height - 1) * th);
-            layer.objects.push(newObj);
-            pastedIds.push(newObj.id);
-        }
-        pushUndo({ type: 'objectsAdd', layerName: activeLayer, objects: clipboard.objects.map((o, i) => ({ ...o, id: pastedIds[i] })) });
-        selectedObjects = pastedIds;
-        selectedObject = layer.objects.find(o => o.id === pastedIds[0]) || null;
-        dirty = true;
-        API.setDirty(true);
-        renderObjectProps();
-        draw();
-        API.toast(`Pasted ${clipboard.objects.length} objects`, 'success');
-    }
-}
-
-function rotateDoor() {
-    if (!selectedObject || selectedObject.type !== 'door') {
-        API.toast('Select a door to rotate', 'error');
-        return;
-    }
-
-    const orientProp = selectedObject.properties?.find(p => p.name === 'orientation');
-    if (!orientProp) {
-        API.toast('Door missing orientation property', 'error');
-        return;
-    }
-
-    // Toggle orientation
-    orientProp.value = orientProp.value === 'horizontal' ? 'vertical' : 'horizontal';
-
-    // Swap width/height for visual effect
-    const tmp = selectedObject.width;
-    selectedObject.width = selectedObject.height;
-    selectedObject.height = tmp;
-
-    dirty = true;
-    API.setDirty(true);
-    renderObjectProps();
-    draw();
-    API.toast(`Rotated door to ${orientProp.value}`, 'info');
-}
-
 // ── Object layers ──────────────────────────────────────────────────────────
+function findObjectAtWorld(mx, my, layer = null) {
+    const targetLayer = layer || currentMap?.layers.find((entry) => entry.name === activeLayer);
+    if (!targetLayer || targetLayer.type !== 'objectgroup') return null;
+    const objects = Array.isArray(targetLayer.objects) ? targetLayer.objects : [];
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        const width = obj.width || currentMap?.tilewidth || 64;
+        const height = obj.height || currentMap?.tileheight || 64;
+        if (targetLayer.name === 'props' && isZonePropType(obj.type)) {
+            const radius = getZoneRadiusValue(obj, 128);
+            const centerX = obj.x + width * 0.5;
+            const centerY = obj.y + height * 0.5;
+            if (Math.hypot(mx - centerX, my - centerY) <= radius) return obj;
+            continue;
+        }
+        if (mx >= obj.x && mx <= obj.x + width && my >= obj.y && my <= obj.y + height) return obj;
+    }
+    return null;
+}
+
 function addObjectAtCenter() {
     if (!currentMap) return;
-    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    const layer = currentMap.layers.find((entry) => entry.name === activeLayer);
     if (!layer || layer.type !== 'objectgroup') return;
 
     const cx = (canvas.width / 2 - viewX) / zoom;
     const cy = (canvas.height / 2 - viewY) / zoom;
-    const obj = {
-        id: Date.now(),
-        name: activeLayer === 'lights' ? 'Light' : 'Prop',
-        type: activeLayer === 'lights' ? 'spot' : 'prop',
-        x: Math.round(cx),
-        y: Math.round(cy),
-        width: currentMap.tilewidth,
-        height: currentMap.tileheight,
-        properties: [],
-    };
-    layer.objects.push(obj);
-    pushUndo({ type: 'objectAdd', layerName: activeLayer, object: JSON.parse(JSON.stringify(obj)) });
-    dirty = true;
-    API.setDirty(true);
-    draw();
-    API.toast(`Added ${obj.name} at (${obj.x}, ${obj.y})`, 'info');
+    const tx = Math.max(0, Math.min(currentMap.width - 1, Math.floor(cx / currentMap.tilewidth)));
+    const ty = Math.max(0, Math.min(currentMap.height - 1, Math.floor(cy / currentMap.tileheight)));
+    placeObjectAtTile(tx, ty, layer);
 }
 
 function showObjectContextMenu(e, tile) {
-    const layer = currentMap.layers.find(l => l.name === activeLayer);
+    const layer = currentMap.layers.find((entry) => entry.name === activeLayer);
     if (!layer || layer.type !== 'objectgroup') return;
 
-    // Find object at position
-    const obj = layer.objects.find(o =>
-        tile.mx >= o.x && tile.mx <= o.x + (o.width || 64) &&
-        tile.my >= o.y && tile.my <= o.y + (o.height || 64)
-    );
+    const obj = findObjectAtWorld(tile.mx, tile.my, layer);
     if (!obj) return;
 
-    // Select object for inspector
-    selectedObject = obj;
+    selectedTiles = [];
     selectedObjects = [obj.id];
-    renderObjectProps();
+    setTool('select');
+    updateProps();
+    renderInspector();
     draw();
+    API.toast(`Selected ${obj.name || obj.type || 'object'} for inspector editing`, 'info');
 }
 
 // ── Save / Rebuild ─────────────────────────────────────────────────────────
@@ -1311,6 +2124,14 @@ function applyUndoEntry(entry, isUndo) {
             const idx = layer.objects.findIndex(o => o.id === entry.object.id);
             if (idx >= 0) layer.objects.splice(idx, 1);
         }
+    } else if (entry.type === 'objectMove') {
+        const positions = isUndo ? entry.before : entry.after;
+        for (const pos of positions || []) {
+            const obj = layer.objects.find((o) => o.id === pos.id);
+            if (!obj) continue;
+            obj.x = pos.x;
+            obj.y = pos.y;
+        }
     }
 }
 
@@ -1356,30 +2177,6 @@ function floodFill(tx, ty) {
     }
 }
 
-// ── Tile Textures ──────────────────────────────────────────────────────────
-function loadTileTextures() {
-    const texturePaths = {
-        floor: '/src/graphics/imported/floor_grill_bluesteel_64_sharp.png',
-        wall: '/src/graphics/imported/wall_corridor_bluesteel_64_sharp.png',
-    };
-    let loaded = 0;
-    const total = Object.keys(texturePaths).length;
-    for (const [key, path] of Object.entries(texturePaths)) {
-        const img = new Image();
-        img.onload = () => {
-            tileImages[key] = img;
-            loaded++;
-            if (loaded >= total) { tileImagesLoaded = true; draw(); }
-        };
-        img.onerror = () => {
-            console.warn(`Failed to load tile texture: ${path}`);
-            loaded++;
-            if (loaded >= total) { tileImagesLoaded = true; draw(); }
-        };
-        img.src = path;
-    }
-}
-
 // ── New Map ────────────────────────────────────────────────────────────────
 function showNewMapDialog() {
     const { body, footer, close } = API.showModal('New Map');
@@ -1417,14 +2214,15 @@ function showNewMapDialog() {
             tiledversion: '1.10.2',
             type: 'map',
             version: '1.10',
-            nextlayerid: 6,
+            nextlayerid: 7,
             nextobjectid: 1,
             layers: [
                 { id: 1, name: 'terrain', type: 'tilelayer', data: new Array(w * h).fill(2), width: w, height: h, visible: true, opacity: 1, x: 0, y: 0 },
-                { id: 2, name: 'doors', type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
+                { id: 2, name: 'doors',   type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
                 { id: 3, name: 'markers', type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
-                { id: 4, name: 'props', type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
-                { id: 5, name: 'lights', type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
+                { id: 4, name: 'props',   type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
+                { id: 5, name: 'lights',  type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
+                { id: 6, name: 'story',   type: 'objectgroup', objects: [], visible: true, opacity: 1, x: 0, y: 0, draworder: 'topdown' },
             ],
             tilesets: [],
         };
@@ -1450,9 +2248,10 @@ function showNewMapDialog() {
 export default {
     render(root) { buildUI(root); },
     async onShow() {
-        await loadMapList();
+        await Promise.all([loadMapList(), loadSpriteAssetCatalog()]);
         renderLayers();
         renderPalette();
+        renderInspector();
         draw();
     },
     onHide() {},

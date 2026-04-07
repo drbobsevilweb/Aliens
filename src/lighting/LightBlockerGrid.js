@@ -98,11 +98,14 @@ export class LightBlockerGrid {
         const minTY = Math.max(0, Math.floor((worldY - radius) / this.tileSize));
         const maxTY = Math.min(this.mapHeight - 1, Math.floor((worldY + radius) / this.tileSize));
 
-        const result = [];
+        // Reuse scratch array to avoid per-query GC pressure
+        if (!this._segScratch) this._segScratch = [];
+        const result = this._segScratch;
+        result.length = 0;
         for (let ty = minTY; ty <= maxTY; ty++) {
+            const rowBase = ty * this.mapWidth;
             for (let tx = minTX; tx <= maxTX; tx++) {
-                const key = ty * this.mapWidth + tx;
-                const segs = this.segmentsByTile[key];
+                const segs = this.segmentsByTile[rowBase + tx];
                 if (segs) {
                     for (let i = 0; i < segs.length; i++) {
                         result.push(segs[i]);

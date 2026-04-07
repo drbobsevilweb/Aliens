@@ -60,11 +60,30 @@ export class DebugOverlay {
                 `A* exp/gen: ${path.lastExpanded}/${path.lastGenerated}`
             );
         }
+        if (snapshot.combat) {
+            const c = snapshot.combat;
+            lines.push(
+                `Combat: ${c.state} | P:${Number(c.pressure || 0).toFixed(2)} | KMom:${Number(c.momentum || 0).toFixed(2)}`,
+                `Mods: jam ${Number(c.jamMul || 1).toFixed(2)} | react ${Number(c.reactionMul || 1).toFixed(2)}`,
+                `Reinf: idle ${Math.max(0, Math.floor(Number(c.reinforceInMs) || 0))}ms | gun ${Math.max(0, Math.floor(Number(c.reinforceCdMs) || 0))}ms`
+            );
+        }
+        if (snapshot.beamFlash) {
+            const b = snapshot.beamFlash;
+            lines.push(
+                `BeamFlash: A ${Number(b.alphaMul || 1).toFixed(2)} | W ${Number(b.widthMul || 1).toFixed(2)}`,
+                `Tune keys: [-]/[+] alpha, [[]/[ ]] width (Shift=fine)`
+            );
+        }
         if (Array.isArray(snapshot.warnings) && snapshot.warnings.length > 0) {
             lines.push(`Warnings: ${snapshot.warnings.length}`);
             for (const w of snapshot.warnings.slice(0, 3)) lines.push(`- ${w}`);
         }
         this.text.setText(lines.join('\n'));
+        // Auto-resize panel to fit content
+        const textHeight = this.text.height || 0;
+        const panelHeight = Math.max(206, textHeight + 24);
+        this.panel.setSize(320, panelHeight);
     }
 
     destroy() {

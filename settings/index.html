@@ -4,32 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ALIENS Settings Workbench</title>
+    <link rel="stylesheet" href="/shared/nav.css">
     <style>
         :root {
-            --bg: #0b1116;
-            --panel: #101a22;
-            --panel-2: #0f171f;
-            --line: #274055;
-            --text: #e8f1fa;
-            --muted: #8ea6ba;
-            --accent: #7dd3fc;
-            --ok: #73e2b5;
+            --bg: #0a0e14;
+            --panel: #101820;
+            --panel-2: #0c1420;
+            --line: #1a3a52;
+            --text: #f0f6ff;
+            --muted: #8ea8c0;
+            --accent: #4aa4d8;
+            --accent-bright: #7ecfff;
+            --ok: #33ff66;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background: radial-gradient(1000px 520px at 5% -25%, #20415f66, transparent 64%), var(--bg);
+            background: radial-gradient(1000px 520px at 5% -25%, #1a3a5266, transparent 64%), var(--bg);
             color: var(--text);
             font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
         }
         .shell {
             display: grid;
             grid-template-columns: 260px minmax(0, 1fr);
-            min-height: 100vh;
+            min-height: calc(100vh - 28px);
+            margin-top: 28px;
         }
         .sidebar {
             border-right: 1px solid var(--line);
-            background: #0c151d;
+            background: #0c1420;
             padding: 16px;
             position: sticky;
             top: 0;
@@ -54,8 +57,8 @@
         }
         .tab-btn {
             text-align: left;
-            border: 1px solid #2a4153;
-            background: #142330;
+            border: 1px solid var(--line);
+            background: var(--panel);
             color: var(--text);
             border-radius: 8px;
             padding: 8px 10px;
@@ -64,8 +67,8 @@
         }
         .tab-btn.active {
             border-color: var(--accent);
-            color: #a7e5ff;
-            background: #173145;
+            color: var(--accent-bright);
+            background: #122a3d;
         }
         .links {
             margin-top: 14px;
@@ -73,7 +76,7 @@
             gap: 4px;
         }
         .links a {
-            color: #a4dbf6;
+            color: var(--accent-bright);
             text-decoration: none;
             font-size: 12px;
         }
@@ -89,7 +92,7 @@
         }
         button, .import-wrap {
             border: 1px solid var(--line);
-            background: #172734;
+            background: var(--panel-2);
             color: var(--text);
             border-radius: 8px;
             padding: 8px 10px;
@@ -117,11 +120,11 @@
         }
         .card h2 {
             margin: 0 0 8px;
-            color: #98e0ff;
+            color: var(--accent);
             font-size: 16px;
         }
         .field {
-            border: 1px solid #1f3445;
+            border: 1px solid var(--line);
             border-radius: 8px;
             padding: 7px;
             margin-bottom: 7px;
@@ -142,8 +145,8 @@
         input[type="range"] { width: 100%; }
         input[type="number"] {
             width: 100%;
-            background: #0d1720;
-            border: 1px solid #314d62;
+            background: var(--bg);
+            border: 1px solid var(--line);
             color: var(--text);
             border-radius: 6px;
             padding: 6px;
@@ -158,9 +161,17 @@
             .shell { grid-template-columns: 1fr; }
             .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
         }
+        /* Nav styles loaded from /shared/nav.css */
     </style>
 </head>
 <body>
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game">Game</a>
+        <a href="/editors">Editors</a>
+        <a href="/settings" class="active">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
     <div class="shell">
         <aside class="sidebar">
             <h1>Settings Workbench</h1>
@@ -183,7 +194,7 @@
                 <span id="status" class="status">Ready</span>
             </div>
             <div id="panels"></div>
-            <div class="footer">Sprite/animation deep workflow remains in <a href="/editors" style="color:#9edfff;text-decoration:none;">/editors</a>. This page centralizes gameplay tuning and content-control variables.</div>
+            <div class="footer">Sprite/animation deep workflow remains in <a href="/editors" style="color:var(--accent-bright);text-decoration:none;">/editors</a>. This page centralizes gameplay tuning and content-control variables.</div>
         </main>
     </div>
 
@@ -267,9 +278,22 @@
                             ['enemies.globalHealthScale', 'Global Health Scale', 0.1, 3, 0.01],
                             ['enemies.globalSpeedScale', 'Global Speed Scale', 0.2, 3, 0.01],
                             ['enemies.globalDamageScale', 'Global Damage Scale', 0.1, 3, 0.01],
+                            ['enemies.warriorOnly', 'Warrior Only Testing (0/1)', 0, 1, 1],
                             ['enemies.types.warrior.healthMultiplier', 'Warrior HP Mult', 0.1, 5, 0.01],
                             ['enemies.types.warrior.speedMultiplier', 'Warrior Speed Mult', 0.1, 5, 0.01],
                             ['enemies.types.warrior.damageMultiplier', 'Warrior Damage Mult', 0.1, 5, 0.01],
+                            ['enemies.types.drone.healthMultiplier', 'Drone HP Mult', 0.1, 5, 0.01],
+                            ['enemies.types.drone.speedMultiplier', 'Drone Speed Mult', 0.1, 5, 0.01],
+                            ['enemies.types.drone.damageMultiplier', 'Drone Damage Mult', 0.1, 5, 0.01],
+                            ['enemies.types.facehugger.healthMultiplier', 'Facehugger HP Mult', 0.1, 5, 0.01],
+                            ['enemies.types.facehugger.speedMultiplier', 'Facehugger Speed Mult', 0.1, 5, 0.01],
+                            ['enemies.types.facehugger.damageMultiplier', 'Facehugger Damage Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queenLesser.healthMultiplier', 'Lesser Queen HP Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queenLesser.speedMultiplier', 'Lesser Queen Speed Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queenLesser.damageMultiplier', 'Lesser Queen Damage Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queen.healthMultiplier', 'Queen HP Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queen.speedMultiplier', 'Queen Speed Mult', 0.1, 5, 0.01],
+                            ['enemies.types.queen.damageMultiplier', 'Queen Damage Mult', 0.1, 5, 0.01],
                         ],
                     },
                     {
@@ -366,8 +390,32 @@
                             ['lighting.torchRange', 'Torch Range', 80, 1200, 1],
                             ['lighting.torchConeHalfAngle', 'Torch Cone Half Angle', 0.1, 1.57, 0.01],
                             ['lighting.softRadius', 'Torch Soft Radius', 10, 600, 1],
+                            ['lighting.featherLayers', 'Feather Layers', 4, 24, 1],
+                            ['lighting.featherSpread', 'Feather Spread', 0.4, 2.5, 0.01],
+                            ['lighting.featherDecay', 'Feather Decay', 0.2, 0.95, 0.01],
+                            ['lighting.glowStrength', 'Glow Strength', 0.1, 2, 0.01],
                             ['visibility.spottedMemoryMs', 'Spotted Memory (ms)', 250, 10000, 10],
                             ['visibility.alienContrastBoost', 'Alien Contrast Boost', 0.6, 2, 0.01],
+                            ['visibility.ghostAlphaMin', 'Alien Ghost Alpha Min', 0.1, 0.9, 0.01],
+                            ['visibility.ghostAlphaPulse', 'Alien Ghost Pulse Amp', 0, 0.2, 0.01],
+                            ['visibility.ghostAlphaMax', 'Alien Ghost Alpha Max', 0.1, 1, 0.01],
+                            ['visibility.ghostScaleMul', 'Alien Ghost Scale Mul', 1, 1.25, 0.01],
+                            ['visibility.ghostBlueMix', 'Alien Ghost Blue Mix %', 0, 100, 1],
+                        ],
+                    },
+                    {
+                        title: 'Post-Processing',
+                        fields: [
+                            ['graphics.tiltShift', 'TiltShift Enabled (0/1)', 0, 1, 1],
+                            ['graphics.tiltShiftFocus', 'TiltShift Focus (Y 0–1)', 0, 1, 0.01],
+                            ['graphics.tiltShiftRange', 'TiltShift Sharp Band', 0.05, 0.9, 0.01],
+                            ['graphics.tiltShiftStrength', 'TiltShift Blur Strength', 0, 3, 0.01],
+                            ['graphics.scanline', 'Scanline Enabled (0/1)', 0, 1, 1],
+                            ['graphics.scanlineStrength', 'Scanline Darkness', 0, 0.5, 0.01],
+                            ['graphics.filmGrain', 'Film Grain Strength', 0, 0.3, 0.005],
+                            ['graphics.cinematicHalation', 'Cinematic Halation', 0, 1, 0.01],
+                            ['graphics.cinematicExposure', 'Cinematic Exposure', 0.7, 1.5, 0.01],
+                            ['graphics.cinematicBleachBypass', 'Cinematic Bleach Bypass', 0, 1, 0.01],
                         ],
                     },
                 ],
@@ -419,22 +467,22 @@
                             ['director.enabled', 'Director Logic Enabled (0/1)', 0, 1, 1],
                             ['director.pressureRiseRate', 'Pressure Rise Rate', 0.1, 5, 0.01],
                             ['director.pressureFallRate', 'Pressure Fall Rate', 0.05, 5, 0.01],
+                            ['director.noDecayWhileEngaged', 'No Decay While Engaged (0/1)', 0, 1, 1],
+                            ['director.comfortHealthThreshold', 'Comfort Health Threshold', 0.1, 1, 0.01],
+                            ['director.comfortPressureGate', 'Comfort Pressure Gate', 0.1, 0.99, 0.01],
+                            ['director.comfortReliefMul', 'Comfort Relief Multiplier', 0.4, 1.2, 0.01],
                             ['director.peakEnterPressure', 'Peak Enter Pressure', 0.1, 0.99, 0.01],
                             ['director.releaseEnterPressure', 'Release Enter Pressure', 0.05, 0.95, 0.01],
+                            ['director.buildEnterPressure', 'Build Enter Pressure', 0.05, 0.9, 0.01],
                             ['director.peakMaxMs', 'Peak Max Duration (ms)', 500, 60000, 10],
+                            ['director.peakMinMs', 'Peak Min Duration (ms)', 500, 60000, 10],
+                            ['director.peakHoldMinMs', 'Peak Hold Min (ms)', 500, 60000, 10],
+                            ['director.peakHoldMaxMs', 'Peak Hold Max (ms)', 500, 60000, 10],
                             ['director.buildMinMs', 'Build Min Duration (ms)', 100, 60000, 10],
                             ['director.releaseMinMs', 'Release Min Duration (ms)', 100, 60000, 10],
                         ],
                     },
-                    {
-                        title: 'Motion Tracker',
-                        fields: [
-                            ['visibility.trackerScanMs', 'Tracker Scan (ms)', 1000, 12000, 10],
-                            ['visibility.trackerRiskMs', 'Tracker Risk Lock (ms)', 1000, 20000, 10],
-                            ['visibility.trackerCooldownMs', 'Tracker Cooldown (ms)', 1000, 120000, 10],
-                            ['visibility.trackerRange', 'Tracker Range', 120, 1600, 1],
-                        ],
-                    },
+
                 ],
             },
             {

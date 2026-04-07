@@ -1,0 +1,278 @@
+Aliens: Corridor Ops — AI-Optimised Game Design & Development Rules
+================================================================
+
+THIS DOCUMENT IS AUTHORITATIVE
+- This file defines intent, scope, and constraints.
+- If code or behavior conflicts with this document, the document wins.
+- Do NOT invent features not listed here.
+- Do NOT refactor systems unless explicitly instructed.
+v
+----------------------------------------------------------------
+HIGH-LEVEL DESIGN INTENT (AI MUST RESPECT)
+----------------------------------------------------------------
+This is a slow-burn, tactical, information-driven survival shooter inspired by Aliens (1986).
+
+The core fantasy is NOT power, speed, or spectacle.
+The core fantasy IS:
+- uncertainty
+- pressure
+- incomplete information
+- risk vs reward decisions
+
+AI must always prioritize:
+1) clarity
+2) determinism
+3) debuggability
+4) incremental correctness
+
+NOT cleverness.
+NOT overengineering.
+NOT premature optimization.
+
+----------------------------------------------------------------
+AI DEVELOPMENT PHILOSOPHY (MANDATORY)
+----------------------------------------------------------------
+AI must think and act like a senior gameplay engineer.
+
+Rules:
+- Build ONE reliable system at a time.
+- Prefer simple, explicit state machines over implicit logic.
+- Never combine multiple new mechanics in one step.
+- Always provide fallback behavior (nothing is allowed to idle or freeze).
+
+When modifying code:
+- Minimize diffs.
+- Do not rewrite working systems.
+- Add new files rather than touching existing ones.
+- If touching existing files, modify the smallest possible section.
+
+AI must never:
+- hallucinate engine features
+- assume assets exist
+- assume systems from future phases
+- skip error handling or fallback logic
+
+----------------------------------------------------------------
+CORE GAME PILLARS
+----------------------------------------------------------------
+- Tactical, slow-burn tension
+- Information control over reflex skill
+- Risk–reward decision making (light, sound, tracker, doors)
+- Squad-based survival (later phases)
+
+Winning comes from controlling space and information, not killing everything.
+
+----------------------------------------------------------------
+CAMERA & PERSPECTIVE
+----------------------------------------------------------------
+- 2D top-down
+- Camera follows the player
+- On-screen vs off-screen awareness matters
+
+----------------------------------------------------------------
+PLAYER & CONTROLS (LOCKED – NEVER CHANGE)
+----------------------------------------------------------------
+- Mouse-driven only
+- Left-click (hold): fire weapon continuously
+- Right-click: contextual action
+  - Floor: move to position
+  - Door: open door interaction menu
+- Player always rotates to face mouse cursor
+- No keyboard movement
+
+Any suggestion to add WASD or alternate schemes is INVALID.
+
+----------------------------------------------------------------
+PLAYER SQUAD
+----------------------------------------------------------------
+- Player directly controls one marine
+- Additional marines follow in later phases
+- Squad shares threat and visibility information
+- Individual marines can be assigned tasks
+- Tasked marines become temporarily vulnerable
+
+----------------------------------------------------------------
+MAP & ENVIRONMENT
+----------------------------------------------------------------
+- Corridor-based layouts (Hadley’s Hope style)
+- Grid-based or tile-friendly logic
+- Simple geometry preferred over complex shapes
+
+Environment exists to:
+- restrict vision
+- create choke points
+- enable flanking
+- support door tactics
+
+----------------------------------------------------------------
+DOOR SYSTEM (CRITICAL TACTICAL LAYER)
+----------------------------------------------------------------
+Each door has independent states:
+- is_open
+- is_locked
+- is_welded
+
+Rules:
+- Doors do NOT animate physically
+- State change only
+- Collision reflects state
+
+Interaction:
+- Right-click door opens a context menu
+- Menu always appears to the RIGHT of the door
+- Menu shows ONLY valid actions
+
+Valid actions:
+- OPEN DOOR
+- CLOSE DOOR
+- WELD
+- UNWELD
+- LOCK
+- HACK / UNLOCK
+
+Timed actions:
+- Welding, unwelding, hacking take time (~2 seconds)
+- Progress bar shown near door
+- Performing marine is inactive and vulnerable
+- Action may cancel if attacked
+
+AI MUST:
+- Explicitly check door state before allowing actions
+- Never allow impossible actions
+- Disable menu during timed actions
+
+----------------------------------------------------------------
+FOG OF WAR & VISIBILITY (CORE IDENTITY)
+----------------------------------------------------------------
+Aliens are invisible by default.
+
+Visibility states:
+- Hidden
+- Lit (inside flashlight cone)
+- Spotted (lit recently, visible for ~2 seconds)
+- TrackerVisible
+
+Render rule:
+Alien is visible if Lit OR Spotted OR TrackerVisible.
+
+Flashlights:
+- Every marine has a shoulder-mounted flashlight
+- Cone-based detection
+- Entering beam triggers alert state
+
+Spotted memory:
+- Timer refreshes while lit
+- Decays when not lit
+
+----------------------------------------------------------------
+MOTION TRACKER SYSTEM
+----------------------------------------------------------------
+- Can be activated by player or delegated marine
+- Operator is frozen for ~5 seconds
+- While active:
+  - All aliens currently on-screen are visible
+- Tracker cancels instantly if operator is attacked
+
+AI MUST:
+- Treat tracker as a temporary global reveal
+- Never override flashlight or spotted logic
+- Ensure tracker has clear start/end states
+
+----------------------------------------------------------------
+ALIEN DESIGN & AI PHILOSOPHY
+----------------------------------------------------------------
+Aliens are:
+- Fast
+- Dangerous
+- Weak in sustained light
+- Strong in darkness
+
+Alien AI rules:
+- Aliens must NEVER freeze or idle unintentionally
+- Every state must have a timeout or fallback
+- If navigation/pathfinding fails, fallback to direct pursuit or search
+
+Core states:
+- IDLE / PATROL
+- HUNT / CHASE
+- SEARCH (last known position)
+- ATTACK
+
+Detection:
+- Light exposure
+- Proximity (later)
+- Sound (later)
+
+----------------------------------------------------------------
+PACK BEHAVIOR (LATER PHASES)
+----------------------------------------------------------------
+- <3 aliens: direct attack
+- ≥3 aliens:
+  - one pressures
+  - others flank
+
+Fallback rule:
+If flanking path invalid, revert to direct attack.
+
+----------------------------------------------------------------
+TACTICAL GAMEPLAY LOOP
+----------------------------------------------------------------
+1) Advance carefully
+2) Control doors behind you
+3) Use light deliberately
+4) Listen to tracker pings
+5) Choose between speed, safety, or information
+6) Aliens probe, retreat, ambush
+7) Tension escalates as visibility collapses
+
+----------------------------------------------------------------
+ENGINE & IMPLEMENTATION NOTES
+----------------------------------------------------------------
+- Code-first development (Lua / LÖVE)
+- Systems should be data-driven and state-driven
+- Avoid engine-specific shortcuts
+- Prefer readability over performance
+
+----------------------------------------------------------------
+AI EXECUTION CHECKLIST (USE EVERY TIME)
+----------------------------------------------------------------
+Before outputting code, AI must verify:
+- Does this introduce more than one new system? (If yes, STOP.)
+- Does every state have a fallback?
+- Are all interactions explicitly validated?
+- Are assumptions documented?
+- Is this compatible with existing phases?
+
+If unsure: ASK or STOP.
+
+----------------------------------------------------------------
+END OF DOCUMENT
+----------------------------------------------------------------
+
+----------------------------------------------------------------
+UNKNOWN / AMBIGUOUS CASE HANDLING (MANDATORY)
+----------------------------------------------------------------
+If the AI does NOT know something, is uncertain, or encounters ambiguity:
+
+AI MUST DO ONE OF THE FOLLOWING (IN THIS ORDER):
+1) ASK a clarifying question to the user BEFORE writing code.
+2) If explicitly permitted, RESEARCH the topic using reliable, up-to-date sources.
+3) If neither clarification nor research is possible, STOP and state what is unknown.
+
+AI MUST NOT:
+- Guess
+- Hallucinate APIs, engine features, or behaviors
+- Assume intent
+- Fill gaps with invented logic
+
+Acceptable phrasing examples:
+- “This detail is not specified. I need clarification on X before proceeding.”
+- “There are two valid approaches. Which do you want?”
+- “This depends on an external constraint not yet defined.”
+
+Failure handling:
+- If uncertainty affects correctness, AI must halt output.
+- Partial or speculative implementations are forbidden.
+
+The goal is correctness and alignment, not speed.
+----------------------------------------------------------------

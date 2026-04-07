@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALIENS: Tactical Shooter</title>
-    <style>
-        * { margin: 0; padding: 0; }
-        html, body { background: #000; overflow: hidden; touch-action: none; }
-        canvas { touch-action: none; }
-    </style>
+    <title>ALIENS Redirect</title>
+    <meta http-equiv="refresh" content="0; url=/game/">
+    <script>
+        const target = `/game/${window.location.search || ''}${window.location.hash || ''}`;
+        window.location.replace(target);
+    </script>
 </head>
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
-    <script type="module" src="src/main.js"></script>
+    <p>Redirecting to <a href="/game/">/game/</a>...</p>
 </body>
 </html>

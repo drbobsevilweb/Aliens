@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS Sound Editor</title>
+    <link rel="stylesheet" href="/shared/nav.css">
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: #101820;
+            --panel-2: #0c1420;
+            --line: #1a3a52;
+            --text: #f0f6ff;
+            --muted: #8ea8c0;
+            --accent: #4aa4d8;
+            --accent-bright: #7ecfff;
+            --ok: #33ff66;
+            --warn: #f59e0b;
+            --danger: #ff4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: radial-gradient(1000px 520px at 5% -25%, #1a3a5266, transparent 64%), var(--bg);
+            color: var(--text);
+            font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── Layout ── */
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px 60px;
+        }
+
+        /* ── Sample grid ── */
+        #sampleList {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+            gap: 12px;
+            align-items: start;
+        }
+        /* Section headings and .loading span all columns */
+        #sampleList > h2,
+        #sampleList > .loading {
+            grid-column: 1 / -1;
+        }
+        h1 { font-size: 26px; margin-bottom: 4px; }
+        .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+        /* ── Status bar ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            padding: 8px 14px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .status-bar .label { color: var(--muted); }
+        .status-bar .value { color: var(--accent); font-weight: 600; }
+        .master-vol {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .master-vol input[type=range] {
+            width: 100px;
+            accent-color: var(--accent);
+        }
+
+        /* ── Section headings ── */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent);
+            margin: 24px 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--line);
+            letter-spacing: 0.03em;
+        }
+        .section-title:first-of-type { margin-top: 0; }
+
+        /* ── Sample card ── */
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--accent); }
+        .card-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .card-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text);
+            flex: 1;
+        }
+        .card-key {
+            font-size: 12px;
+            color: var(--muted);
+            background: var(--panel-2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: "IBM Plex Mono", monospace;
+        }
+        .card-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .card-meta span { white-space: nowrap; }
+        .card-meta .used-by { color: var(--muted); }
+
+        /* ── Waveform canvas ── */
+        .waveform-wrap {
+            position: relative;
+            height: 120px;
+            min-width: 600px;
+            margin-bottom: 10px;
+            background: var(--bg);
+            border-radius: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            cursor: pointer;
+        }
+        .waveform-wrap-outer {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 10px;
+        }
+        /* remove margin-bottom from inner when wrapped */
+        .waveform-wrap-outer .waveform-wrap { margin-bottom: 0; }
+        .waveform-wrap canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .waveform-playhead {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: var(--accent);
+            left: 0;
+            pointer-events: none;
+            display: none;
+        }
+        .waveform-time {
+            position: absolute;
+            bottom: 3px;
+            right: 6px;
+            font-size: 10px;
+            color: var(--muted);
+            font-family: monospace;
+        }
+
+        /* ── Buttons ── */
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            border: 1px solid var(--line);
+            background: var(--panel-2);
+            color: var(--text);
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn:hover { background: #142330; border-color: var(--accent); }
+        .btn.playing { border-color: var(--ok); color: var(--ok); }
+        .btn.btn-upload { border-color: var(--warn); color: var(--warn); }
+        .btn.btn-upload:hover { background: rgba(245, 158, 11, 0.1); }
+        .btn.btn-delete { border-color: var(--danger); color: var(--danger); }
+        .btn.btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+
+        .upload-input { display: none; }
+        .upload-status {
+            font-size: 11px;
+            color: var(--ok);
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .upload-status.show { opacity: 1; }
+
+        /* ── Procedural card ── */
+        .proc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 8px;
+        }
+        .proc-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .proc-card:hover { border-color: var(--accent); }
+        .proc-name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .proc-desc {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        /* ── Loading ── */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: var(--panel);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 13px;
+            z-index: 10000;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { border-color: var(--danger); }
+
+        /* ── FX section ── */
+        .fx-section { margin-top: 8px; }
+        .fx-toggle {
+            width: 100%;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--muted);
+            padding: 4px 10px;
+        }
+        .fx-toggle:hover { color: var(--accent-bright); }
+        .fx-body { padding: 8px 2px 0; }
+        .fx-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .fx-row { display: flex; flex-direction: column; gap: 3px; }
+        .fx-label { font-size: 11px; color: var(--muted); }
+        .fx-input {
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            color: var(--text);
+            border-radius: 4px;
+            padding: 3px 6px;
+            font-size: 12px;
+            width: 100%;
+        }
+        .fx-input:focus { outline: none; border-color: var(--accent); }
+        .btn.btn-export { border-color: var(--accent); color: var(--accent); }
+        .btn.btn-export:hover { background: rgba(74, 164, 216, 0.1); }
+        .export-status {
+            font-size: 11px;
+            color: var(--ok);
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .export-status.show { opacity: 1; }
+        .export-status.error { color: var(--danger); }
+
+        /* ── Per-card volume row ── */
+        .vol-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 6px 0;
+            border-top: 1px solid var(--line);
+        }
+        .vol-label { font-size: 11px; color: var(--muted); min-width: 24px; }
+        .vol-slider { flex: 1; accent-color: var(--accent); cursor: pointer; min-width: 80px; }
+        .vol-db { font-size: 11px; font-family: monospace; color: var(--accent-bright); min-width: 52px; text-align: right; }
+        .btn-vol-reset {
+            font-size: 13px; padding: 2px 7px; line-height: 1; border-radius: 4px;
+            border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); cursor: pointer;
+        }
+        .btn-vol-reset:hover { border-color: var(--accent); color: var(--text); }
+
+        /* ── Volume mixer panel ── */
+        .vol-mixer-panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .vol-mixer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .vol-mixer-header:hover { background: #142330; }
+        .vol-mixer-title { font-weight: 700; font-size: 14px; color: var(--accent); letter-spacing: 0.03em; }
+        .vol-mixer-body { padding: 0 18px 12px; }
+        .vol-mixer-section {
+            font-size: 11px; color: var(--muted); text-transform: uppercase;
+            letter-spacing: 0.06em; padding: 10px 0 4px;
+        }
+        .vol-mixer-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid #0c1a28;
+        }
+        .vol-mixer-row:last-child { border-bottom: none; }
+        .vol-mixer-name {
+            font-size: 12px; min-width: 180px; flex-shrink: 0; color: var(--text);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .vol-mixer-slider { flex: 1; accent-color: var(--accent); cursor: pointer; min-width: 80px; }
+        .vol-mixer-db { font-size: 11px; font-family: monospace; color: var(--accent-bright); min-width: 52px; text-align: right; }
+        .vol-mixer-reset {
+            font-size: 13px; padding: 2px 7px; border-radius: 4px;
+            border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); cursor: pointer; flex-shrink: 0;
+        }
+        .vol-mixer-reset:hover { border-color: var(--accent); color: var(--text); }
+
+        /* ── WaveSurfer Preview Player ── */
+        .preview-player {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .preview-header .section-title { margin: 0; border: none; padding: 0; }
+        .preview-name {
+            font-size: 12px;
+            color: var(--muted);
+            font-style: italic;
+        }
+        .preview-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .preview-time {
+            font-family: "IBM Plex Mono", monospace;
+            font-size: 12px;
+            color: var(--accent-bright);
+            margin-left: auto;
+        }
+        #wsWaveform {
+            width: 100%;
+            min-width: 600px;
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid var(--line);
+            padding: 8px;
+            overflow-x: auto;
+            box-sizing: border-box;
+        }
+        #wsWaveform wave { overflow: hidden !important; }
+        .preview-waveform-outer {
+            overflow-x: auto;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game">Game</a>
+        <a href="/editors">Editors</a>
+        <a href="/settings">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
+
+    <div class="wrap">
+        <h1>Sound Engine Editor</h1>
+        <div class="sub">Preview, validate, and replace audio samples. Procedural sounds preview below.</div>
+
+        <div class="status-bar">
+            <span class="label">Samples:</span>
+            <span class="value" id="sampleCount">—</span>
+            <span class="label">Total size:</span>
+            <span class="value" id="totalSize">—</span>
+            <div class="master-vol">
+                <span class="label">Volume:</span>
+                <input type="range" id="masterVol" min="0" max="100" value="80" />
+                <span class="value" id="volLabel">80%</span>
+            </div>
+        </div>
+
+        <div class="preview-player">
+            <div class="preview-header">
+                <h2 class="section-title">Preview Player</h2>
+                <span id="wsName" class="preview-name">No sound loaded — click ▶ Play on any card</span>
+            </div>
+            <div class="preview-controls">
+                <button class="btn" id="wsPlayBtn" disabled>▶ Play / Pause</button>
+                <button class="btn" id="wsStopBtn" disabled>⏹ Stop</button>
+                <span style="font-size:12px; color: var(--muted);">Vol</span>
+                <input type="range" id="wsVolume" min="0" max="1" step="0.05" value="0.8" style="width:80px; accent-color: var(--accent);" />
+                <span id="wsTime" class="preview-time">0:00 / 0:00</span>
+            </div>
+            <div class="preview-waveform-outer"><div id="wsWaveform"></div></div>
+        </div>
+
+        <div class="vol-mixer-panel">
+            <div class="vol-mixer-header" id="volMixerToggle">
+                <span class="vol-mixer-title">🎚 Volume Mixer</span>
+                <span id="volMixerArrow" style="color:var(--muted); font-size:12px;">▶ expand</span>
+            </div>
+            <div class="vol-mixer-body" id="volMixerBody" style="display:none;"></div>
+        </div>
+
+        <div id="sampleList"><div class="loading">Loading audio files…</div></div>
+
+        <h2 class="section-title">Procedural Sounds</h2>
+        <div class="sub" style="margin-bottom:12px;">These sounds are generated in real-time via Web Audio oscillators and noise — no sample files.</div>
+        <div id="procList" class="proc-grid"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://unpkg.com/wavesurfer.js@6/dist/wavesurfer.min.js"></script>
+    <script type="module">
+        // ── Audio context for preview ──
+        let audioCtx = null;
+        let masterGain = null;
+        let noiseBuffer = null;
+        let currentSource = null;
+        let currentCard = null;
+        let playheadRAF = null;
+        let wavesurfer = null;
+        let wsTimeRAF = null;
+
+        function getCtx() {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AC();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.8;
+                masterGain.connect(audioCtx.destination);
+                // create noise buffer
+                const len = Math.floor(audioCtx.sampleRate * 0.6);
+                noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+                const d = noiseBuffer.getChannelData(0);
+                let v = 0;
+                for (let i = 0; i < len; i++) { v = v * 0.94 + (Math.random() * 2 - 1) * 0.2; d[i] = v; }
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        // Volume slider
+        const volSlider = document.getElementById('masterVol');
+        const volLabel = document.getElementById('volLabel');
+        volSlider.addEventListener('input', () => {
+            const v = volSlider.value / 100;
+            volLabel.textContent = volSlider.value + '%';
+            if (masterGain) masterGain.gain.value = v;
+        });
+
+        // ── WaveSurfer init & load ──
+        const fmtT = t => {
+            if (!t || !isFinite(t)) return '0:00';
+            const m = Math.floor(t / 60);
+            const s = Math.round(t % 60);
+            return `${m}:${String(s >= 60 ? 59 : s).padStart(2, '0')}`;
+        };
+        function updateWsTime() {
+            if (!wavesurfer) return;
+            const el = document.getElementById('wsTime');
+            if (el) el.textContent = `${fmtT(wavesurfer.getCurrentTime())} / ${fmtT(wavesurfer.getDuration())}`;
+        }
+        function initWaveSurfer() {
+            if (typeof WaveSurfer === 'undefined') return;
+            wavesurfer = WaveSurfer.create({
+                container: '#wsWaveform',
+                waveColor: '#2d6a8a',
+                progressColor: '#4aa4d8',
+                cursorColor: '#7ecfff',
+                barWidth: 2,
+                barRadius: 2,
+                responsive: true,
+                normalize: true,
+                height: 160,
+                interact: true,
+            });
+            const tickTime = () => {
+                if (!wavesurfer) return;
+                updateWsTime();
+                wsTimeRAF = requestAnimationFrame(tickTime);
+            };
+            wavesurfer.on('ready', () => {
+                document.getElementById('wsPlayBtn').disabled = false;
+                document.getElementById('wsStopBtn').disabled = false;
+                cancelAnimationFrame(wsTimeRAF);
+                tickTime();
+            });
+            wavesurfer.on('finish', () => cancelAnimationFrame(wsTimeRAF));
+            document.getElementById('wsPlayBtn').onclick = () => wavesurfer?.playPause();
+            document.getElementById('wsStopBtn').onclick = () => { wavesurfer?.stop(); cancelAnimationFrame(wsTimeRAF); };
+            document.getElementById('wsVolume').oninput = e => wavesurfer?.setVolume(parseFloat(e.target.value));
+            wavesurfer.setVolume(0.8);
+        }
+
+        function wsLoad(path, displayName) {
+            if (!wavesurfer) return;
+            cancelAnimationFrame(wsTimeRAF);
+            // Prefer the already-decoded buffer (instant, no re-fetch, correct duration)
+            const existing = decodedBuffers.get(path);
+            if (existing) {
+                wavesurfer.loadDecodedBuffer(existing);
+                // loadDecodedBuffer may not fire 'ready' in all WaveSurfer 6 versions;
+                // set duration display directly from the AudioBuffer
+                const el = document.getElementById('wsTime');
+                if (el) el.textContent = `0:00 / ${fmtT(existing.duration)}`;
+                document.getElementById('wsPlayBtn').disabled = false;
+                document.getElementById('wsStopBtn').disabled = false;
+            } else {
+                wavesurfer.load('/' + path);
+            }
+            const nameEl = document.getElementById('wsName');
+            if (nameEl) nameEl.textContent = displayName || path.split('/').pop();
+        }
+
+        // ── Toast ──
+        let toastTimer = null;
+        function showToast(msg, isError = false) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'toast show' + (isError ? ' error' : '');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+        }
+
+        // ── Format helpers ──
+        function fmtSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+        function fmtDur(sec) {
+            if (!sec || !isFinite(sec)) return '—';
+            const m = Math.floor(sec / 60);
+            const s = (sec % 60).toFixed(2);
+            return m > 0 ? `${m}:${s.padStart(5, '0')}` : `${s}s`;
+        }
+
+        // ── Audio sample metadata ──
+        // Maps loaded Phaser keys to files and usage info
+        const SAMPLE_META = [
+            { key: 'pulse_rifle_short', file: 'pulse_rifle_short.ogg', dir: 'src/audio',
+              usedBy: ['playWeapon("pulseRifle")  — single shot fallback', 'playJamPulse()'] },
+            { key: 'pulse_rifle_long', file: 'pulse_rifle_long.ogg', dir: 'src/audio',
+              usedBy: ['startPulseRifleLoop()  — sustained fire loop'] },
+            { key: 'motion_tracker_beep', file: 'motion_tracker_beep.ogg', dir: 'src/audio',
+              usedBy: ['playTrackerPing({ strong })  — modes 2 & 3'] },
+            { key: 'alien_hiss', file: 'alien_hiss.mp3', dir: 'src/audio',
+              usedBy: ['playAlienHiss()'] },
+            { key: 'alien_screech', file: 'alien_screech.mp3', dir: 'src/audio',
+              usedBy: ['playAlienDeath()', 'playAlienScreech()'] },
+            { key: 'door_open_close', file: 'door_open_close.mp3', dir: 'src/audio',
+              usedBy: ['playDoorOpenClose()'] },
+            { key: 'door_weld', file: 'door_weld.mp3', dir: 'src/audio',
+              usedBy: ['playDoorWeld(true)  — looping'] },
+            { key: 'facehugger_crawl', file: 'facehugger_crawl.mp3', dir: 'src/audio',
+              usedBy: ['playFacehuggerCrawl()'] },
+            { key: 'steam_hiss', file: 'steam_hiss.mp3', dir: 'src/audio',
+              usedBy: ['playSteamHiss()'] },
+        ];
+
+        // Files on disk but NOT loaded in BootScene
+        const EXTRA_FILES = [
+            { file: 'alien_hiss.wav', dir: 'src/audio', note: 'WAV duplicate — not loaded by game' },
+            { file: 'alien_screech.wav', dir: 'src/audio', note: 'WAV duplicate — not loaded by game' },
+            { file: 'queen_hiss.wav', dir: 'src/audio', note: 'Not loaded in BootScene (unused)' },
+            { file: 'Colony.mp3', dir: 'src/music', note: 'Background music — not loaded yet' },
+        ];
+
+        // ── Procedural sound definitions ──
+        const PROCEDURAL_SOUNDS = [
+            { name: 'Pulse Rifle (procedural)', desc: 'Fallback when no sample loaded', fn: playProcPulseRifle },
+            { name: 'Shotgun', desc: 'Low boom + noise burst', fn: playProcShotgun },
+            { name: 'Pistol', desc: 'Quick snap', fn: playProcPistol },
+            { name: 'Generic Weapon', desc: 'Default weapon sound', fn: playProcGeneric },
+            { name: 'UI Click', desc: 'Short tonal beep', fn: playProcUiClick },
+            { name: 'UI Click (Strong)', desc: 'Louder tonal beep', fn: () => playProcUiClick(true) },
+            { name: 'Heartbeat', desc: 'Lub-dub at 70 BPM', fn: playProcHeartbeat },
+            { name: 'Jam Alert', desc: 'Harsh discordant alarm', fn: playProcJamAlert },
+            { name: 'Impact: Wall', desc: 'High metallic ping', fn: () => playProcImpact('wall') },
+            { name: 'Impact: Flesh/Egg', desc: 'Muffled thud', fn: () => playProcImpact('flesh') },
+            { name: 'Impact: Door', desc: 'Metallic clang', fn: () => playProcImpact('door') },
+            { name: 'Tracker Ping (Mode 1)', desc: 'Quiet ambient tap', fn: playProcTrackerMode1 },
+        ];
+
+        // ── Decode + visualize ──
+        const decodedBuffers = new Map();   // path → AudioBuffer
+        const waveformCanvases = new Map(); // path → { canvas, buffer }
+
+        // ── FX state per card ──
+        const fxState = new Map(); // path → { reverbWet, echoDelay, echoFeedback }
+        const trimState = window._trimState || (window._trimState = new Map());
+
+        // ── Per-sound gain state (dB, −24…+12, default 0) ──
+        const gainState = new Map(); // path → dB
+
+        function saveGains() {
+            const obj = {};
+            gainState.forEach((db, path) => { obj[path] = db; });
+            try { localStorage.setItem('sfx_gains', JSON.stringify(obj)); } catch {}
+        }
+        function loadGains() {
+            try {
+                const raw = localStorage.getItem('sfx_gains');
+                if (!raw) return;
+                const obj = JSON.parse(raw);
+                Object.entries(obj).forEach(([path, db]) => gainState.set(path, Number(db)));
+            } catch {}
+        }
+        function fmtDb(db) { return (db === 0 ? '0' : db.toFixed(1)) + ' dB'; }
+        function setGain(path, db) {
+            db = Math.max(-24, Math.min(12, db));
+            gainState.set(path, db);
+            saveGains();
+            // sync card vol-row
+            const card = document.querySelector(`[data-path="${path}"]`);
+            if (card) {
+                const sl = card.querySelector('.vol-slider');
+                const lb = card.querySelector('.vol-db');
+                if (sl) sl.value = db;
+                if (lb) lb.textContent = fmtDb(db);
+            }
+            // sync mixer row
+            const mixRow = document.querySelector(`[data-mixer-path="${path}"]`);
+            if (mixRow) {
+                const sl = mixRow.querySelector('.vol-mixer-slider');
+                const lb = mixRow.querySelector('.vol-mixer-db');
+                if (sl) sl.value = db;
+                if (lb) lb.textContent = fmtDb(db);
+            }
+        }
+
+        function buildImpulseResponse(ctx, duration = 2.0) {
+            const rate = ctx.sampleRate;
+            const len = Math.floor(rate * duration);
+            const ir = ctx.createBuffer(2, len, rate);
+            for (let ch = 0; ch < 2; ch++) {
+                const d = ir.getChannelData(ch);
+                for (let i = 0; i < len; i++) {
+                    d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+                }
+            }
+            return ir;
+        }
+
+        function connectWithFx(ctx, src, path) {
+            const fx = fxState.get(path) || {};
+            const reverbWet = (fx.reverbWet || 0) / 100;
+            const echoDelay = (fx.echoDelay || 0) / 1000;
+            const echoFeedback = Math.min(0.9, fx.echoFeedback || 0);
+            // per-sound gain node — always present so volume adjustments apply
+            const perGain = ctx.createGain();
+            perGain.gain.value = Math.pow(10, (gainState.get(path) || 0) / 20);
+            src.connect(perGain);
+            if (reverbWet <= 0 && echoDelay <= 0) { perGain.connect(masterGain); return; }
+            const dryGain = ctx.createGain();
+            dryGain.gain.value = reverbWet > 0 ? (1 - reverbWet) : 1;
+            perGain.connect(dryGain);
+            dryGain.connect(masterGain);
+            if (reverbWet > 0) {
+                const convolver = ctx.createConvolver();
+                convolver.buffer = buildImpulseResponse(ctx);
+                const wetGain = ctx.createGain();
+                wetGain.gain.value = reverbWet;
+                perGain.connect(convolver);
+                convolver.connect(wetGain);
+                wetGain.connect(masterGain);
+            }
+            if (echoDelay > 0) {
+                const delayNode = ctx.createDelay(2.0);
+                delayNode.delayTime.value = echoDelay;
+                const feedbackGain = ctx.createGain();
+                feedbackGain.gain.value = echoFeedback;
+                perGain.connect(delayNode);
+                delayNode.connect(feedbackGain);
+                feedbackGain.connect(delayNode);
+                feedbackGain.connect(masterGain);
+            }
+        }
+
+        function encodeWAV(audioBuf) {
+            const numCh = audioBuf.numberOfChannels;
+            const rate = audioBuf.sampleRate;
+            const len = audioBuf.length;
+            const dataLen = len * numCh * 2;
+            const ab = new ArrayBuffer(44 + dataLen);
+            const v = new DataView(ab);
+            const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+            ws(0, 'RIFF'); v.setUint32(4, 36 + dataLen, true);
+            ws(8, 'WAVE'); ws(12, 'fmt ');
+            v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+            v.setUint16(22, numCh, true); v.setUint32(24, rate, true);
+            v.setUint32(28, rate * numCh * 2, true); v.setUint16(32, numCh * 2, true);
+            v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, dataLen, true);
+            let offset = 44;
+            for (let i = 0; i < len; i++) {
+                for (let ch = 0; ch < numCh; ch++) {
+                    const s = Math.max(-1, Math.min(1, audioBuf.getChannelData(ch)[i]));
+                    v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    offset += 2;
+                }
+            }
+            return ab;
+        }
+
+        async function exportTrimmed(path, cardEl) {
+            const buf = decodedBuffers.get(path);
+            if (!buf) { showToast('No decoded buffer for ' + path, true); return; }
+            const ts = trimState.get(path) || {};
+            const trimStart = ts.trimStart ?? 0;
+            const trimEnd = ts.trimEnd ?? 1;
+            const fadeInMs = ts.fadeIn ?? 0;
+            const fadeOutMs = ts.fadeOut ?? 0;
+            const startSample = Math.floor(trimStart * buf.length);
+            const endSample = Math.floor(trimEnd * buf.length);
+            const length = Math.max(1, endSample - startSample);
+            const ctx = getCtx();
+            const trimmed = ctx.createBuffer(buf.numberOfChannels, length, buf.sampleRate);
+            const fadeInSmp = Math.floor((fadeInMs / 1000) * buf.sampleRate);
+            const fadeOutSmp = Math.floor((fadeOutMs / 1000) * buf.sampleRate);
+            for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+                const samples = new Float32Array(length);
+                buf.copyFromChannel(samples, ch, startSample);
+                for (let i = 0; i < Math.min(fadeInSmp, length); i++) samples[i] *= fadeInSmp > 0 ? i / fadeInSmp : 1;
+                for (let i = 0; i < Math.min(fadeOutSmp, length); i++) samples[length - 1 - i] *= fadeOutSmp > 0 ? i / fadeOutSmp : 1;
+                trimmed.copyToChannel(samples, ch, 0);
+            }
+            const wavBuf = encodeWAV(trimmed);
+            const bytes = new Uint8Array(wavBuf);
+            let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            const b64 = btoa(bin);
+            const statusEl = cardEl.querySelector('.export-status');
+            if (statusEl) { statusEl.textContent = 'Saving…'; statusEl.classList.add('show'); statusEl.classList.remove('error'); }
+            try {
+                const resp = await fetch('/api/save-sound', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: '/' + path, data: b64 }),
+                });
+                const json = await resp.json();
+                if (!json.ok) throw new Error(json.error || 'Save failed');
+                if (statusEl) statusEl.textContent = 'Saved!';
+                setTimeout(() => { if (statusEl) statusEl.classList.remove('show'); }, 3000);
+            } catch (e) {
+                if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.classList.add('error'); }
+                setTimeout(() => { if (statusEl) statusEl.classList.remove('show', 'error'); }, 4000);
+            }
+        }
+
+        async function decodeFile(path) {
+            if (decodedBuffers.has(path)) return decodedBuffers.get(path);
+            const resp = await fetch('/' + path + '?t=' + Date.now());
+            if (!resp.ok) return null;
+            const arrayBuf = await resp.arrayBuffer();
+            const ctx = getCtx();
+            try {
+                const audioBuf = await ctx.decodeAudioData(arrayBuf);
+                decodedBuffers.set(path, audioBuf);
+                return audioBuf;
+            } catch (e) {
+                console.warn('Failed to decode', path, e);
+                return null;
+            }
+        }
+
+        function drawWaveform(canvas, audioBuf) {
+            const ctx2d = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth * 2;
+            const h = canvas.height = canvas.offsetHeight * 2;
+            ctx2d.clearRect(0, 0, w, h);
+
+            if (!audioBuf) {
+                ctx2d.fillStyle = '#2a1515';
+                ctx2d.fillRect(0, 0, w, h);
+                ctx2d.fillStyle = '#ff4444';
+                ctx2d.font = '22px sans-serif';
+                ctx2d.textAlign = 'center';
+                ctx2d.fillText('Failed to decode', w / 2, h / 2 + 6);
+                return;
+            }
+
+            const data = audioBuf.getChannelData(0);
+            const step = Math.max(1, Math.floor(data.length / (w / 2)));
+            const mid = h / 2;
+
+            // Draw zero line
+            ctx2d.strokeStyle = '#1a3a52';
+            ctx2d.lineWidth = 1;
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, mid);
+            ctx2d.lineTo(w, mid);
+            ctx2d.stroke();
+
+            // Draw waveform
+            ctx2d.strokeStyle = '#4aa4d8';
+            ctx2d.lineWidth = 1.5;
+            ctx2d.beginPath();
+            for (let x = 0; x < w / 2; x++) {
+                const idx = Math.min(x * step, data.length - 1);
+                // Get min/max in this bucket
+                let mn = 1, mx = -1;
+                for (let j = 0; j < step && idx + j < data.length; j++) {
+                    const v = data[idx + j];
+                    if (v < mn) mn = v;
+                    if (v > mx) mx = v;
+                }
+                const y1 = mid - mx * mid * 0.9;
+                const y2 = mid - mn * mid * 0.9;
+                ctx2d.moveTo(x * 2, y1);
+                ctx2d.lineTo(x * 2, y2);
+            }
+            ctx2d.stroke();
+
+            // RMS overlay (lighter fill)
+            ctx2d.fillStyle = 'rgba(74, 164, 216, 0.1)';
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, mid);
+            for (let x = 0; x < w / 2; x++) {
+                const idx = Math.min(x * step, data.length - 1);
+                let sum = 0, count = 0;
+                for (let j = 0; j < step && idx + j < data.length; j++) {
+                    sum += data[idx + j] * data[idx + j];
+                    count++;
+                }
+                const rms = Math.sqrt(sum / Math.max(1, count));
+                ctx2d.lineTo(x * 2, mid - rms * mid * 0.85);
+            }
+            for (let x = w / 2 - 1; x >= 0; x--) {
+                const idx = Math.min(x * step, data.length - 1);
+                let sum = 0, count = 0;
+                for (let j = 0; j < step && idx + j < data.length; j++) {
+                    sum += data[idx + j] * data[idx + j];
+                    count++;
+                }
+                const rms = Math.sqrt(sum / Math.max(1, count));
+                ctx2d.lineTo(x * 2, mid + rms * mid * 0.85);
+            }
+            ctx2d.closePath();
+            ctx2d.fill();
+        }
+
+        // ── Play / stop sample ──
+        function stopCurrent() {
+            if (currentSource) {
+                try { currentSource.stop(); } catch {}
+                currentSource = null;
+            }
+            if (currentCard) {
+                const btn = currentCard.querySelector('.btn-play');
+                if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); }
+                const ph = currentCard.querySelector('.waveform-playhead');
+                if (ph) ph.style.display = 'none';
+                currentCard = null;
+            }
+            cancelAnimationFrame(playheadRAF);
+        }
+
+        function playSample(path, cardEl) {
+            stopCurrent();
+            wsLoad(path, cardEl?.querySelector('.card-name')?.textContent);
+            const buf = decodedBuffers.get(path);
+            if (!buf) { showToast('No decoded buffer for ' + path, true); return; }
+
+            const ctx = getCtx();
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            connectWithFx(ctx, src, path);
+            src.start();
+            currentSource = src;
+            currentCard = cardEl;
+
+            const btn = cardEl.querySelector('.btn-play');
+            if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+
+            const ph = cardEl.querySelector('.waveform-playhead');
+            const wrap = cardEl.querySelector('.waveform-wrap');
+            if (ph && wrap) {
+                ph.style.display = 'block';
+                const startTime = ctx.currentTime;
+                const dur = buf.duration;
+                function tick() {
+                    const elapsed = ctx.currentTime - startTime;
+                    const frac = Math.min(elapsed / dur, 1);
+                    ph.style.left = (frac * 100) + '%';
+                    if (frac < 1 && currentSource === src) {
+                        playheadRAF = requestAnimationFrame(tick);
+                    } else {
+                        ph.style.display = 'none';
+                    }
+                }
+                tick();
+            }
+
+            src.onended = () => {
+                if (currentSource === src) stopCurrent();
+            };
+        }
+
+        // ── Upload replacement ──
+        async function uploadReplacement(path, file) {
+            try {
+                const resp = await fetch('/api/audio-upload?target=' + encodeURIComponent(path), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: file,
+                });
+                const json = await resp.json();
+                if (!json.ok) throw new Error(json.error || 'Upload failed');
+                showToast('Replaced ' + path + ' (' + fmtSize(file.size) + ')');
+                // Re-decode and redraw
+                decodedBuffers.delete(path);
+                const buf = await decodeFile(path);
+                const cardEl = document.querySelector(`[data-path="${path}"]`);
+                if (cardEl && buf) {
+                    const canvas = cardEl.querySelector('canvas');
+                    if (canvas) drawWaveform(canvas, buf);
+                    const durEl = cardEl.querySelector('.dur-val');
+                    if (durEl) durEl.textContent = fmtDur(buf.duration);
+                }
+                // Re-fetch file size
+                try {
+                    const head = await fetch('/' + path, { method: 'HEAD' });
+                    const sizeEl = cardEl?.querySelector('.size-val');
+                    const cl = head.headers.get('Content-Length');
+                    if (sizeEl && cl) sizeEl.textContent = fmtSize(parseInt(cl));
+                } catch {}
+                return true;
+            } catch (e) {
+                showToast('Upload failed: ' + e.message, true);
+                return false;
+            }
+        }
+
+        // ── Build sample cards ──
+        async function buildSampleCards() {
+            const container = document.getElementById('sampleList');
+            container.innerHTML = '';
+
+            // Section: Loaded samples
+            const h2a = document.createElement('h2');
+            h2a.className = 'section-title';
+            h2a.textContent = 'Game Audio Samples (loaded by BootScene)';
+            container.appendChild(h2a);
+
+            let totalBytes = 0;
+
+            for (const meta of SAMPLE_META) {
+                const path = meta.dir + '/' + meta.file;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.path = path;
+
+                // Fetch file size
+                let fileSize = 0;
+                try {
+                    const head = await fetch('/' + path, { method: 'HEAD' });
+                    const cl = head.headers.get('Content-Length');
+                    if (cl) fileSize = parseInt(cl);
+                } catch {}
+                totalBytes += fileSize;
+
+                // Decode
+                const audioBuf = await decodeFile(path);
+
+                card.innerHTML = `
+                    <div class="card-head">
+                        <span class="card-name">${meta.file}</span>
+                        <span class="card-key">${meta.key}</span>
+                    </div>
+                    <div class="card-meta">
+                        <span>Size: <strong class="size-val">${fmtSize(fileSize)}</strong></span>
+                        <span>Duration: <strong class="dur-val">${fmtDur(audioBuf?.duration)}</strong></span>
+                        <span>Channels: <strong>${audioBuf?.numberOfChannels ?? '—'}</strong></span>
+                        <span>Sample rate: <strong>${audioBuf?.sampleRate ? audioBuf.sampleRate + ' Hz' : '—'}</strong></span>
+                        <span class="used-by">Used by: ${meta.usedBy.map(u => '<code>' + u + '</code>').join(', ')}</span>
+                    </div>
+                    <div class="waveform-wrap-outer"><div class="waveform-wrap">
+                        <canvas></canvas>
+                        <div class="waveform-playhead"></div>
+                        <div class="waveform-time">${fmtDur(audioBuf?.duration)}</div>
+                    </div></div>
+                    <div class="vol-row">
+                        <span class="vol-label">Vol</span>
+                        <input type="range" class="vol-slider" min="-24" max="12" step="0.5" value="0">
+                        <span class="vol-db">0 dB</span>
+                        <button class="btn-vol-reset" title="Reset to 0 dB">↺</button>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-play">▶ Play</button>
+                        <button class="btn btn-upload">⬆ Replace File</button>
+                        <input type="file" class="upload-input" accept="audio/*" />
+                        <span class="upload-status"></span>
+                    </div>
+                    <div class="fx-section">
+                        <button class="btn fx-toggle" type="button"><span>⚙ FX</span><span class="fx-arrow">▶</span></button>
+                        <div class="fx-body" style="display:none;">
+                            <div class="fx-grid">
+                                <div class="fx-row"><label class="fx-label">Reverb (wet %)</label><input type="number" class="fx-input fx-reverb" min="0" max="100" step="1" value="0"></div>
+                                <div class="fx-row"><label class="fx-label">Echo delay (ms)</label><input type="number" class="fx-input fx-echo-delay" min="0" max="2000" step="10" value="0"></div>
+                                <div class="fx-row"><label class="fx-label">Echo feedback</label><input type="number" class="fx-input fx-echo-fb" min="0" max="0.9" step="0.05" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="trim-section" style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid var(--panel-2);">
+                        <div style="margin-bottom: 8px;"><strong style="color:var(--accent);">Trim & Fade</strong></div>
+                        <div class="fx-grid">
+                            <div class="fx-row"><label class="fx-label">Start (0-1)</label><input type="number" class="fx-input trim-start" min="0" max="0.99" step="0.01" value="0"></div>
+                            <div class="fx-row"><label class="fx-label">End (0-1)</label><input type="number" class="fx-input trim-end" min="0.01" max="1" step="0.01" value="1"></div>
+                            <div class="fx-row"><label class="fx-label">Fade In (ms)</label><input type="number" class="fx-input trim-fadein" min="0" max="5000" step="10" value="0"></div>
+                            <div class="fx-row"><label class="fx-label">Fade Out (ms)</label><input type="number" class="fx-input trim-fadeout" min="0" max="5000" step="10" value="0"></div>
+                        </div>
+                    </div>
+                    <div class="btn-row" style="margin-top:6px;">
+                        <button class="btn btn-export" type="button">💾 Export Trimmed</button>
+                        <span class="export-status"></span>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                // Draw waveform
+                const canvas = card.querySelector('canvas');
+                drawWaveform(canvas, audioBuf);
+
+                // Play button
+                card.querySelector('.btn-play').addEventListener('click', () => {
+                    if (currentCard === card) { stopCurrent(); return; }
+                    playSample(path, card);
+                });
+
+                // Waveform click-to-seek
+                card.querySelector('.waveform-wrap').addEventListener('click', (e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const frac = (e.clientX - rect.left) / rect.width;
+                    const buf = decodedBuffers.get(path);
+                    if (!buf) return;
+                    stopCurrent();
+                    const ctx = getCtx();
+                    const src = ctx.createBufferSource();
+                    src.buffer = buf;
+                    connectWithFx(ctx, src, path);
+                    src.start(0, frac * buf.duration);
+                    currentSource = src;
+                    currentCard = card;
+                    const btn = card.querySelector('.btn-play');
+                    if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+                    const ph = card.querySelector('.waveform-playhead');
+                    if (ph) {
+                        ph.style.display = 'block';
+                        const startTime = ctx.currentTime;
+                        const dur = buf.duration * (1 - frac);
+                        function tick() {
+                            const elapsed = ctx.currentTime - startTime;
+                            const pct = frac + (elapsed / buf.duration);
+                            ph.style.left = (Math.min(pct, 1) * 100) + '%';
+                            if (pct < 1 && currentSource === src) {
+                                playheadRAF = requestAnimationFrame(tick);
+                            } else {
+                                ph.style.display = 'none';
+                            }
+                        }
+                        tick();
+                    }
+                    src.onended = () => { if (currentSource === src) stopCurrent(); };
+                });
+
+                // Upload button
+                const uploadBtn = card.querySelector('.btn-upload');
+                const fileInput = card.querySelector('.upload-input');
+                const uploadStatus = card.querySelector('.upload-status');
+                uploadBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', async () => {
+                    const file = fileInput.files[0];
+                    if (!file) return;
+                    uploadBtn.disabled = true;
+                    uploadBtn.textContent = '⬆ Uploading…';
+                    const ok = await uploadReplacement(path, file);
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '⬆ Replace File';
+                    if (ok) {
+                        uploadStatus.textContent = '✓ Replaced with ' + file.name;
+                        uploadStatus.classList.add('show');
+                        setTimeout(() => uploadStatus.classList.remove('show'), 4000);
+                    }
+                    fileInput.value = '';
+                });
+
+                // FX + Export
+                fxState.set(path, fxState.get(path) || { reverbWet: 0, echoDelay: 0, echoFeedback: 0 });
+                const fxToggle = card.querySelector('.fx-toggle');
+                const fxBody = card.querySelector('.fx-body');
+                const fxArrow = card.querySelector('.fx-arrow');
+                fxToggle.addEventListener('click', () => {
+                    const open = fxBody.style.display !== 'none';
+                    fxBody.style.display = open ? 'none' : 'block';
+                    fxArrow.textContent = open ? '▶' : '▼';
+                });
+                card.querySelector('.fx-reverb').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), reverbWet: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.fx-echo-delay').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), echoDelay: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.fx-echo-fb').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), echoFeedback: parseFloat(e.target.value) || 0 });
+                });                
+
+                const vStart = card.querySelector('.trim-start');
+                const vEnd = card.querySelector('.trim-end');
+                const vFadeIn = card.querySelector('.trim-fadein');
+                const vFadeOut = card.querySelector('.trim-fadeout');
+                if (vStart) vStart.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), trimStart: parseFloat(e.target.value) || 0 });
+                });
+                if (vEnd) vEnd.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), trimEnd: parseFloat(e.target.value) || 1 });
+                });
+                if (vFadeIn) vFadeIn.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), fadeIn: parseFloat(e.target.value) || 0 });
+                });
+                if (vFadeOut) vFadeOut.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), fadeOut: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.btn-export').addEventListener('click', () => exportTrimmed(path, card));
+
+                // vol-row wiring
+                const vSl = card.querySelector('.vol-slider');
+                const vDb = card.querySelector('.vol-db');
+                const vReset = card.querySelector('.btn-vol-reset');
+                const initDb = gainState.get(path) || 0;
+                if (vSl) vSl.value = initDb;
+                if (vDb) vDb.textContent = fmtDb(initDb);
+                if (vSl) vSl.addEventListener('input', e => setGain(path, parseFloat(e.target.value)));
+                if (vReset) vReset.addEventListener('click', () => setGain(path, 0));
+            }
+
+            // Section: Extra files
+            const h2b = document.createElement('h2');
+            h2b.className = 'section-title';
+            h2b.textContent = 'Other Audio Files (not loaded by game)';
+            container.appendChild(h2b);
+
+            for (const extra of EXTRA_FILES) {
+                const path = extra.dir + '/' + extra.file;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.path = path;
+
+                let fileSize = 0;
+                try {
+                    const head = await fetch('/' + path, { method: 'HEAD' });
+                    const cl = head.headers.get('Content-Length');
+                    if (cl) fileSize = parseInt(cl);
+                } catch {}
+                totalBytes += fileSize;
+
+                const audioBuf = await decodeFile(path);
+
+                card.innerHTML = `
+                    <div class="card-head">
+                        <span class="card-name">${extra.file}</span>
+                        <span class="card-key" style="color: var(--warn);">${extra.note}</span>
+                    </div>
+                    <div class="card-meta">
+                        <span>Size: <strong class="size-val">${fmtSize(fileSize)}</strong></span>
+                        <span>Duration: <strong class="dur-val">${fmtDur(audioBuf?.duration)}</strong></span>
+                        <span>Channels: <strong>${audioBuf?.numberOfChannels ?? '—'}</strong></span>
+                        <span>Sample rate: <strong>${audioBuf?.sampleRate ? audioBuf.sampleRate + ' Hz' : '—'}</strong></span>
+                    </div>
+                    <div class="waveform-wrap-outer"><div class="waveform-wrap">
+                        <canvas></canvas>
+                        <div class="waveform-playhead"></div>
+                        <div class="waveform-time">${fmtDur(audioBuf?.duration)}</div>
+                    </div></div>
+                    <div class="vol-row">
+                        <span class="vol-label">Vol</span>
+                        <input type="range" class="vol-slider" min="-24" max="12" step="0.5" value="0">
+                        <span class="vol-db">0 dB</span>
+                        <button class="btn-vol-reset" title="Reset to 0 dB">↺</button>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-play">▶ Play</button>
+                        <button class="btn btn-upload">⬆ Replace File</button>
+                        <input type="file" class="upload-input" accept="audio/*" />
+                        <span class="upload-status"></span>
+                    </div>
+                    <div class="fx-section">
+                        <button class="btn fx-toggle" type="button"><span>⚙ FX</span><span class="fx-arrow">▶</span></button>
+                        <div class="fx-body" style="display:none;">
+                            <div class="fx-grid">
+                                <div class="fx-row"><label class="fx-label">Reverb (wet %)</label><input type="number" class="fx-input fx-reverb" min="0" max="100" step="1" value="0"></div>
+                                <div class="fx-row"><label class="fx-label">Echo delay (ms)</label><input type="number" class="fx-input fx-echo-delay" min="0" max="2000" step="10" value="0"></div>
+                                <div class="fx-row"><label class="fx-label">Echo feedback</label><input type="number" class="fx-input fx-echo-fb" min="0" max="0.9" step="0.05" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="trim-section" style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid var(--panel-2);">
+                        <div style="margin-bottom: 8px;"><strong style="color:var(--accent);">Trim & Fade</strong></div>
+                        <div class="fx-grid">
+                            <div class="fx-row"><label class="fx-label">Start (0-1)</label><input type="number" class="fx-input trim-start" min="0" max="0.99" step="0.01" value="0"></div>
+                            <div class="fx-row"><label class="fx-label">End (0-1)</label><input type="number" class="fx-input trim-end" min="0.01" max="1" step="0.01" value="1"></div>
+                            <div class="fx-row"><label class="fx-label">Fade In (ms)</label><input type="number" class="fx-input trim-fadein" min="0" max="5000" step="10" value="0"></div>
+                            <div class="fx-row"><label class="fx-label">Fade Out (ms)</label><input type="number" class="fx-input trim-fadeout" min="0" max="5000" step="10" value="0"></div>
+                        </div>
+                    </div>
+                    <div class="btn-row" style="margin-top:6px;">
+                        <button class="btn btn-export" type="button">💾 Export Trimmed</button>
+                        <span class="export-status"></span>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                const canvas = card.querySelector('canvas');
+                drawWaveform(canvas, audioBuf);
+
+                card.querySelector('.btn-play').addEventListener('click', () => {
+                    if (currentCard === card) { stopCurrent(); return; }
+                    playSample(path, card);
+                });
+
+                card.querySelector('.waveform-wrap').addEventListener('click', (e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const frac = (e.clientX - rect.left) / rect.width;
+                    const buf = decodedBuffers.get(path);
+                    if (!buf) return;
+                    stopCurrent();
+                    const ctx = getCtx();
+                    const src = ctx.createBufferSource();
+                    src.buffer = buf;
+                    connectWithFx(ctx, src, path);
+                    src.start(0, frac * buf.duration);
+                    currentSource = src;
+                    currentCard = card;
+                    const btn = card.querySelector('.btn-play');
+                    if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+                    src.onended = () => { if (currentSource === src) stopCurrent(); };
+                });
+
+                const uploadBtn = card.querySelector('.btn-upload');
+                const fileInput = card.querySelector('.upload-input');
+                const uploadStatus = card.querySelector('.upload-status');
+                uploadBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', async () => {
+                    const file = fileInput.files[0];
+                    if (!file) return;
+                    uploadBtn.disabled = true;
+                    uploadBtn.textContent = '⬆ Uploading…';
+                    const ok = await uploadReplacement(path, file);
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '⬆ Replace File';
+                    if (ok) {
+                        uploadStatus.textContent = '✓ Replaced with ' + file.name;
+                        uploadStatus.classList.add('show');
+                        setTimeout(() => uploadStatus.classList.remove('show'), 4000);
+                    }
+                    fileInput.value = '';
+                });
+
+                // FX + Export
+                fxState.set(path, fxState.get(path) || { reverbWet: 0, echoDelay: 0, echoFeedback: 0 });
+                const fxToggle2 = card.querySelector('.fx-toggle');
+                const fxBody2 = card.querySelector('.fx-body');
+                const fxArrow2 = card.querySelector('.fx-arrow');
+                fxToggle2.addEventListener('click', () => {
+                    const open = fxBody2.style.display !== 'none';
+                    fxBody2.style.display = open ? 'none' : 'block';
+                    fxArrow2.textContent = open ? '▶' : '▼';
+                });
+                card.querySelector('.fx-reverb').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), reverbWet: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.fx-echo-delay').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), echoDelay: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.fx-echo-fb').addEventListener('input', e => {
+                    fxState.set(path, { ...(fxState.get(path) || {}), echoFeedback: parseFloat(e.target.value) || 0 });
+                });                
+
+                const vStart = card.querySelector('.trim-start');
+                const vEnd = card.querySelector('.trim-end');
+                const vFadeIn = card.querySelector('.trim-fadein');
+                const vFadeOut = card.querySelector('.trim-fadeout');
+                if (vStart) vStart.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), trimStart: parseFloat(e.target.value) || 0 });
+                });
+                if (vEnd) vEnd.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), trimEnd: parseFloat(e.target.value) || 1 });
+                });
+                if (vFadeIn) vFadeIn.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), fadeIn: parseFloat(e.target.value) || 0 });
+                });
+                if (vFadeOut) vFadeOut.addEventListener('input', e => {
+                    trimState.set(path, { ...(trimState.get(path) || {}), fadeOut: parseFloat(e.target.value) || 0 });
+                });
+                card.querySelector('.btn-export').addEventListener('click', () => exportTrimmed(path, card));
+
+                // vol-row wiring
+                const vSl2 = card.querySelector('.vol-slider');
+                const vDb2 = card.querySelector('.vol-db');
+                const vReset2 = card.querySelector('.btn-vol-reset');
+                const initDb2 = gainState.get(path) || 0;
+                if (vSl2) vSl2.value = initDb2;
+                if (vDb2) vDb2.textContent = fmtDb(initDb2);
+                if (vSl2) vSl2.addEventListener('input', e => setGain(path, parseFloat(e.target.value)));
+                if (vReset2) vReset2.addEventListener('click', () => setGain(path, 0));
+            }
+
+            // Update counters
+            document.getElementById('sampleCount').textContent = SAMPLE_META.length + EXTRA_FILES.length;
+            document.getElementById('totalSize').textContent = fmtSize(totalBytes);
+        }
+
+        // ── Volume Mixer ──
+        function buildVolumeMixer() {
+            const body = document.getElementById('volMixerBody');
+            if (!body) return;
+            body.innerHTML = '';
+            const allSounds = [
+                ...SAMPLE_META.map(m => ({ path: m.dir + '/' + m.file, name: m.file, group: 'Game Samples' })),
+                ...EXTRA_FILES.map(e => ({ path: e.dir + '/' + e.file, name: e.file, group: 'Other Files' })),
+            ];
+            let lastGroup = null;
+            for (const s of allSounds) {
+                if (s.group !== lastGroup) {
+                    const hdr = document.createElement('div');
+                    hdr.className = 'vol-mixer-section';
+                    hdr.textContent = s.group;
+                    body.appendChild(hdr);
+                    lastGroup = s.group;
+                }
+                const db = gainState.get(s.path) || 0;
+                const row = document.createElement('div');
+                row.className = 'vol-mixer-row';
+                row.dataset.mixerPath = s.path;
+                row.innerHTML = `
+                    <span class="vol-mixer-name" title="${s.path}">${s.name}</span>
+                    <input type="range" class="vol-mixer-slider" min="-24" max="12" step="0.5" value="${db}">
+                    <span class="vol-mixer-db">${fmtDb(db)}</span>
+                    <button class="vol-mixer-reset" title="Reset to 0 dB">↺</button>
+                `;
+                row.querySelector('.vol-mixer-slider').addEventListener('input', e => {
+                    setGain(s.path, parseFloat(e.target.value));
+                });
+                row.querySelector('.vol-mixer-reset').addEventListener('click', () => setGain(s.path, 0));
+                body.appendChild(row);
+            }
+            // toggle open/close
+            const toggle = document.getElementById('volMixerToggle');
+            const arrow = document.getElementById('volMixerArrow');
+            if (toggle) toggle.onclick = () => {
+                const open = body.style.display !== 'none';
+                body.style.display = open ? 'none' : 'block';
+                if (arrow) arrow.textContent = open ? '▶ expand' : '▼ collapse';
+            };
+        }
+
+        // ── Procedural tone helpers (standalone, no Phaser needed) ──
+        function createTone(freq, type, at, duration, gain = 0.1, detune = 0) {
+            const ctx = getCtx();
+            const osc = ctx.createOscillator();
+            const amp = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(Math.max(20, freq), at);
+            if (detune) osc.detune.setValueAtTime(detune, at);
+            amp.gain.setValueAtTime(0.0001, at);
+            amp.gain.linearRampToValueAtTime(gain, at + 0.01);
+            amp.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.04, duration));
+            osc.connect(amp);
+            amp.connect(masterGain);
+            osc.start(at);
+            osc.stop(at + Math.max(0.05, duration + 0.04));
+        }
+
+        function createNoise(at, duration, gain = 0.12, highpass = 480, lowpass = 5000) {
+            const ctx = getCtx();
+            const src = ctx.createBufferSource();
+            src.buffer = noiseBuffer;
+            const hp = ctx.createBiquadFilter();
+            hp.type = 'highpass';
+            hp.frequency.setValueAtTime(highpass, at);
+            const lp = ctx.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.setValueAtTime(lowpass, at);
+            const amp = ctx.createGain();
+            amp.gain.setValueAtTime(0.0001, at);
+            amp.gain.linearRampToValueAtTime(gain, at + 0.004);
+            amp.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.03, duration));
+            src.connect(hp);
+            hp.connect(lp);
+            lp.connect(amp);
+            amp.connect(masterGain);
+            src.start(at);
+            src.stop(at + Math.max(0.04, duration + 0.02));
+        }
+
+        function playProcPulseRifle() {
+            const t = getCtx().currentTime;
+            createNoise(t, 0.11, 0.15, 420, 3600);
+            createTone(168, 'square', t, 0.1, 0.11);
+            createTone(245, 'triangle', t + 0.008, 0.09, 0.06, -5);
+        }
+        function playProcShotgun() {
+            const t = getCtx().currentTime;
+            createNoise(t, 0.2, 0.24, 220, 2600);
+            createTone(92, 'sawtooth', t, 0.2, 0.18);
+            createTone(140, 'triangle', t + 0.01, 0.16, 0.1, -7);
+        }
+        function playProcPistol() {
+            const t = getCtx().currentTime;
+            createNoise(t, 0.08, 0.1, 520, 4200);
+            createTone(220, 'square', t, 0.07, 0.1);
+            createTone(320, 'triangle', t + 0.006, 0.06, 0.06);
+        }
+        function playProcGeneric() {
+            const t = getCtx().currentTime;
+            createNoise(t, 0.11, 0.15, 420, 3600);
+            createTone(168, 'square', t, 0.1, 0.11);
+            createTone(245, 'triangle', t + 0.008, 0.09, 0.06, -5);
+        }
+        function playProcUiClick(strong = false) {
+            const t = getCtx().currentTime;
+            createTone(strong ? 720 : 640, 'square', t, strong ? 0.06 : 0.05, strong ? 0.06 : 0.05);
+            createTone(strong ? 980 : 860, 'triangle', t + 0.012, 0.05, 0.04);
+        }
+        function playProcHeartbeat() {
+            const t = getCtx().currentTime;
+            createTone(60, 'sine', t, 0.12, 0.15);
+            createTone(40, 'sine', t + 0.01, 0.15, 0.1);
+            createTone(55, 'sine', t + 0.18, 0.14, 0.12);
+            createTone(35, 'sine', t + 0.19, 0.18, 0.08);
+        }
+        function playProcJamAlert() {
+            const t = getCtx().currentTime;
+            createTone(1800, 'square', t, 0.08, 0.06);
+            createTone(1950, 'square', t + 0.04, 0.08, 0.06);
+            createTone(1650, 'square', t + 0.08, 0.12, 0.05);
+        }
+        function playProcImpact(profile = 'wall') {
+            const t = getCtx().currentTime;
+            if (profile === 'flesh' || profile === 'egg') {
+                createNoise(t, 0.06, 0.08, 120, 900);
+                createTone(88, 'triangle', t, 0.09, 0.07);
+                return;
+            }
+            if (profile === 'door') {
+                createNoise(t, 0.08, 0.1, 800, 6200);
+                createTone(420, 'triangle', t, 0.08, 0.05);
+                createTone(260, 'sine', t + 0.016, 0.14, 0.04);
+                return;
+            }
+            createNoise(t, 0.06, 0.09, 1000, 7000);
+            createTone(520, 'triangle', t, 0.06, 0.04);
+        }
+        function playProcTrackerMode1() {
+            const t = getCtx().currentTime;
+            createTone(120, 'sine', t, 0.02, 0.04);
+            createNoise(t, 0.01, 0.03, 1000, 3000);
+        }
+
+        // ── Build procedural cards ──
+        function buildProceduralCards() {
+            const container = document.getElementById('procList');
+            for (const snd of PROCEDURAL_SOUNDS) {
+                const card = document.createElement('div');
+                card.className = 'proc-card';
+                card.innerHTML = `
+                    <div>
+                        <div class="proc-name">${snd.name}</div>
+                        <div class="proc-desc">${snd.desc}</div>
+                    </div>
+                    <button class="btn">▶ Play</button>
+                `;
+                card.querySelector('.btn').addEventListener('click', () => {
+                    snd.fn();
+                });
+                container.appendChild(card);
+            }
+        }
+
+        // ── Init ──
+        initWaveSurfer();
+        loadGains();
+        buildProceduralCards();
+        buildSampleCards().then(() => buildVolumeMixer());
+
+        // Handle window resize for waveform redraw
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                document.querySelectorAll('.card').forEach(card => {
+                    const path = card.dataset.path;
+                    const buf = decodedBuffers.get(path);
+                    const canvas = card.querySelector('canvas');
+                    if (canvas && buf) drawWaveform(canvas, buf);
+                });
+            }, 200);
+        });
+    </script>
+</body>
+</html>

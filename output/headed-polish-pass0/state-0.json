@@ -1,0 +1,13 @@
+{
+  "hasGame": false,
+  "cam": {
+    "x": 0,
+    "y": 0
+  },
+  "acidHazards": 0,
+  "enemies": null,
+  "doorGroups": null,
+  "closedDoors": null,
+  "weldedDoors": null,
+  "destroyedDoors": null
+}

@@ -1,0 +1,569 @@
+#!/usr/bin/env node
+/**
+ * play_bot.mjs — Automated game-playing bot for detecting runtime issues.
+ *
+ * Launches Phaser game via Playwright, controls the game through direct API
+ * manipulation (window.__ALIENS_DEBUG_SCENE__), avoiding mouse events that
+ * can hang in headless mode.
+ *
+ * Usage:
+ *   node scripts/play_bot.mjs [mission] [headed]
+ *   node scripts/play_bot.mjs m1          # headless m1
+ *   node scripts/play_bot.mjs m3 headed   # headed m3
+ *   node scripts/play_bot.mjs all         # run all missions sequentially
+ */
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+
+/* ── CLI args ─────────────────────────────────────────────────── */
+const missionArg = process.argv[2] || 'm1';
+const headed = process.argv.includes('headed');
+const missions = missionArg === 'all' ? ['m1', 'm2', 'm3', 'm4', 'm5'] : [missionArg];
+
+/* ── Constants ────────────────────────────────────────────────── */
+const TICK_MS = 500;           // decision loop interval
+const MAX_GAME_TIME_S = 180;   // max seconds per mission before timeout
+const STUCK_THRESHOLD_MS = 5000;
+const HEALTH_LOG_INTERVAL = 5000;
+const BASE_URL = 'http://127.0.0.1:8192';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function dist(x1, y1, x2, y2) {
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+}
+
+/* ── Timeout wrapper ──────────────────────────────────────────── */
+function withTimeout(promise, ms) {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), ms); }),
+    ]).finally(() => clearTimeout(timer));
+}
+
+/* ── Main bot runner ──────────────────────────────────────────── */
+async function runMission(mission) {
+    const log = [];
+    let consoleErrors = [];
+    let pageErrors = [];
+    const healthTimeline = [];
+    const combatLog = [];
+
+    const url = `${BASE_URL}/game?mission=${mission}&renderer=canvas`;
+    const botLogFile = new URL(`../output/bot-${mission}.log`, import.meta.url).pathname;
+    fs.mkdirSync(new URL('../output/', import.meta.url).pathname, { recursive: true });
+    fs.writeFileSync(botLogFile, '');
+    const logEntry = (type, msg) => {
+        log.push({ t: Date.now(), type, msg });
+        try { fs.appendFileSync(botLogFile, `[${mission}][${type}] ${msg}\n`); }
+        catch (e) { console.error('Log write failed:', e.message); }
+    };
+
+    logEntry('INFO', `Starting mission ${mission} (${headed ? 'headed' : 'headless'})`);
+
+    const browser = await chromium.launch({
+        headless: !headed,
+        args: ['--disable-gpu', '--no-sandbox'],
+    });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+
+    page.on('pageerror', (e) => {
+        const msg = (e.message || String(e)).slice(0, 200);
+        pageErrors.push(msg);
+        logEntry('ERROR', `Page error: ${msg}`);
+    });
+    page.on('console', (m) => {
+        if (m.type() === 'error') {
+            const text = m.text().slice(0, 200);
+            consoleErrors.push(text);
+            logEntry('ERROR', `Console error: ${text}`);
+        }
+    });
+
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    logEntry('INFO', 'Page loaded, waiting for Phaser boot...');
+
+    // Wait for render_game_to_text to appear
+    let bootOk = false;
+    for (let i = 0; i < 40; i++) {
+        await sleep(500);
+        try {
+            const ready = await withTimeout(
+                page.evaluate(() => typeof window.render_game_to_text === 'function'),
+                3000
+            );
+            if (ready) { bootOk = true; break; }
+        } catch { /* timeout, retry */ }
+    }
+    if (!bootOk) {
+        logEntry('ERROR', 'Game failed to boot within 20 seconds');
+        await browser.close();
+        return makeResult(mission, 'boot_fail', log, consoleErrors, pageErrors);
+    }
+    logEntry('INFO', 'Game booted, waiting for scene init...');
+    await sleep(3000);
+
+    // Dismiss controls overlay and read initial state — all via evaluate
+    const initResult = await safeEval(page, () => {
+        const scene = window.__ALIENS_DEBUG_SCENE__;
+        if (!scene) return { err: 'no scene' };
+        // Dismiss controls overlay if visible
+        if (scene.controlsOverlay?.visible) {
+            scene.controlsOverlay.setVisible(false);
+            if (!scene.isPaused && scene.physics?.world) scene.physics.world.resume();
+        }
+        // Read state
+        const stateJson = typeof window.render_game_to_text === 'function'
+            ? window.render_game_to_text() : null;
+        // Get map info
+        return {
+            state: stateJson,
+            mapW: scene.mapWidthPx || (scene.pathGrid?.width * 64) || 0,
+            mapH: scene.mapHeightPx || (scene.pathGrid?.height * 64) || 0,
+            extractionX: scene.extractionWorldPos?.x || 0,
+            extractionY: scene.extractionWorldPos?.y || 0,
+        };
+    }, 5000);
+
+    if (!initResult || initResult.err || !initResult.state) {
+        logEntry('ERROR', `Could not read initial state: ${initResult?.err || 'no state'}`);
+        await browser.close();
+        return makeResult(mission, 'no_state', log, consoleErrors, pageErrors);
+    }
+
+    const mapInfo = { mapW: initResult.mapW, mapH: initResult.mapH, extractionX: initResult.extractionX, extractionY: initResult.extractionY };
+    let state = JSON.parse(initResult.state);
+    logEntry('INFO', `Initial: mode=${state.mode}, leader=(${state.leader.x},${state.leader.y}), hp=${state.leader.health}/${state.leader.maxHealth}`);
+    logEntry('INFO', `Squad: ${state.squad?.length || 0}, Hostiles: ${state.hostiles?.length || 0}, Map: ${mapInfo.mapW}x${mapInfo.mapH}, Extract: (${mapInfo.extractionX},${mapInfo.extractionY})`);
+
+    /* ── Bot decision loop ────────────────────────────────── */
+    let lastLeaderPos = { x: state.leader.x, y: state.leader.y };
+    let lastMoveTime = Date.now();
+    let stuckCount = 0;
+    let killCount = 0;
+    let lastHealthLog = 0;
+    let lastHostileCount = 0;
+    let totalDamage = 0;
+    const startHealth = state.leader.health;
+    let wanderTargets = generateWanderTargets(mapInfo);
+    let wanderIdx = 0;
+    const startTime = Date.now();
+    let outcome = 'timeout';
+    let consecutiveStateFails = 0;
+    let lastMoveCmd = 0;
+    const MOVE_CMD_INTERVAL = 1500;  // reissue move commands every 1.5s
+
+    logEntry('INFO', 'Entering bot decision loop...');
+
+    while (true) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > MAX_GAME_TIME_S * 1000) {
+            logEntry('WARN', `Mission timeout after ${MAX_GAME_TIME_S}s`);
+            outcome = 'timeout';
+            break;
+        }
+
+        // Determine bot action based on current state
+        const visibleHostiles = state?.hostiles?.filter(h => h.hp > 0) || [];
+        const nearHostiles = visibleHostiles.filter(h => dist(state.leader.x, state.leader.y, h.x, h.y) < 500);
+        
+        let botAction;
+        if (nearHostiles.length > 0) {
+            // Pass all candidates; wall-check target selection happens in evaluate
+            botAction = { type: 'combat', candidates: nearHostiles.map(h => ({ x: h.x, y: h.y, hp: h.hp })) };
+        } else if (state.mode === 'extract' && mapInfo.extractionX) {
+            if (Date.now() - lastMoveCmd > MOVE_CMD_INTERVAL) {
+                botAction = { type: 'move', targetX: mapInfo.extractionX, targetY: mapInfo.extractionY };
+                lastMoveCmd = Date.now();
+            } else {
+                botAction = { type: 'idle' };
+            }
+        } else {
+            // Bias wander toward center of hostile activity
+            const allHostiles = (state.hostiles || []).filter(h => h.hp > 0);
+            let wanderTarget;
+            if (allHostiles.length > 0) {
+                const avgX = allHostiles.reduce((s, h) => s + h.x, 0) / allHostiles.length;
+                const avgY = allHostiles.reduce((s, h) => s + h.y, 0) / allHostiles.length;
+                wanderTarget = { x: avgX, y: avgY };
+            } else {
+                const target = wanderTargets[wanderIdx % wanderTargets.length];
+                if (dist(state.leader.x, state.leader.y, target.x, target.y) < 80) {
+                    wanderIdx++;
+                }
+                wanderTarget = wanderTargets[wanderIdx % wanderTargets.length];
+            }
+            if (Date.now() - lastMoveCmd > MOVE_CMD_INTERVAL) {
+                botAction = { type: 'move', targetX: wanderTarget.x, targetY: wanderTarget.y };
+                lastMoveCmd = Date.now();
+            } else {
+                botAction = { type: 'idle' };
+            }
+        }
+
+        // Stuck recovery: override action with random walk
+        if (stuckCount > 0 && (botAction.type !== 'combat' || stuckCount >= 3)) {
+            logEntry('DEBUG', `Stuck recovery triggered (stuckCount=${stuckCount})`);
+            botAction = { type: 'unstick' };
+            lastMoveCmd = Date.now();
+        }
+
+        // Execute action + read new state in ONE evaluate call
+        const hostileInfo = visibleHostiles.length > 0
+            ? `, hostiles=${visibleHostiles.length}, nearDist=${nearHostiles.length > 0 ? Math.round(nearHostiles.reduce((best, h) => Math.min(best, dist(state.leader.x, state.leader.y, h.x, h.y)), Infinity)) : 'n/a'}`
+            : ', hostiles=0';
+        logEntry('DEBUG', `Tick: action=${botAction.type}, pos=(${Math.round(state.leader.x)},${Math.round(state.leader.y)}), stuck=${stuckCount}${hostileInfo}, kills=${killCount}, elapsed=${(elapsed/1000).toFixed(1)}s`);
+        const tickResult = await safeEval(page, (action) => {
+            const scene = window.__ALIENS_DEBUG_SCENE__;
+            if (!scene) return { err: 'no scene' };
+            
+            // Dismiss overlay if visible
+            if (scene.controlsOverlay?.visible) {
+                scene.controlsOverlay.setVisible(false);
+                if (!scene.isPaused && scene.physics?.world) scene.physics.world.resume();
+            }
+            
+            const leader = scene.leader;
+            if (!leader) return { err: 'no leader' };
+            
+            if (action.type === 'combat') {
+                // Smart targeting: skip wall-blocked enemies via pathfinding
+                const candidates = action.candidates || [];
+                let bestTarget = null;
+                let bestDist = Infinity;
+                let wallBlocked = 0;
+                for (const c of candidates) {
+                    const straightDist = Math.sqrt((leader.x - c.x)**2 + (leader.y - c.y)**2);
+                    if (scene.pathGrid && scene.pathPlanner) {
+                        const sTile = scene.pathGrid.worldToTile(leader.x, leader.y);
+                        const eTile = scene.pathGrid.worldToTile(c.x, c.y);
+                        try {
+                            const path = scene.pathPlanner.findPath(sTile.x, sTile.y, eTile.x, eTile.y, scene.pathGrid);
+                            if (!path || path.length === 0) { wallBlocked++; continue; }
+                            const pathDist = path.length * 64;
+                            if (straightDist < 500 && pathDist > straightDist * 3 && path.length > 30) {
+                                wallBlocked++;
+                                continue;
+                            }
+                        } catch { wallBlocked++; continue; }
+                    }
+                    if (straightDist < bestDist) {
+                        bestDist = straightDist;
+                        bestTarget = c;
+                    }
+                }
+                if (!bestTarget && candidates.length > 0) {
+                    // Fallback: pick nearest even if wall-blocked
+                    bestTarget = candidates.reduce((a, b) =>
+                        Math.sqrt((leader.x-a.x)**2+(leader.y-a.y)**2) < Math.sqrt((leader.x-b.x)**2+(leader.y-b.y)**2) ? a : b
+                    );
+                    bestDist = Math.sqrt((leader.x-bestTarget.x)**2+(leader.y-bestTarget.y)**2);
+                }
+                if (bestTarget) {
+                    if (typeof leader.facePosition === 'function') {
+                        leader.facePosition(bestTarget.x, bestTarget.y);
+                    }
+                    if (scene.inputHandler) {
+                        scene.inputHandler._botFiring = true;
+                    }
+                    const pointer = scene.input?.activePointer;
+                    if (pointer) {
+                        pointer.worldX = bestTarget.x;
+                        pointer.worldY = bestTarget.y;
+                    }
+                    // Kite: back away if too close
+                    if (bestDist < 250) {
+                        const dx = leader.x - bestTarget.x;
+                        const dy = leader.y - bestTarget.y;
+                        const len = Math.sqrt(dx*dx + dy*dy) || 1;
+                        const moveX = leader.x + (dx/len) * 200;
+                        const moveY = leader.y + (dy/len) * 200;
+                        if (scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
+                            const sT = scene.pathGrid.worldToTile(leader.x, leader.y);
+                            const eT = scene.pathGrid.worldToTile(moveX, moveY);
+                            if (scene.pathGrid.isWalkable(eT.x, eT.y)) {
+                                try {
+                                    const kp = scene.pathPlanner.findPath(sT.x, sT.y, eT.x, eT.y, scene.pathGrid);
+                                    if (kp && kp.length > 0) {
+                                        scene.movementSystem.assignPath(leader, kp.map(p => scene.pathGrid.tileToWorld(p.x, p.y)));
+                                    }
+                                } catch { /* ignore */ }
+                            }
+                        }
+                    }
+                }
+            } else if (action.type === 'idle') {
+                // Just read state, stop firing
+                if (scene.inputHandler) {
+                    scene.inputHandler._botFiring = false;
+                }
+            } else if (action.type === 'unstick') {
+                // Stuck recovery: pick random walkable tile 5-10 tiles away
+                if (scene.inputHandler) scene.inputHandler._botFiring = false;
+                if (scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
+                    const ts = scene.pathGrid.tileSize || 64;
+                    for (let att = 0; att < 10; att++) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const rad = (5 + Math.random() * 5) * ts;
+                        const tx = leader.x + Math.cos(ang) * rad;
+                        const ty = leader.y + Math.sin(ang) * rad;
+                        const tile = scene.pathGrid.worldToTile(tx, ty);
+                        if (scene.pathGrid.isWalkable(tile.x, tile.y)) {
+                            try {
+                                const sT = scene.pathGrid.worldToTile(leader.x, leader.y);
+                                const path = scene.pathPlanner.findPath(sT.x, sT.y, tile.x, tile.y, scene.pathGrid);
+                                if (path && path.length > 0) {
+                                    scene.movementSystem.assignPath(leader, path.map(p => scene.pathGrid.tileToWorld(p.x, p.y)));
+                                    break;
+                                }
+                            } catch { /* ignore */ }
+                        }
+                    }
+                } else if (leader.body) {
+                    const ang = Math.random() * Math.PI * 2;
+                    leader.body.setVelocity(Math.cos(ang) * 200, Math.sin(ang) * 200);
+                }
+            } else if (action.type === 'move') {
+                // Stop firing
+                if (scene.inputHandler) {
+                    scene.inputHandler._botFiring = false;
+                }
+                // Navigate using the game's pathfinding, but do it here
+                // so we don't block the game update loop
+                if (scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
+                    const startTile = scene.pathGrid.worldToTile(leader.x, leader.y);
+                    const endTile = scene.pathGrid.worldToTile(action.targetX, action.targetY);
+                    if (scene.pathGrid.isWalkable(endTile.x, endTile.y)) {
+                        try {
+                            const path = scene.pathPlanner.findPath(startTile.x, startTile.y, endTile.x, endTile.y, scene.pathGrid);
+                            if (path && path.length > 0) {
+                                const worldPath = path.map(p => scene.pathGrid.tileToWorld(p.x, p.y));
+                                scene.movementSystem.assignPath(leader, worldPath);
+                            }
+                        } catch { /* pathfinding failure — ignore */ }
+                    }
+                } else if (leader.body) {
+                    // Fallback: direct velocity
+                    const dx = action.targetX - leader.x;
+                    const dy = action.targetY - leader.y;
+                    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const speed = Math.min(len, 180);
+                    leader.body.setVelocity((dx / len) * speed, (dy / len) * speed);
+                }
+            }
+            
+            // Read current state
+            try {
+                const stateJson = typeof window.render_game_to_text === 'function'
+                    ? window.render_game_to_text() : null;
+                return { state: stateJson };
+            } catch (e) {
+                return { err: 'render_error: ' + (e?.message || String(e)) };
+            }
+        }, 5000, botAction);
+
+        if (!tickResult || tickResult.err || !tickResult.state) {
+            consecutiveStateFails++;
+            logEntry('WARN', `Tick failed (attempt ${consecutiveStateFails}): ${tickResult?.err || 'no state'}`);
+            if (consecutiveStateFails >= 20) {
+                logEntry('ERROR', 'Too many consecutive failures, aborting');
+                outcome = 'state_lost';
+                break;
+            }
+            await sleep(1000);
+            continue;
+        }
+        consecutiveStateFails = 0;
+
+        state = JSON.parse(tickResult.state);
+        const leader = state.leader;
+        const hostiles = state.hostiles || [];
+        const squad = state.squad || [];
+
+        // Check end conditions
+        if (state.mode === 'victory') {
+            logEntry('INFO', `VICTORY at ${(elapsed / 1000).toFixed(1)}s!`);
+            outcome = 'victory';
+            break;
+        }
+        if (state.mode === 'defeat') {
+            logEntry('WARN', `DEFEAT at ${(elapsed / 1000).toFixed(1)}s`);
+            outcome = 'defeat';
+            break;
+        }
+
+        // Health tracking
+        totalDamage = Math.max(0, startHealth - leader.health);
+        if (Date.now() - lastHealthLog > HEALTH_LOG_INTERVAL) {
+            lastHealthLog = Date.now();
+            const aliveSquad = squad.filter(m => m.alive).length;
+            healthTimeline.push({ t: elapsed, hp: leader.health, squad: aliveSquad, hostiles: hostiles.length });
+            logEntry('STATUS', `${(elapsed/1000).toFixed(0)}s | HP:${leader.health}/${leader.maxHealth} | Squad:${aliveSquad}/${squad.length} | Hostiles:${hostiles.length} | Kills:${killCount} | Mode:${state.mode}`);
+        }
+
+        // Track kills
+        if (hostiles.length < lastHostileCount && lastHostileCount > 0) {
+            const killed = lastHostileCount - hostiles.length;
+            killCount += killed;
+            combatLog.push({ t: elapsed, event: 'kills', count: killed });
+        }
+        lastHostileCount = hostiles.length;
+
+        // Check stuck
+        const moveDist = dist(leader.x, leader.y, lastLeaderPos.x, lastLeaderPos.y);
+        if (moveDist > 5) {
+            lastLeaderPos = { x: leader.x, y: leader.y };
+            lastMoveTime = Date.now();
+            stuckCount = 0;
+        } else if (Date.now() - lastMoveTime > STUCK_THRESHOLD_MS) {
+            stuckCount++;
+            if (stuckCount <= 3) {
+                logEntry('WARN', `Leader stuck at (${leader.x},${leader.y}) for ${((Date.now() - lastMoveTime)/1000).toFixed(1)}s`);
+            }
+        }
+
+        await sleep(TICK_MS);
+    }
+
+    // Gather final diagnostics
+    const finalInfo = await safeEval(page, () => {
+        const scene = window.__ALIENS_DEBUG_SCENE__;
+        const stateJson = typeof window.render_game_to_text === 'function' ? window.render_game_to_text() : null;
+        const navDiags = scene?.squadNavDiagnostics?.slice(-20) || [];
+        return { state: stateJson, navDiags };
+    }, 5000);
+
+    let finalState = null;
+    try { finalState = finalInfo?.state ? JSON.parse(finalInfo.state) : null; } catch {}
+    const navDiags = (finalInfo?.navDiags || []).filter(d => (d.stuckMs || 0) > 1500 || d.type === 'warp');
+
+    logEntry('INFO', '=== MISSION COMPLETE ===');
+    logEntry('INFO', `Outcome: ${outcome}`);
+    logEntry('INFO', `Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    logEntry('INFO', `Final HP: ${finalState?.leader?.health || 0}/${finalState?.leader?.maxHealth || 0}`);
+    logEntry('INFO', `Squad alive: ${finalState?.squad?.filter(m => m.alive).length || 0}/${finalState?.squad?.length || 0}`);
+    logEntry('INFO', `Kills: ${killCount}, Damage taken: ${totalDamage}`);
+    logEntry('INFO', `Console errors: ${consoleErrors.length}, Page errors: ${pageErrors.length}`);
+    if (navDiags.length > 0) logEntry('WARN', `${navDiags.length} notable nav events (warps/stuck)`);
+
+    await browser.close();
+
+    return {
+        mission,
+        outcome,
+        durationS: ((Date.now() - startTime) / 1000).toFixed(1),
+        finalHP: finalState?.leader?.health || 0,
+        maxHP: finalState?.leader?.maxHealth || 0,
+        squadAlive: finalState?.squad?.filter(m => m.alive).length || 0,
+        squadTotal: finalState?.squad?.length || 0,
+        kills: killCount,
+        damageTaken: totalDamage,
+        consoleErrors,
+        pageErrors,
+        healthTimeline,
+        combatLog,
+        navDiags,
+        warnings: log.filter(e => e.type === 'WARN').map(e => e.msg),
+        errors: log.filter(e => e.type === 'ERROR').map(e => e.msg),
+    };
+}
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+async function safeEval(page, fn, timeoutMs = 5000, arg) {
+    const t0 = Date.now();
+    try {
+        const result = arg !== undefined
+            ? await withTimeout(page.evaluate(fn, arg), timeoutMs)
+            : await withTimeout(page.evaluate(fn), timeoutMs);
+        return result;
+    } catch (e) {
+        const dt = Date.now() - t0;
+        return { err: `${e.message || String(e)} (${dt}ms)` };
+    }
+}
+
+function generateWanderTargets(mapInfo) {
+    const mapW = mapInfo?.mapW || (40 * 64);
+    const mapH = mapInfo?.mapH || (26 * 64);
+    return generateGridTargets(mapW, mapH);
+}
+
+function generateGridTargets(mapW, mapH) {
+    const targets = [];
+    const margin = 96;
+    const stepX = Math.max(200, (mapW - margin * 2) / 5);
+    const stepY = Math.max(200, (mapH - margin * 2) / 4);
+    for (let row = 0; row < 4; row++) {
+        const y = margin + row * stepY + stepY / 2;
+        if (row % 2 === 0) {
+            for (let col = 0; col < 5; col++) targets.push({ x: margin + col * stepX + stepX / 2, y });
+        } else {
+            for (let col = 4; col >= 0; col--) targets.push({ x: margin + col * stepX + stepX / 2, y });
+        }
+    }
+    targets.push({ x: mapW / 2, y: mapH / 2 });
+    return targets;
+}
+
+function makeResult(mission, outcome, log, consoleErrors, pageErrors) {
+    return {
+        mission, outcome,
+        durationS: '0', finalHP: 0, maxHP: 0, squadAlive: 0, squadTotal: 0,
+        kills: 0, damageTaken: 0, consoleErrors, pageErrors,
+        healthTimeline: [], combatLog: [], navDiags: [],
+        warnings: log.filter(e => e.type === 'WARN').map(e => e.msg),
+        errors: log.filter(e => e.type === 'ERROR').map(e => e.msg),
+    };
+}
+
+/* ── Entry point ──────────────────────────────────────────────── */
+const results = [];
+for (const m of missions) {
+    try {
+        const r = await runMission(m);
+        results.push(r);
+    } catch (e) {
+        console.error(`[${m}] Fatal error: ${e.message}`);
+        results.push({ mission: m, outcome: 'crash', errors: [e.message] });
+    }
+}
+
+/* ── Summary ──────────────────────────────────────────────────── */
+console.log('\n' + '='.repeat(60));
+console.log('BOT PLAYTEST SUMMARY');
+console.log('='.repeat(60));
+for (const r of results) {
+    console.log(`\n  Mission: ${r.mission}`);
+    console.log(`  Outcome: ${r.outcome}`);
+    console.log(`  Duration: ${r.durationS || '?'}s`);
+    console.log(`  HP: ${r.finalHP || 0}/${r.maxHP || 100}`);
+    console.log(`  Squad: ${r.squadAlive || 0}/${r.squadTotal || 0} alive`);
+    console.log(`  Kills: ${r.kills || 0}`);
+    console.log(`  Damage taken: ${r.damageTaken || 0}`);
+    if (r.consoleErrors?.length) {
+        console.log(`  Console errors (${r.consoleErrors.length}):`);
+        for (const e of r.consoleErrors.slice(0, 10)) console.log(`    - ${e.slice(0, 120)}`);
+    }
+    if (r.pageErrors?.length) {
+        console.log(`  Page errors (${r.pageErrors.length}):`);
+        for (const e of r.pageErrors.slice(0, 10)) console.log(`    - ${e.slice(0, 120)}`);
+    }
+    if (r.warnings?.length) {
+        const uniqueWarnings = [...new Set(r.warnings)];
+        console.log(`  Warnings (${uniqueWarnings.length} unique):`);
+        for (const w of uniqueWarnings.slice(0, 10)) console.log(`    - ${w.slice(0, 120)}`);
+    }
+    if (r.navDiags?.length) {
+        console.log(`  Nav diagnostics: ${r.navDiags.length} notable events`);
+    }
+}
+const hasIssues = results.some(r => (r.consoleErrors?.length || 0) + (r.pageErrors?.length || 0) > 0 || r.outcome === 'crash');
+console.log('\n' + (hasIssues ? 'ISSUES DETECTED — see details above' : 'No critical issues detected'));
+console.log('='.repeat(60));
+
+// Write detailed results to file
+const outPath = new URL('../output/bot-playtest-results.json', import.meta.url).pathname;
+fs.writeFileSync(outPath, JSON.stringify(results, null, 2));
+console.log(`\nDetailed results written to ${outPath}`);
+
+process.exit(hasIssues ? 1 : 0);

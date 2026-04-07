@@ -12,9 +12,11 @@ let wavesurfer = null;
 let audioCtx = null;
 let originalBuffer = null;
 let workingBuffer = null;
+let segments = [];
 
 // Categories for organization
 const CATEGORIES = [
+    { key: 'sfx',      label: 'Sound Effects', pattern: /\bsfx\b/i },
     { key: 'weapon',   label: 'Weapons',   pattern: /pulse_rifle|shotgun|pistol|bullet/i },
     { key: 'alien',    label: 'Aliens',     pattern: /alien|hiss|screech|queen|facehugger|egg/i },
     { key: 'door',     label: 'Doors',      pattern: /door|weld/i },
@@ -26,7 +28,13 @@ const CATEGORIES = [
 ];
 
 function categorize(sound) {
-    const name = sound.name.toLowerCase() + sound.path.toLowerCase();
+    const path = sound.path.toLowerCase();
+    // Path-based categorization for spec directories takes precedence
+    if (path.includes('/assets/audio/sfx/')) return 'sfx';
+    if (path.includes('/assets/audio/ui/')) return 'ui';
+    if (path.includes('/assets/audio/ambient/')) return 'ambient';
+    if (path.includes('/assets/audio/music/')) return 'music';
+    const name = sound.name.toLowerCase() + path;
     for (const cat of CATEGORIES) {
         if (cat.key !== 'other' && cat.pattern.test(name)) return cat.key;
     }
@@ -209,6 +217,24 @@ function buildUI(root) {
                         <button class="btn btn-sm btn-secondary" id="snd-normalize" disabled>Normalize</button>
                     </div>
 
+                    <!-- Segments -->
+                    <div class="panel" style="margin-top:8px;">
+                        <div class="panel-header">Multi-Segment Export</div>
+                        <div class="panel-body" style="padding:8px;">
+                            <div style="display:grid;grid-template-columns:1fr 80px 80px auto;gap:6px;align-items:center;margin-bottom:6px;">
+                                <input type="text" class="input input-sm" id="snd-seg-name" placeholder="Segment name">
+                                <input type="number" class="input input-sm" id="snd-seg-start" placeholder="Start" value="0" min="0" step="0.01" title="Start (seconds)">
+                                <input type="number" class="input input-sm" id="snd-seg-end" placeholder="End" value="0" min="0" step="0.01" title="End (seconds)">
+                                <button class="btn btn-sm btn-secondary" id="snd-seg-add">+ Add</button>
+                            </div>
+                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Start / End in seconds. Files export to the same directory as the loaded sound.</div>
+                            <div id="snd-seg-list" style="margin-bottom:8px;max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:#0a0a0a;">
+                                <div style="padding:8px;color:var(--text-muted);font-size:11px;">No segments defined</div>
+                            </div>
+                            <button class="btn btn-sm btn-primary" id="snd-seg-export-all" disabled>Export All Segments</button>
+                        </div>
+                    </div>
+
                     <!-- Sound info -->
                     <div class="panel" style="margin-top:8px;">
                         <div class="panel-header">Sound Info</div>
@@ -240,6 +266,8 @@ function buildUI(root) {
     document.getElementById('snd-apply-echo').addEventListener('click', applyEcho);
     document.getElementById('snd-undo').addEventListener('click', undoToOriginal);
     document.getElementById('snd-normalize').addEventListener('click', applyNormalize);
+    document.getElementById('snd-seg-add').addEventListener('click', addSegment);
+    document.getElementById('snd-seg-export-all').addEventListener('click', exportAllSegments);
 
     document.getElementById('snd-search').addEventListener('input', renderSoundList);
 
@@ -659,9 +687,15 @@ async function saveCurrent() {
             reader.readAsDataURL(blob);
         });
 
-        // Determine save path (change extension to .wav if needed)
+        // Keep saves in the same pipeline they came from.
+        // Runtime audio still loads from /src/audio and /src/music, while asset-audio
+        // remains available for editor-managed categorized libraries.
         let savePath = selectedSound.path;
-        savePath = savePath.replace(/\.[^.]+$/, '.wav');
+        if (savePath.startsWith('/src/audio/') || savePath.startsWith('/src/music/')) {
+            savePath = savePath.replace(/\.[^.]+$/, '.wav');
+        } else {
+            savePath = savePath.replace(/\.[^.]+$/, '.ogg');
+        }
 
         const resp = await API.apiFetch('/api/sounds/save', {
             method: 'POST',
@@ -672,7 +706,7 @@ async function saveCurrent() {
         API.toast(`Saved: ${savePath}`, 'success');
         API.recordSave();
         originalBuffer = copyBuffer(workingBuffer);
-        // Update selected sound path to reflect .wav and refresh list
+        // Update selected sound path and refresh list
         selectedSound = { ...selectedSound, name: savePath.split('/').pop(), path: savePath };
         await loadSoundList();
     } catch (err) {
@@ -712,8 +746,12 @@ async function handleUpload() {
         <div style="margin-bottom:12px;">
             <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Category:</label>
             <select id="sup-cat" class="input" style="width:100%;">
-                <option value="src/audio">Sound Effects (src/audio/)</option>
-                <option value="assets">Assets (assets/)</option>
+                <option value="assets/audio/sfx">Sound Effects (SFX) — /assets/audio/sfx/</option>
+                <option value="assets/audio/ui">UI / Tracker Sounds — /assets/audio/ui/</option>
+                <option value="assets/audio/ambient">Ambient / Atmosphere — /assets/audio/ambient/</option>
+                <option value="assets/audio/music">Music / Themes — /assets/audio/music/</option>
+                <option value="src/audio">Legacy — src/audio/</option>
+                <option value="src/music">Legacy — src/music/</option>
             </select>
         </div>
     `;
@@ -871,6 +909,91 @@ function calculateLoudness() {
         const clampedDb = Math.max(-40, Math.min(0, db));
         const percent = ((clampedDb + 40) / 40) * 100;
         meterBar.style.width = `${percent}%`;
+    }
+}
+
+// ── Segments ─────────────────────────────────────────────────────────────
+function addSegment() {
+    const name = document.getElementById('snd-seg-name').value.trim();
+    const start = parseFloat(document.getElementById('snd-seg-start').value) || 0;
+    const end = parseFloat(document.getElementById('snd-seg-end').value) || 0;
+    if (!name) { API.toast('Enter a segment name', 'error'); return; }
+    if (start >= end) { API.toast('Start must be less than end (seconds)', 'error'); return; }
+    segments.push({ name, start, end });
+    document.getElementById('snd-seg-name').value = '';
+    renderSegments();
+}
+
+function removeSegment(index) {
+    segments.splice(index, 1);
+    renderSegments();
+}
+
+function renderSegments() {
+    const el = document.getElementById('snd-seg-list');
+    if (!el) return;
+    if (!segments.length) {
+        el.innerHTML = '<div style="padding:8px;color:var(--text-muted);font-size:11px;">No segments defined</div>';
+        const btn = document.getElementById('snd-seg-export-all');
+        if (btn) btn.disabled = true;
+        return;
+    }
+    el.innerHTML = segments.map((seg, i) => `
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--border-subtle,#1a2030);font-size:11px;">
+            <span style="flex:1;font-weight:600;">${seg.name}</span>
+            <span style="color:var(--text-muted);">${seg.start.toFixed(2)}s &rarr; ${seg.end.toFixed(2)}s</span>
+            <button class="btn btn-sm btn-danger" data-seg-idx="${i}" style="padding:2px 6px;font-size:10px;">✕</button>
+        </div>`).join('');
+    el.querySelectorAll('[data-seg-idx]').forEach(btn => {
+        btn.addEventListener('click', () => removeSegment(parseInt(btn.dataset.segIdx)));
+    });
+    const exportBtn = document.getElementById('snd-seg-export-all');
+    if (exportBtn) exportBtn.disabled = false;
+}
+
+async function exportAllSegments() {
+    if (!workingBuffer) { API.toast('No audio loaded', 'error'); return; }
+    if (!segments.length) { API.toast('No segments defined', 'error'); return; }
+    const actx = getAudioCtx();
+    let successCount = 0;
+    for (const seg of segments) {
+        try {
+            const sr = workingBuffer.sampleRate;
+            const startSample = Math.floor(seg.start * sr);
+            const endSample = Math.min(Math.floor(seg.end * sr), workingBuffer.length);
+            const newLen = endSample - startSample;
+            if (newLen <= 0) { API.toast(`Segment "${seg.name}": zero-length, skipped`, 'error'); continue; }
+            const segBuf = actx.createBuffer(workingBuffer.numberOfChannels, newLen, sr);
+            for (let ch = 0; ch < workingBuffer.numberOfChannels; ch++) {
+                segBuf.getChannelData(ch).set(workingBuffer.getChannelData(ch).subarray(startSample, endSample));
+            }
+            const blob = await bufferToWavBlob(segBuf);
+            const reader = new FileReader();
+            const b64 = await new Promise((res, rej) => {
+                reader.onload = () => res(reader.result.split(',')[1]);
+                reader.onerror = rej;
+                reader.readAsDataURL(blob);
+            });
+            // Derive export dir from selected sound path, fallback to assets/audio/sfx
+            const baseDir = selectedSound
+                ? selectedSound.path.replace(/\/[^\/]+$/, '')
+                : '/assets/audio/sfx';
+            const segName = seg.name.includes('.') ? seg.name : `${seg.name}.ogg`;
+            const savePath = `${baseDir}/${segName}`;
+            const resp = await API.apiFetch('/api/sounds/save', {
+                method: 'POST',
+                body: JSON.stringify({ filePath: savePath, data: b64 }),
+            });
+            const result = await resp.json();
+            if (!result.ok) throw new Error(result.error);
+            successCount++;
+        } catch (err) {
+            API.toast(`Segment "${seg.name}" failed: ${err.message}`, 'error');
+        }
+    }
+    if (successCount > 0) {
+        API.toast(`Exported ${successCount} of ${segments.length} segment(s)`, 'success');
+        await loadSoundList();
     }
 }
 

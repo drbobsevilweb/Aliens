@@ -1,0 +1,27 @@
+[
+  {
+    "mission": "m1",
+    "dir": "output/headed-mission-walkthrough/m1",
+    "shots": 5
+  },
+  {
+    "mission": "m2",
+    "dir": "output/headed-mission-walkthrough/m2",
+    "shots": 5
+  },
+  {
+    "mission": "m3",
+    "dir": "output/headed-mission-walkthrough/m3",
+    "shots": 5
+  },
+  {
+    "mission": "m4",
+    "dir": "output/headed-mission-walkthrough/m4",
+    "shots": 5
+  },
+  {
+    "mission": "m5",
+    "dir": "output/headed-mission-walkthrough/m5",
+    "shots": 5
+  }
+]

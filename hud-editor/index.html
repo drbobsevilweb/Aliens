@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS — HUD Layout Editor</title>
+    <link rel="stylesheet" href="/shared/nav.css">
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: #101820;
+            --panel-2: #0c1420;
+            --line: #1a3a52;
+            --text: #f0f6ff;
+            --text-soft: #e8f0f8;
+            --muted: #8ea8c0;
+            --accent: #4aa4d8;
+            --accent-bright: #7ecfff;
+            --success: #33ff66;
+            --danger: #ff4444;
+            --panel-overlay: rgba(2, 8, 16, 0.85);
+            --accent-glow: rgba(74, 164, 216, 0.3);
+            --accent-glow-strong: rgba(74, 164, 216, 0.5);
+            --accent-border-soft: rgba(74, 164, 216, 0.5);
+            --success-glow: rgba(51, 255, 102, 0.3);
+            --success-line: rgba(51, 255, 102, 0.2);
+            --success-line-strong: rgba(51, 255, 102, 0.3);
+            --video-tint-top: rgba(42, 90, 140, 0.15);
+            --video-tint-bottom: rgba(42, 90, 140, 0.05);
+            --scanline-shadow: rgba(0, 0, 0, 0.08);
+            --grid-line: rgba(74, 164, 216, 0.06);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ── Layout ── */
+        .editor-wrap {
+            display: flex;
+            height: calc(100vh - 28px);
+            margin-top: 28px;
+        }
+
+        /* ── Canvas area ── */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            position: relative;
+        }
+
+        .game-canvas {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            transform-origin: top left;
+            overflow: hidden;
+        }
+
+        /* ── Draggable HUD elements ── */
+        .hud-element {
+            position: absolute;
+            cursor: move;
+            border: 1px solid var(--accent-border-soft);
+            background: var(--panel-overlay);
+            user-select: none;
+            transition: box-shadow 0.15s;
+        }
+        .hud-element:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+        .hud-element.dragging {
+            border-color: var(--accent-bright);
+            box-shadow: 0 0 20px var(--accent-glow-strong);
+            z-index: 100;
+        }
+        .hud-element.selected {
+            border-color: var(--success);
+            box-shadow: 0 0 12px var(--success-glow);
+        }
+
+        .hud-label {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 9px;
+            color: var(--accent);
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hud-content {
+            padding: 20px 6px 6px 6px;
+            pointer-events: none;
+        }
+
+        /* Card internals preview */
+        .card-name {
+            font-size: 10px;
+            color: var(--text-soft);
+            margin-bottom: 2px;
+        }
+        .card-vitals {
+            font-size: 9px;
+            color: var(--success);
+        }
+        .card-ammo {
+            font-size: 9px;
+            color: var(--danger);
+            position: absolute;
+            top: 20px;
+            right: 6px;
+        }
+        .card-ekg {
+            height: 14px;
+            margin-top: 3px;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent 0px,
+                transparent 3px,
+                rgba(51, 255, 102, 0.15) 3px,
+                rgba(51, 255, 102, 0.15) 4px
+            );
+            border: 1px solid var(--success-line);
+        }
+        .card-video-placeholder {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(180deg, var(--video-tint-top) 0%, var(--video-tint-bottom) 100%);
+            pointer-events: none;
+        }
+        .card-scanlines {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                transparent 1px,
+                var(--scanline-shadow) 1px,
+                var(--scanline-shadow) 2px
+            );
+            pointer-events: none;
+        }
+
+        /* Resize handle */
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            cursor: nwse-resize;
+            background: linear-gradient(135deg, transparent 50%, var(--accent-border-soft) 50%);
+        }
+
+        /* ── Side panel ── */
+        .side-panel {
+            width: 280px;
+            background: var(--panel);
+            border-left: 1px solid var(--line);
+            padding: 12px;
+            overflow-y: auto;
+        }
+        .side-panel h3 {
+            color: var(--accent);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .prop-group {
+            margin-bottom: 16px;
+        }
+        .prop-group label {
+            display: block;
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .prop-group input {
+            width: 100%;
+            padding: 4px 8px;
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+            border-radius: 2px;
+        }
+        .prop-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .prop-row {
+            display: flex;
+            gap: 8px;
+        }
+        .prop-row .prop-group { flex: 1; }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--bg);
+            border: 1px solid var(--accent);
+            color: var(--accent-bright);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn:hover { background: var(--panel-2); }
+        .btn.btn-danger { border-color: var(--danger); color: var(--danger); }
+        .btn.btn-danger:hover { background: rgba(255, 68, 68, 0.12); }
+        .btn.btn-success { border-color: var(--success); color: var(--success); }
+        .btn.btn-success:hover { background: rgba(51, 255, 102, 0.12); }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        /* Guides */
+        .guide-h, .guide-v {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+        }
+        .guide-h {
+            left: 0; right: 0;
+            height: 1px;
+            background: var(--success-line);
+            border-top: 1px dashed var(--success-line-strong);
+        }
+        .guide-v {
+            top: 0; bottom: 0;
+            width: 1px;
+            background: var(--success-line);
+            border-left: 1px dashed var(--success-line-strong);
+        }
+
+        /* Grid overlay */
+        .grid-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .grid-overlay.visible {
+            opacity: 1;
+            background:
+                repeating-linear-gradient(0deg, transparent 0, transparent 63px, var(--grid-line) 63px, var(--grid-line) 64px),
+                repeating-linear-gradient(90deg, transparent 0, transparent 63px, var(--grid-line) 63px, var(--grid-line) 64px);
+        }
+
+        /* Element list in sidebar */
+        .element-list {
+            list-style: none;
+            margin-bottom: 16px;
+        }
+        .element-list li {
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            margin-bottom: 2px;
+        }
+        .element-list li:hover { background: rgba(74,164,216,0.08); }
+        .element-list li.active {
+            border-color: #33ff66;
+            background: rgba(51,255,102,0.05);
+            color: #33ff66;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="dev-nav">
+    <span class="nav-title">ALIENS</span>
+    <a href="/game">Game</a>
+    <a href="/editors">Editors</a>
+    <a href="/settings">Settings</a>
+    <a href="/gameplan">Gameplan</a>
+</nav>
+
+<div class="editor-wrap">
+    <div class="canvas-area">
+        <div class="game-canvas" id="gameCanvas">
+            <div class="grid-overlay" id="gridOverlay"></div>
+            <!-- HUD elements injected here by JS -->
+        </div>
+        <div class="status-bar" id="statusBar">Ready — Click elements to select, drag to move</div>
+    </div>
+
+    <div class="side-panel">
+        <h3>Elements</h3>
+        <ul class="element-list" id="elementList"></ul>
+
+        <h3>Properties</h3>
+        <div id="propsPanel">
+            <p style="color:#8ea8c0;font-size:11px;">Select an element to edit its properties.</p>
+        </div>
+
+        <h3 style="margin-top:20px;">Actions</h3>
+        <div class="btn-row">
+            <button class="btn btn-success" onclick="saveConfig()">Save</button>
+            <button class="btn" onclick="resetToDefaults()">Reset</button>
+        </div>
+        <div class="btn-row">
+            <button class="btn" onclick="toggleGrid()">Grid</button>
+            <button class="btn" onclick="toggleSnap()">Snap: <span id="snapLabel">Off</span></button>
+        </div>
+        <div class="btn-row">
+            <button class="btn" onclick="exportJSON()">Export JSON</button>
+            <button class="btn" onclick="importJSON()">Import JSON</button>
+        </div>
+
+        <h3 style="margin-top:20px;">Preview</h3>
+        <div class="btn-row">
+            <a class="btn" href="/game/?hud=local" target="_blank">Play with Layout</a>
+        </div>
+        <p style="color:#8ea8c0;font-size:10px;margin-top:8px;">
+            Saves to localStorage key <code>aliens_hud_config_v1</code>.<br>
+            Open game with <code>?hud=local</code> to apply.
+        </p>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'aliens_hud_config_v1';
+const GAME_W = 1280;
+const GAME_H = 720;
+
+// Default HUD positions (must match HUD.js defaults)
+const DEFAULTS = {
+    leaderCard:     { x: 10,  y: 30, width: 210, height: 116 },
+    techCard:       { x: 228, y: 30, width: 165, height: 90 },
+    medicCard:      { x: 401, y: 30, width: 165, height: 90 },
+    heavyCard:      { x: 574, y: 30, width: 165, height: 90 },
+    objectivesPanel:{ x: 1024, y: -4, width: 230, height: 80 },
+};
+
+const ELEMENT_DEFS = [
+    { id: 'leaderCard', label: 'LEADER — R. Rodriguez', configKey: 'leaderCard',
+      name: 'R. RODRIGUEZ', role: 'leader', hp: '100', ammo: '∞' },
+    { id: 'techCard', label: 'TECH — M. Horrowitz', configKey: 'techCard',
+      name: 'M. HORROWITZ', role: 'tech', hp: '100', ammo: '24' },
+    { id: 'medicCard', label: 'MEDIC — L. Sheen', configKey: 'medicCard',
+      name: 'L. SHEEN', role: 'medic', hp: '100', ammo: '24' },
+    { id: 'heavyCard', label: 'HEAVY — T. Chang', configKey: 'heavyCard',
+      name: 'T. CHANG', role: 'heavy', hp: '100', ammo: '24' },
+    { id: 'objectivesPanel', label: 'OBJECTIVES', configKey: 'objectivesPanel',
+      name: 'OBJECTIVES', role: 'panel' },
+];
+
+let config = {};
+let selectedId = null;
+let snapEnabled = false;
+let gridVisible = false;
+let scale = 1;
+
+// ── Init ──
+
+function init() {
+    loadConfig();
+    scaleCanvas();
+    renderElements();
+    renderElementList();
+    window.addEventListener('resize', scaleCanvas);
+    document.addEventListener('keydown', onKeyDown);
+}
+
+function loadConfig() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            config = JSON.parse(raw);
+        }
+    } catch {}
+    // Fill in defaults for missing keys
+    for (const def of ELEMENT_DEFS) {
+        if (!config[def.configKey]) {
+            config[def.configKey] = { ...DEFAULTS[def.configKey] };
+        }
+    }
+}
+
+function scaleCanvas() {
+    const area = document.querySelector('.canvas-area');
+    const canvas = document.getElementById('gameCanvas');
+    const availW = area.clientWidth - 40;
+    const availH = area.clientHeight - 40;
+    scale = Math.min(availW / GAME_W, availH / GAME_H, 1);
+    canvas.style.transform = `scale(${scale})`;
+    canvas.style.marginLeft = `${(area.clientWidth - GAME_W * scale) / 2}px`;
+    canvas.style.marginTop = `${(area.clientHeight - GAME_H * scale) / 2}px`;
+}
+
+// ── Render ──
+
+function renderElements() {
+    const canvas = document.getElementById('gameCanvas');
+    // Remove old elements (keep grid overlay)
+    canvas.querySelectorAll('.hud-element').forEach(el => el.remove());
+
+    for (const def of ELEMENT_DEFS) {
+        const cfg = config[def.configKey];
+        const el = document.createElement('div');
+        el.className = 'hud-element' + (selectedId === def.id ? ' selected' : '');
+        el.dataset.id = def.id;
+        el.style.left = cfg.x + 'px';
+        el.style.top = cfg.y + 'px';
+        el.style.width = cfg.width + 'px';
+        el.style.height = cfg.height + 'px';
+
+        el.innerHTML = `
+            <div class="card-video-placeholder"></div>
+            <div class="card-scanlines"></div>
+            <div class="hud-label">${def.label}</div>
+            <div class="hud-content">
+                ${def.role !== 'panel' ? `
+                    <div class="card-name">${def.name}</div>
+                    <div class="card-vitals">HP ${def.hp}</div>
+                    <div class="card-ammo">AMMO ${def.ammo}</div>
+                    <div class="card-ekg"></div>
+                ` : `
+                    <div class="card-name" style="color:#4aa4d8">PRIMARY OBJECTIVE</div>
+                    <div class="card-vitals" style="color:#8ea8c0;font-size:8px;">Reach extraction point</div>
+                `}
+            </div>
+            <div class="resize-handle"></div>
+        `;
+
+        // Drag
+        el.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return;
+            selectElement(def.id);
+            startDrag(e, def);
+        });
+
+        // Resize
+        el.querySelector('.resize-handle').addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            selectElement(def.id);
+            startResize(e, def);
+        });
+
+        canvas.appendChild(el);
+    }
+}
+
+function renderElementList() {
+    const list = document.getElementById('elementList');
+    list.innerHTML = '';
+    for (const def of ELEMENT_DEFS) {
+        const li = document.createElement('li');
+        li.textContent = def.label;
+        li.className = selectedId === def.id ? 'active' : '';
+        li.onclick = () => selectElement(def.id);
+        list.appendChild(li);
+    }
+}
+
+function selectElement(id) {
+    selectedId = id;
+    renderElements();
+    renderElementList();
+    renderProps();
+}
+
+function renderProps() {
+    const panel = document.getElementById('propsPanel');
+    if (!selectedId) {
+        panel.innerHTML = '<p style="color:#8ea8c0;font-size:11px;">Select an element.</p>';
+        return;
+    }
+    const def = ELEMENT_DEFS.find(d => d.id === selectedId);
+    const cfg = config[def.configKey];
+
+    panel.innerHTML = `
+        <div class="prop-row">
+            <div class="prop-group">
+                <label>X</label>
+                <input type="number" id="propX" value="${cfg.x}" onchange="updateProp('x', this.value)">
+            </div>
+            <div class="prop-group">
+                <label>Y</label>
+                <input type="number" id="propY" value="${cfg.y}" onchange="updateProp('y', this.value)">
+            </div>
+        </div>
+        <div class="prop-row">
+            <div class="prop-group">
+                <label>Width</label>
+                <input type="number" id="propW" value="${cfg.width}" onchange="updateProp('width', this.value)">
+            </div>
+            <div class="prop-group">
+                <label>Height</label>
+                <input type="number" id="propH" value="${cfg.height}" onchange="updateProp('height', this.value)">
+            </div>
+        </div>
+    `;
+}
+
+function updateProp(key, value) {
+    if (!selectedId) return;
+    const def = ELEMENT_DEFS.find(d => d.id === selectedId);
+    config[def.configKey][key] = Math.round(Number(value));
+    renderElements();
+    setStatus(`Updated ${def.label} ${key} = ${value}`);
+}
+
+// ── Drag ──
+
+function startDrag(e, def) {
+    e.preventDefault();
+    const cfg = config[def.configKey];
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = cfg.x;
+    const origY = cfg.y;
+
+    const el = document.querySelector(`[data-id="${def.id}"]`);
+    el.classList.add('dragging');
+
+    function onMove(ev) {
+        let dx = (ev.clientX - startX) / scale;
+        let dy = (ev.clientY - startY) / scale;
+        let newX = Math.round(origX + dx);
+        let newY = Math.round(origY + dy);
+
+        if (snapEnabled) {
+            newX = Math.round(newX / 8) * 8;
+            newY = Math.round(newY / 8) * 8;
+        }
+
+        // Clamp to canvas
+        newX = Math.max(-cfg.width + 20, Math.min(GAME_W - 20, newX));
+        newY = Math.max(-cfg.height + 20, Math.min(GAME_H - 20, newY));
+
+        cfg.x = newX;
+        cfg.y = newY;
+        el.style.left = newX + 'px';
+        el.style.top = newY + 'px';
+        setStatus(`${def.label}: x=${newX}, y=${newY}`);
+        updatePropsIfSelected(def.id);
+    }
+
+    function onUp() {
+        el.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+// ── Resize ──
+
+function startResize(e, def) {
+    e.preventDefault();
+    const cfg = config[def.configKey];
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origW = cfg.width;
+    const origH = cfg.height;
+
+    const el = document.querySelector(`[data-id="${def.id}"]`);
+    el.classList.add('dragging');
+
+    function onMove(ev) {
+        let dw = (ev.clientX - startX) / scale;
+        let dh = (ev.clientY - startY) / scale;
+        let newW = Math.max(60, Math.round(origW + dw));
+        let newH = Math.max(40, Math.round(origH + dh));
+
+        if (snapEnabled) {
+            newW = Math.round(newW / 8) * 8;
+            newH = Math.round(newH / 8) * 8;
+        }
+
+        cfg.width = newW;
+        cfg.height = newH;
+        el.style.width = newW + 'px';
+        el.style.height = newH + 'px';
+        setStatus(`${def.label}: ${newW}×${newH}`);
+        updatePropsIfSelected(def.id);
+    }
+
+    function onUp() {
+        el.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function updatePropsIfSelected(id) {
+    if (selectedId !== id) return;
+    const def = ELEMENT_DEFS.find(d => d.id === id);
+    const cfg = config[def.configKey];
+    const propX = document.getElementById('propX');
+    const propY = document.getElementById('propY');
+    const propW = document.getElementById('propW');
+    const propH = document.getElementById('propH');
+    if (propX) propX.value = cfg.x;
+    if (propY) propY.value = cfg.y;
+    if (propW) propW.value = cfg.width;
+    if (propH) propH.value = cfg.height;
+}
+
+// ── Actions ──
+
+function saveConfig() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    setStatus('Saved to localStorage. Open game with ?hud=local to apply.');
+}
+
+function resetToDefaults() {
+    if (!confirm('Reset all HUD positions to defaults?')) return;
+    config = {};
+    for (const def of ELEMENT_DEFS) {
+        config[def.configKey] = { ...DEFAULTS[def.configKey] };
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    renderElements();
+    renderProps();
+    setStatus('Reset to defaults.');
+}
+
+function toggleGrid() {
+    gridVisible = !gridVisible;
+    document.getElementById('gridOverlay').classList.toggle('visible', gridVisible);
+}
+
+function toggleSnap() {
+    snapEnabled = !snapEnabled;
+    document.getElementById('snapLabel').textContent = snapEnabled ? '8px' : 'Off';
+}
+
+function exportJSON() {
+    const json = JSON.stringify(config, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hud_layout.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Exported hud_layout.json');
+}
+
+function importJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const imported = JSON.parse(ev.target.result);
+                config = imported;
+                // Fill defaults for missing
+                for (const def of ELEMENT_DEFS) {
+                    if (!config[def.configKey]) {
+                        config[def.configKey] = { ...DEFAULTS[def.configKey] };
+                    }
+                }
+                renderElements();
+                renderProps();
+                setStatus('Imported layout from file.');
+            } catch (err) {
+                setStatus('Import failed: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// ── Keyboard ──
+
+function onKeyDown(e) {
+    if (!selectedId) return;
+    if (e.target.tagName === 'INPUT') return;
+
+    const def = ELEMENT_DEFS.find(d => d.id === selectedId);
+    const cfg = config[def.configKey];
+    const step = e.shiftKey ? 10 : 1;
+
+    switch (e.key) {
+        case 'ArrowLeft':  cfg.x -= step; break;
+        case 'ArrowRight': cfg.x += step; break;
+        case 'ArrowUp':    cfg.y -= step; break;
+        case 'ArrowDown':  cfg.y += step; break;
+        case 'Delete':
+        case 'Backspace':
+            cfg.x = DEFAULTS[def.configKey].x;
+            cfg.y = DEFAULTS[def.configKey].y;
+            cfg.width = DEFAULTS[def.configKey].width;
+            cfg.height = DEFAULTS[def.configKey].height;
+            break;
+        default: return;
+    }
+    e.preventDefault();
+    renderElements();
+    updatePropsIfSelected(selectedId);
+    setStatus(`${def.label}: x=${cfg.x}, y=${cfg.y}`);
+}
+
+function setStatus(msg) {
+    document.getElementById('statusBar').textContent = msg;
+}
+
+init();
+</script>
+</body>
+</html>

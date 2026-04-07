@@ -1,0 +1,2398 @@
+[
+  {
+    "mission": "m1",
+    "issues": [
+      {
+        "severity": "low",
+        "category": "webgl",
+        "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "tick": 1774966411708,
+        "data": {}
+      },
+      {
+        "severity": "low",
+        "category": "webgl",
+        "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "tick": 1774966411739,
+        "data": {}
+      },
+      {
+        "severity": "low",
+        "category": "webgl",
+        "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "tick": 1774966411760,
+        "data": {}
+      },
+      {
+        "severity": "low",
+        "category": "webgl",
+        "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+        "tick": 1774966411787,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "shader",
+        "msg": "Pipeline AlienTonePipeline not registered",
+        "tick": 1774966417426,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "shader",
+        "msg": "Pipeline ScanlinePipeline not registered",
+        "tick": 1774966417426,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "shader",
+        "msg": "Pipeline TiltShiftPipeline not registered",
+        "tick": 1774966417426,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "shader",
+        "msg": "Pipeline DoorRipplePipeline not registered",
+        "tick": 1774966417427,
+        "data": {}
+      },
+      {
+        "severity": "medium",
+        "category": "shader",
+        "msg": "No post-pipelines applied to camera",
+        "tick": 1774966417427,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "lighting",
+        "msg": "No light sources active",
+        "tick": 1774966417865,
+        "data": {}
+      },
+      {
+        "severity": "medium",
+        "category": "performance",
+        "msg": "FPS below 30: 20 (enemies=11)",
+        "tick": 1774966418948,
+        "data": {}
+      },
+      {
+        "severity": "medium",
+        "category": "performance",
+        "msg": "FPS below 30: 16 (enemies=11)",
+        "tick": 1774966419622,
+        "data": {}
+      },
+      {
+        "severity": "medium",
+        "category": "performance",
+        "msg": "FPS below 30: 16 (enemies=11)",
+        "tick": 1774966420321,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 13 (enemies=11, tier=-1)",
+        "tick": 1774966420955,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 13 (enemies=11, tier=-1)",
+        "tick": 1774966421589,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 11 (enemies=11, tier=-1)",
+        "tick": 1774966422232,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 10 (enemies=11, tier=-1)",
+        "tick": 1774966423090,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 10 (enemies=11, tier=-1)",
+        "tick": 1774966423737,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 9 (enemies=11, tier=-1)",
+        "tick": 1774966424359,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 8 (enemies=11, tier=-1)",
+        "tick": 1774966425214,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 8 (enemies=11, tier=-1)",
+        "tick": 1774966425856,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 7 (enemies=11, tier=-1)",
+        "tick": 1774966426486,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966427126,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966427763,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966428396,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966429022,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966429859,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966430487,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+        "tick": 1774966431121,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966431762,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966432383,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966433024,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966433856,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966434500,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966435158,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966435774,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966436401,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966437261,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966437896,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966438749,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966439379,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966440014,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966440658,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966441300,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966442142,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966442786,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966443422,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966444062,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966444716,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966445349,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966445973,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966446801,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966447655,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966448497,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966449123,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966449762,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966450604,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966451462,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966452320,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966452966,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966453812,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966454454,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966455097,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966455743,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966456596,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966457463,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966458095,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966458965,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966459488,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966460059,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966460696,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966461334,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966462190,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966462838,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966463472,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966464121,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966464962,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966465612,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966466242,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966466880,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966467524,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966468156,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966469013,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966469865,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966470719,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966471366,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966472002,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966472644,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966473291,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966473933,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966474569,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966475218,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966475853,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966476700,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966477372,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966478021,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+        "tick": 1774966478681,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "Average FPS below 30: 6",
+        "tick": 1774966478900,
+        "data": {}
+      },
+      {
+        "severity": "high",
+        "category": "performance",
+        "msg": "FPS dropped below 10: 5",
+        "tick": 1774966478900,
+        "data": {}
+      }
+    ],
+    "bySeverity": {
+      "critical": [],
+      "high": [
+        {
+          "severity": "high",
+          "category": "shader",
+          "msg": "Pipeline AlienTonePipeline not registered",
+          "tick": 1774966417426,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "shader",
+          "msg": "Pipeline ScanlinePipeline not registered",
+          "tick": 1774966417426,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "shader",
+          "msg": "Pipeline TiltShiftPipeline not registered",
+          "tick": 1774966417426,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "shader",
+          "msg": "Pipeline DoorRipplePipeline not registered",
+          "tick": 1774966417427,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "lighting",
+          "msg": "No light sources active",
+          "tick": 1774966417865,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 13 (enemies=11, tier=-1)",
+          "tick": 1774966420955,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 13 (enemies=11, tier=-1)",
+          "tick": 1774966421589,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 11 (enemies=11, tier=-1)",
+          "tick": 1774966422232,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 10 (enemies=11, tier=-1)",
+          "tick": 1774966423090,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 10 (enemies=11, tier=-1)",
+          "tick": 1774966423737,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 9 (enemies=11, tier=-1)",
+          "tick": 1774966424359,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 8 (enemies=11, tier=-1)",
+          "tick": 1774966425214,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 8 (enemies=11, tier=-1)",
+          "tick": 1774966425856,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 7 (enemies=11, tier=-1)",
+          "tick": 1774966426486,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966427126,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966427763,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966428396,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966429022,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966429859,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966430487,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 6 (enemies=11, tier=-1)",
+          "tick": 1774966431121,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966431762,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966432383,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966433024,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966433856,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966434500,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966435158,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966435774,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966436401,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966437261,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966437896,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966438749,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966439379,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966440014,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966440658,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966441300,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966442142,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966442786,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966443422,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966444062,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966444716,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966445349,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966445973,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966446801,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966447655,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966448497,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966449123,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966449762,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966450604,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966451462,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966452320,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966452966,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966453812,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966454454,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966455097,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966455743,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966456596,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966457463,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966458095,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966458965,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966459488,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966460059,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966460696,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966461334,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966462190,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966462838,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966463472,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966464121,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966464962,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966465612,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966466242,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966466880,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966467524,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966468156,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966469013,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966469865,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966470719,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966471366,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966472002,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966472644,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966473291,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966473933,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966474569,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966475218,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966475853,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966476700,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966477372,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966478021,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS critically low: 5 (enemies=11, tier=-1)",
+          "tick": 1774966478681,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "Average FPS below 30: 6",
+          "tick": 1774966478900,
+          "data": {}
+        },
+        {
+          "severity": "high",
+          "category": "performance",
+          "msg": "FPS dropped below 10: 5",
+          "tick": 1774966478900,
+          "data": {}
+        }
+      ],
+      "medium": [
+        {
+          "severity": "medium",
+          "category": "shader",
+          "msg": "No post-pipelines applied to camera",
+          "tick": 1774966417427,
+          "data": {}
+        },
+        {
+          "severity": "medium",
+          "category": "performance",
+          "msg": "FPS below 30: 20 (enemies=11)",
+          "tick": 1774966418948,
+          "data": {}
+        },
+        {
+          "severity": "medium",
+          "category": "performance",
+          "msg": "FPS below 30: 16 (enemies=11)",
+          "tick": 1774966419622,
+          "data": {}
+        },
+        {
+          "severity": "medium",
+          "category": "performance",
+          "msg": "FPS below 30: 16 (enemies=11)",
+          "tick": 1774966420321,
+          "data": {}
+        }
+      ],
+      "low": [
+        {
+          "severity": "low",
+          "category": "webgl",
+          "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+          "tick": 1774966411708,
+          "data": {}
+        },
+        {
+          "severity": "low",
+          "category": "webgl",
+          "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+          "tick": 1774966411739,
+          "data": {}
+        },
+        {
+          "severity": "low",
+          "category": "webgl",
+          "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+          "tick": 1774966411760,
+          "data": {}
+        },
+        {
+          "severity": "low",
+          "category": "webgl",
+          "msg": "WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+          "tick": 1774966411787,
+          "data": {}
+        }
+      ]
+    },
+    "checks": {
+      "boot": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "Game booted in WebGL mode"
+        ]
+      },
+      "webgl_context": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "WebGL context active"
+        ]
+      },
+      "pipeline_AlienTonePipeline": {
+        "pass": 0,
+        "fail": 1,
+        "notes": [
+          "AlienTonePipeline missing"
+        ]
+      },
+      "pipeline_ScanlinePipeline": {
+        "pass": 0,
+        "fail": 1,
+        "notes": [
+          "ScanlinePipeline missing"
+        ]
+      },
+      "pipeline_TiltShiftPipeline": {
+        "pass": 0,
+        "fail": 1,
+        "notes": [
+          "TiltShiftPipeline missing"
+        ]
+      },
+      "pipeline_DoorRipplePipeline": {
+        "pass": 0,
+        "fail": 1,
+        "notes": [
+          "DoorRipplePipeline missing"
+        ]
+      },
+      "texture": {
+        "pass": 9,
+        "fail": 0,
+        "notes": [
+          "tileset (1280x64)",
+          "marine_leader (256x64)",
+          "marine_team_leader (256x64)",
+          "bullet (12x12)",
+          "torch_hotspot (2048x2048)",
+          "torch_beam_tip (128x80)",
+          "fx_flare (64x32)",
+          "fx_dot (16x16)",
+          "fx_smoke (32x32)"
+        ]
+      },
+      "lighting_overlay": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "LightingOverlay active"
+        ]
+      },
+      "lighting_raycaster": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "Raycaster active"
+        ]
+      },
+      "lighting_blockers": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "LightBlockerGrid active"
+        ]
+      },
+      "depth_sorting": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "No depth conflicts detected"
+        ]
+      },
+      "fps_stability": {
+        "pass": 0,
+        "fail": 1,
+        "notes": [
+          "avg=6 min=5 max=20"
+        ]
+      },
+      "fx_systems": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "BulletPool active"
+        ]
+      },
+      "atmosphere": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "AtmosphereSystem active"
+        ]
+      },
+      "hud": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "HUD initialized"
+        ]
+      },
+      "motion_tracker": {
+        "pass": 1,
+        "fail": 0,
+        "notes": [
+          "Motion tracker present"
+        ]
+      }
+    },
+    "fpsHistory": [
+      {
+        "t": 1,
+        "fps": 20,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 1,
+        "fps": 16,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 2,
+        "fps": 16,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 3,
+        "fps": 13,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 3,
+        "fps": 13,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 4,
+        "fps": 11,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 5,
+        "fps": 10,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 5,
+        "fps": 10,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 6,
+        "fps": 9,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 7,
+        "fps": 8,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 8,
+        "fps": 8,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 8,
+        "fps": 7,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 9,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 9,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 10,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 11,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 12,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 12,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 13,
+        "fps": 6,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 13,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 14,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 15,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 16,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 16,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 17,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 17,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 18,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 19,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 20,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 20,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 21,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 22,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 22,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 23,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 24,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 24,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 25,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 26,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 26,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 27,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 28,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 29,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 29,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 30,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 31,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 31,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 32,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 33,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 34,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 35,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 36,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 36,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 37,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 37,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 38,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 39,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 40,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 41,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 41,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 42,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 42,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 43,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 44,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 45,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 45,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 46,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 47,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 47,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 48,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 49,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 49,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 50,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 51,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 52,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 52,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 53,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 54,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 54,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 55,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 56,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 56,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 57,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 58,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 58,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 59,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 60,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      },
+      {
+        "t": 60,
+        "fps": 5,
+        "enemies": 11,
+        "tier": -1
+      }
+    ],
+    "memHistory": [
+      {
+        "t": 1,
+        "mb": 150
+      },
+      {
+        "t": 1,
+        "mb": 150
+      },
+      {
+        "t": 2,
+        "mb": 150
+      },
+      {
+        "t": 3,
+        "mb": 150
+      },
+      {
+        "t": 3,
+        "mb": 150
+      },
+      {
+        "t": 4,
+        "mb": 150
+      },
+      {
+        "t": 5,
+        "mb": 150
+      },
+      {
+        "t": 5,
+        "mb": 150
+      },
+      {
+        "t": 6,
+        "mb": 150
+      },
+      {
+        "t": 7,
+        "mb": 150
+      },
+      {
+        "t": 8,
+        "mb": 150
+      },
+      {
+        "t": 8,
+        "mb": 150
+      },
+      {
+        "t": 9,
+        "mb": 150
+      },
+      {
+        "t": 9,
+        "mb": 150
+      },
+      {
+        "t": 10,
+        "mb": 150
+      },
+      {
+        "t": 11,
+        "mb": 150
+      },
+      {
+        "t": 12,
+        "mb": 150
+      },
+      {
+        "t": 12,
+        "mb": 150
+      },
+      {
+        "t": 13,
+        "mb": 150
+      },
+      {
+        "t": 13,
+        "mb": 150
+      },
+      {
+        "t": 14,
+        "mb": 150
+      },
+      {
+        "t": 15,
+        "mb": 150
+      },
+      {
+        "t": 16,
+        "mb": 150
+      },
+      {
+        "t": 16,
+        "mb": 150
+      },
+      {
+        "t": 17,
+        "mb": 150
+      },
+      {
+        "t": 17,
+        "mb": 150
+      },
+      {
+        "t": 18,
+        "mb": 150
+      },
+      {
+        "t": 19,
+        "mb": 150
+      },
+      {
+        "t": 20,
+        "mb": 150
+      },
+      {
+        "t": 20,
+        "mb": 150
+      },
+      {
+        "t": 21,
+        "mb": 150
+      },
+      {
+        "t": 22,
+        "mb": 150
+      },
+      {
+        "t": 22,
+        "mb": 150
+      },
+      {
+        "t": 23,
+        "mb": 150
+      },
+      {
+        "t": 24,
+        "mb": 150
+      },
+      {
+        "t": 24,
+        "mb": 150
+      },
+      {
+        "t": 25,
+        "mb": 150
+      },
+      {
+        "t": 26,
+        "mb": 150
+      },
+      {
+        "t": 26,
+        "mb": 150
+      },
+      {
+        "t": 27,
+        "mb": 150
+      },
+      {
+        "t": 28,
+        "mb": 150
+      },
+      {
+        "t": 29,
+        "mb": 150
+      },
+      {
+        "t": 29,
+        "mb": 150
+      },
+      {
+        "t": 30,
+        "mb": 150
+      },
+      {
+        "t": 31,
+        "mb": 150
+      },
+      {
+        "t": 31,
+        "mb": 150
+      },
+      {
+        "t": 32,
+        "mb": 150
+      },
+      {
+        "t": 33,
+        "mb": 150
+      },
+      {
+        "t": 34,
+        "mb": 150
+      },
+      {
+        "t": 35,
+        "mb": 150
+      },
+      {
+        "t": 36,
+        "mb": 150
+      },
+      {
+        "t": 36,
+        "mb": 150
+      },
+      {
+        "t": 37,
+        "mb": 150
+      },
+      {
+        "t": 37,
+        "mb": 150
+      },
+      {
+        "t": 38,
+        "mb": 150
+      },
+      {
+        "t": 39,
+        "mb": 150
+      },
+      {
+        "t": 40,
+        "mb": 150
+      },
+      {
+        "t": 41,
+        "mb": 150
+      },
+      {
+        "t": 41,
+        "mb": 150
+      },
+      {
+        "t": 42,
+        "mb": 150
+      },
+      {
+        "t": 42,
+        "mb": 150
+      },
+      {
+        "t": 43,
+        "mb": 150
+      },
+      {
+        "t": 44,
+        "mb": 150
+      },
+      {
+        "t": 45,
+        "mb": 150
+      },
+      {
+        "t": 45,
+        "mb": 150
+      },
+      {
+        "t": 46,
+        "mb": 150
+      },
+      {
+        "t": 47,
+        "mb": 150
+      },
+      {
+        "t": 47,
+        "mb": 150
+      },
+      {
+        "t": 48,
+        "mb": 150
+      },
+      {
+        "t": 49,
+        "mb": 150
+      },
+      {
+        "t": 49,
+        "mb": 150
+      },
+      {
+        "t": 50,
+        "mb": 150
+      },
+      {
+        "t": 51,
+        "mb": 150
+      },
+      {
+        "t": 52,
+        "mb": 150
+      },
+      {
+        "t": 52,
+        "mb": 150
+      },
+      {
+        "t": 53,
+        "mb": 150
+      },
+      {
+        "t": 54,
+        "mb": 150
+      },
+      {
+        "t": 54,
+        "mb": 150
+      },
+      {
+        "t": 55,
+        "mb": 150
+      },
+      {
+        "t": 56,
+        "mb": 150
+      },
+      {
+        "t": 56,
+        "mb": 150
+      },
+      {
+        "t": 57,
+        "mb": 150
+      },
+      {
+        "t": 58,
+        "mb": 150
+      },
+      {
+        "t": 58,
+        "mb": 150
+      },
+      {
+        "t": 59,
+        "mb": 150
+      },
+      {
+        "t": 60,
+        "mb": 150
+      },
+      {
+        "t": 60,
+        "mb": 150
+      }
+    ]
+  }
+]

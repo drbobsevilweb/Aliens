@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS Dev Editors</title>
+    <link rel="stylesheet" href="/shared/nav.css">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game">Game</a>
+        <a href="/editors" class="active">Editors</a>
+        <a href="/settings">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
+    <div class="shell">
+        <header class="topbar">
+            <div class="topbar-brand">
+                <div class="topbar-kicker">Sulaco Authoring Surface</div>
+                <span class="topbar-title">Map + Mission Control</span>
+            </div>
+            <div class="topbar-dropdown-wrap">
+                <button class="topbar-trigger">File</button>
+                <div class="topbar-dropdown" id="menuFile">
+                    <button id="saveAllBtn">Save All</button>
+                    <button id="exportBtn">Export JSON</button>
+                    <button id="exportPackageBtn">Export Mission Package</button>
+                    <button id="publishPackageBtn">Publish To Game</button>
+                    <button id="validatePackageBtn">Validate Package</button>
+                    <hr class="action-divider">
+                    <label class="import-label">
+                        Import JSON
+                        <input id="importFile" type="file" accept="application/json">
+                    </label>
+                    <label class="import-label">
+                        Import Mission Package
+                        <input id="importPackageFile" type="file" accept="application/json">
+                    </label>
+                </div>
+            </div>
+            <div class="topbar-dropdown-wrap">
+                <button class="topbar-trigger">Edit</button>
+                <div class="topbar-dropdown" id="menuEdit">
+                    <button id="autoTunePackageBtn">Auto-Tune Package</button>
+                    <label class="strict-publish">
+                        <input id="strictQualityToggle" type="checkbox">
+                        Strict quality publish
+                        <input id="strictQualityThreshold" type="number" min="0" max="100" step="1" value="72">
+                    </label>
+                    <button id="clearPackageHistoryBtn">Clear Package History</button>
+                </div>
+            </div>
+            <div class="topbar-dropdown-wrap">
+                <button class="topbar-trigger">View</button>
+                <div class="topbar-dropdown" id="menuView">
+                    <a href="/game">/game</a>
+                    <a href="/game?mission=test">Test Map</a>
+                    <a href="/game?mission=corridor">Corridor Test</a>
+                    <a href="/plan">/plan</a>
+                    <a href="/editors">/editors</a>
+                    <a href="/settings">/settings</a>
+                    <hr class="action-divider">
+                    <div class="font-size-control">
+                        <label class="font-size-label">Font Size</label>
+                        <div class="font-size-row">
+                            <button id="fontSizeDown" class="toolbar-icon-btn" title="Decrease font size">A&minus;</button>
+                            <span id="fontSizeLabel" class="font-size-value">100%</span>
+                            <button id="fontSizeUp" class="toolbar-icon-btn" title="Increase font size">A+</button>
+                            <button id="fontSizeReset" class="toolbar-sm-btn" title="Reset font size">Reset</button>
+                        </div>
+                    </div>
+                    <hr class="action-divider">
+                    <a href="https://gamemaker.io/en/tutorials/sprite-editor" target="_blank" rel="noreferrer">GameMaker Sprite Model</a>
+                    <a href="https://doc.mapeditor.org/en/stable/manual/editing-tile-layers/" target="_blank" rel="noreferrer">Tiled Tilemap Model</a>
+                    <a href="https://www.piskelapp.com/" target="_blank" rel="noreferrer">Piskel Model</a>
+                </div>
+            </div>
+            <nav id="tabs" class="topbar-tabs">
+                <button data-tab="sprite" class="active">Asset Browser</button>
+                <button data-tab="animation">Animation</button>
+                <button data-tab="tilemap">Tilemap</button>
+                <button data-tab="missions">Missions</button>
+                <button data-tab="gameconfig">Game Config</button>
+                <button data-tab="hud">HUD</button>
+                <button data-tab="sound">Sound</button>
+            </nav>
+            <div class="topbar-spacer"></div>
+            <div class="topbar-meta">
+                <div id="packageValidation" class="validation-box"></div>
+                <div id="packageDiff" class="diff-box"></div>
+                <div id="packageHistory" class="history-box"></div>
+                <div id="editorDiagnostics" class="diagnostics-panel" aria-live="polite">
+                    <div class="diagnostics-title">Diagnostics</div>
+                    <div class="diagnostics-row">
+                        <span class="diag-label">Map</span>
+                        <span id="diagMapInfo" class="diag-value">—</span>
+                    </div>
+                    <div class="diagnostics-row">
+                        <span class="diag-label">Missions</span>
+                        <span id="diagMissionInfo" class="diag-value">—</span>
+                    </div>
+                    <div class="diagnostics-row">
+                        <span class="diag-label">Lights</span>
+                        <span id="diagLightCount" class="diag-value">0</span>
+                    </div>
+                    <div class="diagnostics-row">
+                        <span class="diag-label">Zoom</span>
+                        <span id="diagZoomInfo" class="diag-value">100%</span>
+                    </div>
+                    <button id="diagRefreshBtn" class="diag-refresh" type="button">Refresh</button>
+                </div>
+            </div>
+            <div id="status" class="status">Ready</div>
+        </header>
+        <div id="feedbackPopup" class="feedback-popup" role="status" aria-live="polite"></div>
+
+        <main class="main">
+            <section id="tab-sprite" class="panel active"></section>
+            <section id="tab-animation" class="panel"></section>
+            <section id="tab-tilemap" class="panel"></section>
+            <section id="tab-missions" class="panel"></section>
+            <section id="tab-gameconfig" class="panel"></section>
+            <section id="tab-hud" class="panel"></section>
+            <section id="tab-sound" class="panel"></section>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/wavesurfer.js@6/dist/wavesurfer.min.js"></script>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

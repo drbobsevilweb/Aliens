@@ -1,0 +1,105 @@
+{
+  "outDir": "output/path-audit-latest",
+  "missions": [
+    {
+      "missionId": "m1",
+      "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m1",
+      "summary": {
+        "hasScene": true,
+        "width": 104,
+        "height": 70,
+        "doors": 7,
+        "nowTotalWalkable": 5115,
+        "openTotalWalkable": 5115,
+        "nowReachable": 5115,
+        "openReachable": 5115,
+        "nowUnreachable": 0,
+        "openUnreachable": 0,
+        "extractionNowReachable": true,
+        "extractionOpenReachable": true,
+        "deadEndDoorCount": 0,
+        "deadEndDoors": []
+      }
+    },
+    {
+      "missionId": "m2",
+      "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m2",
+      "summary": {
+        "hasScene": true,
+        "width": 104,
+        "height": 70,
+        "doors": 13,
+        "nowTotalWalkable": 2825,
+        "openTotalWalkable": 2825,
+        "nowReachable": 378,
+        "openReachable": 378,
+        "nowUnreachable": 2447,
+        "openUnreachable": 2447,
+        "extractionNowReachable": true,
+        "extractionOpenReachable": true,
+        "deadEndDoorCount": 0,
+        "deadEndDoors": []
+      }
+    },
+    {
+      "missionId": "m3",
+      "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m3",
+      "summary": {
+        "hasScene": true,
+        "width": 104,
+        "height": 70,
+        "doors": 7,
+        "nowTotalWalkable": 3464,
+        "openTotalWalkable": 3464,
+        "nowReachable": 435,
+        "openReachable": 435,
+        "nowUnreachable": 3029,
+        "openUnreachable": 3029,
+        "extractionNowReachable": true,
+        "extractionOpenReachable": true,
+        "deadEndDoorCount": 0,
+        "deadEndDoors": []
+      }
+    },
+    {
+      "missionId": "m4",
+      "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m4",
+      "summary": {
+        "hasScene": true,
+        "width": 104,
+        "height": 70,
+        "doors": 11,
+        "nowTotalWalkable": 2792,
+        "openTotalWalkable": 2792,
+        "nowReachable": 415,
+        "openReachable": 415,
+        "nowUnreachable": 2377,
+        "openUnreachable": 2377,
+        "extractionNowReachable": true,
+        "extractionOpenReachable": true,
+        "deadEndDoorCount": 0,
+        "deadEndDoors": []
+      }
+    },
+    {
+      "missionId": "m5",
+      "url": "http://127.0.0.1:8192/game?renderer=canvas&mission=m5",
+      "summary": {
+        "hasScene": true,
+        "width": 104,
+        "height": 70,
+        "doors": 10,
+        "nowTotalWalkable": 5060,
+        "openTotalWalkable": 5060,
+        "nowReachable": 3145,
+        "openReachable": 3145,
+        "nowUnreachable": 1915,
+        "openUnreachable": 1915,
+        "extractionNowReachable": true,
+        "extractionOpenReachable": true,
+        "deadEndDoorCount": 0,
+        "deadEndDoors": []
+      }
+    }
+  ]
+}

@@ -3,58 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALIENS Dev Editors</title>
+    <title>ALIENS — Editors</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Shared nav + editor styles -->
+    <link rel="stylesheet" href="/shared/nav.css">
     <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-    <div class="shell">
-        <aside class="sidebar">
-            <h1>ALIENS Tools</h1>
-            <p class="sub">Sprite, Animation, Tilemaps, Missions</p>
-            <nav id="tabs" class="tabs">
-                <button data-tab="sprite" class="active">Sprite Editor</button>
-                <button data-tab="animation">Animation Editor</button>
-                <button data-tab="tilemap">Tilemap Editor</button>
-                <button data-tab="missions">Mission Planner</button>
-            </nav>
-            <div class="global-actions">
-                <button id="saveAllBtn">Save All</button>
-                <button id="exportBtn">Export JSON</button>
-                <button id="exportPackageBtn">Export Mission Package</button>
-                <button id="publishPackageBtn">Publish To Game</button>
-                <button id="validatePackageBtn">Validate Package</button>
-                <button id="clearPackageHistoryBtn">Clear Package History</button>
-                <label class="import-label">
-                    Import JSON
-                    <input id="importFile" type="file" accept="application/json">
-                </label>
-                <label class="import-label">
-                    Import Mission Package
-                    <input id="importPackageFile" type="file" accept="application/json">
-                </label>
-            </div>
-            <div id="packageValidation" class="validation-box"></div>
-            <div id="packageHistory" class="history-box"></div>
-            <div id="status" class="status">Ready</div>
-            <div class="links">
-                <a href="/game">/game</a>
-                <a href="/plan">/plan</a>
-                <a href="/editors">/editors</a>
-                <a href="/settings">/settings</a>
-                <a href="https://gamemaker.io/en/tutorials/sprite-editor" target="_blank" rel="noreferrer">GameMaker Sprite Model</a>
-                <a href="https://doc.mapeditor.org/en/stable/manual/editing-tile-layers/" target="_blank" rel="noreferrer">Tiled Tilemap Model</a>
-                <a href="https://www.piskelapp.com/" target="_blank" rel="noreferrer">Piskel Model</a>
-            </div>
-        </aside>
 
-        <main class="main">
-            <section id="tab-sprite" class="panel active"></section>
-            <section id="tab-animation" class="panel"></section>
-            <section id="tab-tilemap" class="panel"></section>
-            <section id="tab-missions" class="panel"></section>
+    <!-- ── Site Navigation ── -->
+    <nav class="dev-nav">
+        <span class="nav-title">ALIENS</span>
+        <a href="/game">Game</a>
+        <a href="/editors" class="active">Editors</a>
+        <a href="/settings">Settings</a>
+        <a href="/gameplan">Gameplan</a>
+    </nav>
+
+    <!-- ── Editor Shell ── -->
+    <div class="editor-shell">
+
+        <!-- ── Tab Bar ── -->
+        <header class="tab-bar">
+            <div class="tab-bar-brand">
+                <span class="tab-bar-kicker">Sulaco Authoring Terminal</span>
+            </div>
+            <nav class="tab-nav" id="tab-nav" role="tablist">
+                <button class="tab-btn active" data-tab="sprites" role="tab" aria-selected="true" aria-controls="tab-content">
+                    <span class="tab-icon">◻</span> Image
+                </button>
+                <button class="tab-btn" data-tab="tilemap" data-tab-target="tilemaps" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">▦</span> Tile Maps
+                </button>
+                <button class="tab-btn" data-tab="missions" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">◫</span> Missions
+                </button>
+                <button class="tab-btn" data-tab="sound" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">♫</span> Sound
+                </button>
+                <button class="tab-btn" data-tab="hud" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">▣</span> HUD
+                </button>
+                <button class="tab-btn" data-tab="texture" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">◈</span> Texture
+                </button>
+                <button class="tab-btn" data-tab="story" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">◎</span> Actions
+                </button>
+                <button class="tab-btn" data-tab="svgActions" role="tab" aria-selected="false" aria-controls="tab-content">
+                    <span class="tab-icon">⚡</span> SVG Actions
+                </button>
+            </nav>
+            <div class="tab-bar-spacer"></div>
+            <div class="tab-bar-actions">
+                <button class="btn btn-sm btn-secondary topbar-trigger" type="button" title="Legacy compatibility trigger">Menu</button>
+                <button class="btn btn-sm btn-secondary" id="saveAllBtn" title="Save all editor state (Ctrl+S)">Save All</button>
+            </div>
+        </header>
+
+        <!-- ── Tab Content Area ── -->
+        <main class="editor-main main">
+            <div id="tab-content" class="tab-content" role="tabpanel">
+                <!-- Tab modules render here -->
+                <div class="tab-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Initializing editor…</span>
+                </div>
+            </div>
         </main>
+
+        <!-- ── Status Bar ── -->
+        <footer class="status-bar" id="status-bar">
+            <div class="status-section status-left">
+                <span class="status-indicator" id="status-connection" title="Server connection">
+                    <span class="status-dot connected"></span>
+                    <span id="status-connection-text">Connected</span>
+                </span>
+                <span class="status-separator">│</span>
+                <span id="status-tab-info" class="status-muted">Image</span>
+            </div>
+            <div class="status-section status-center">
+                <span id="status-message" class="status-message"></span>
+            </div>
+            <div class="status-section status-right">
+                <span id="status-last-save" class="status-muted" title="Last save time">No saves yet</span>
+                <span class="status-separator">│</span>
+                <span id="status-dirty" class="status-clean" title="Unsaved changes indicator">Clean</span>
+            </div>
+        </footer>
     </div>
 
-    <script type="module" src="./app.js"></script>
+    <!-- ── Modal Overlay (shared by all tabs) ── -->
+    <div class="modal-overlay" id="modal-overlay" hidden>
+        <div class="modal" id="modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title"></h3>
+                <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-footer" id="modal-footer"></div>
+        </div>
+    </div>
+
+    <!-- ── Toast Container ── -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- ── Editor Bootstrap ── -->
+    <script type="module">
+        // ── Tab registry ──
+        const TABS = {
+            sprites:  { label: 'Image',     module: './tabs/sprites.js',  instance: null },
+            tilemaps: { label: 'Tile Maps', module: './tabs/tilemaps.js', instance: null },
+            missions: { label: 'Missions',  module: './tabs/missions.js', instance: null },
+            sound:    { label: 'Sound',     module: './tabs/sound.js',    instance: null },
+            hud:      { label: 'HUD',       module: './tabs/hud.js',      instance: null },
+            texture:  { label: 'Texture',   module: './tabs/texture.js',  instance: null },
+            story:    { label: 'Story',     module: './tabs/story.js',    instance: null },
+            svgActions: { label: 'SVG Actions', module: './tabs/svgActions.js', instance: null },
+        };
+
+        let activeTab = 'sprites';
+        const tabContent = document.getElementById('tab-content');
+        const tabNav = document.getElementById('tab-nav');
+        const statusMessage = document.getElementById('status-message');
+        const statusTabInfo = document.getElementById('status-tab-info');
+        const statusLastSave = document.getElementById('status-last-save');
+        const statusDirty = document.getElementById('status-dirty');
+        const statusDot = document.querySelector('.status-dot');
+        const statusConnectionText = document.getElementById('status-connection-text');
+
+        function getTabTargetFromButton(btn) {
+            return btn?.dataset?.tabTarget || btn?.dataset?.tab || '';
+        }
+
+        // ── Shared editor API exposed to tab modules ──
+        window.editorAPI = {
+            /** Show a toast notification */
+            toast(message, type = 'info', duration = 3000) {
+                const container = document.getElementById('toast-container');
+                const el = document.createElement('div');
+                el.className = `toast toast-${type}`;
+                el.textContent = message;
+                container.appendChild(el);
+                requestAnimationFrame(() => el.classList.add('toast-visible'));
+                setTimeout(() => {
+                    el.classList.remove('toast-visible');
+                    el.addEventListener('transitionend', () => el.remove());
+                }, duration);
+            },
+
+            /** Update status bar message (auto-clears after timeout) */
+            setStatus(message, timeout = 4000) {
+                statusMessage.textContent = message;
+                if (timeout > 0) {
+                    setTimeout(() => {
+                        if (statusMessage.textContent === message) statusMessage.textContent = '';
+                    }, timeout);
+                }
+            },
+
+            /** Mark editor state as dirty/clean */
+            setDirty(dirty) {
+                statusDirty.textContent = dirty ? 'Modified' : 'Clean';
+                statusDirty.className = dirty ? 'status-dirty' : 'status-clean';
+            },
+
+            /** Record a save timestamp */
+            recordSave() {
+                const now = new Date();
+                const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                statusLastSave.textContent = `Saved ${time}`;
+                this.setDirty(false);
+            },
+
+            /** Show modal dialog. Returns { body, footer, close } for custom content. */
+            showModal(title, { width } = {}) {
+                const overlay = document.getElementById('modal-overlay');
+                const modal = document.getElementById('modal');
+                document.getElementById('modal-title').textContent = title;
+                document.getElementById('modal-body').innerHTML = '';
+                document.getElementById('modal-footer').innerHTML = '';
+                if (width) modal.style.maxWidth = width;
+                else modal.style.maxWidth = '';
+                overlay.hidden = false;
+                return {
+                    body: document.getElementById('modal-body'),
+                    footer: document.getElementById('modal-footer'),
+                    close() { overlay.hidden = true; },
+                };
+            },
+
+            /** Close any open modal */
+            closeModal() {
+                document.getElementById('modal-overlay').hidden = true;
+            },
+
+            /** Fetch helper with connection status tracking */
+            async apiFetch(url, options = {}) {
+                try {
+                    const resp = await fetch(url, {
+                        headers: { 'Content-Type': 'application/json', ...options.headers },
+                        ...options,
+                    });
+                    setConnectionStatus(true);
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                    return resp;
+                } catch (err) {
+                    if (err.name === 'TypeError') setConnectionStatus(false);
+                    throw err;
+                }
+            },
+
+            /** Get current active tab name */
+            getActiveTab() { return activeTab; },
+        };
+
+        // ── Connection health ──
+        function setConnectionStatus(connected) {
+            statusDot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
+            statusConnectionText.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+
+        async function checkConnection() {
+            try {
+                const r = await fetch('/api/health', { method: 'GET', signal: AbortSignal.timeout(3000) });
+                setConnectionStatus(r.ok);
+            } catch {
+                setConnectionStatus(false);
+            }
+        }
+
+        // Poll connection every 30s
+        setInterval(checkConnection, 30000);
+        checkConnection();
+
+        // ── Tab switching ──
+        async function switchTab(name) {
+            if (!TABS[name]) return;
+            activeTab = name;
+
+            // Update tab buttons
+            tabNav.querySelectorAll('.tab-btn').forEach(btn => {
+                const isActive = getTabTargetFromButton(btn) === name;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', String(isActive));
+            });
+
+            statusTabInfo.textContent = TABS[name].label;
+
+            // Notify previous tab it's being hidden
+            for (const [key, tab] of Object.entries(TABS)) {
+                if (key !== name && tab.instance?.onHide) {
+                    try { tab.instance.onHide(); } catch (e) { console.warn(`Tab ${key} onHide error:`, e); }
+                }
+            }
+
+            // Load module on first use
+            if (!TABS[name].instance) {
+                tabContent.innerHTML = `
+                    <div class="tab-loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading ${TABS[name].label}…</span>
+                    </div>`;
+                try {
+                    const mod = await import(TABS[name].module);
+                    TABS[name].instance = mod.default || mod;
+                } catch (err) {
+                    console.error(`Failed to load tab "${name}":`, err);
+                    tabContent.innerHTML = `
+                        <div class="tab-error">
+                            <h3>Failed to load ${TABS[name].label}</h3>
+                            <pre>${err.message}</pre>
+                            <button class="btn btn-primary" onclick="switchTab('${name}')">Retry</button>
+                        </div>`;
+                    return;
+                }
+            }
+
+            // Render tab
+            const inst = TABS[name].instance;
+            if (inst.render) {
+                tabContent.innerHTML = '';
+                inst.render(tabContent);
+                tabContent.id = name === 'tilemaps' ? 'tab-tilemap' : 'tab-content';
+            }
+            if (inst.onShow) {
+                try { inst.onShow(); } catch (e) { console.warn(`Tab ${name} onShow error:`, e); }
+            }
+        }
+
+        // Expose for retry buttons in error state
+        window.switchTab = switchTab;
+
+        // Tab click handler
+        tabNav.addEventListener('click', (e) => {
+            const btn = e.target.closest('.tab-btn');
+            if (!btn) return;
+            switchTab(getTabTargetFromButton(btn));
+        });
+
+        // Keyboard navigation for tabs (arrow keys)
+        tabNav.addEventListener('keydown', (e) => {
+            const tabs = [...tabNav.querySelectorAll('.tab-btn')];
+            const idx = tabs.indexOf(document.activeElement);
+            if (idx < 0) return;
+            let next = -1;
+            if (e.key === 'ArrowRight') next = (idx + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length;
+            if (next >= 0) {
+                e.preventDefault();
+                tabs[next].focus();
+                switchTab(getTabTargetFromButton(tabs[next]));
+            }
+        });
+
+        // Save All button
+        document.getElementById('saveAllBtn').addEventListener('click', async () => {
+            for (const [, tab] of Object.entries(TABS)) {
+                if (tab.instance?.save) {
+                    try { await tab.instance.save(); } catch (e) { console.error('Save error:', e); }
+                }
+            }
+            window.editorAPI.recordSave();
+            window.editorAPI.toast('All editors saved', 'success');
+        });
+
+        // Modal close handlers
+        document.getElementById('modal-close').addEventListener('click', () => window.editorAPI.closeModal());
+        document.getElementById('modal-overlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) window.editorAPI.closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') window.editorAPI.closeModal();
+        });
+
+        // Ctrl+S global save
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('saveAllBtn').click();
+            }
+        });
+
+        // ── Boot ──
+        switchTab('sprites');
+    </script>
+
 </body>
 </html>

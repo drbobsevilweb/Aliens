@@ -5,11 +5,26 @@ import {
     EGG_CLUSTERS,
     EGG_TRIGGER_RANGE,
     EGG_OPEN_DURATION_MS,
-    EGG_COOLDOWN_MS,
     tileToWorld
 } from '../data/enemyData.js';
 import { AlienEnemy } from '../entities/AlienEnemy.js';
 import { AlienEgg } from '../entities/AlienEgg.js';
+
+import { EnemySpawner } from './EnemySpawner.js';
+import { EnemyTargeting } from './EnemyTargeting.js';
+import { EnemyDetection } from './EnemyDetection.js';
+import { EnemyMovement } from './EnemyMovement.js';
+
+// Diagonal-quadrant facing for warrior/drone sprites (NE/SE = right, NW/SW = left).
+// Matches TeamLeader._applyDirectionFrame logic. No rotation — horizontal flip only.
+export function applyEnemyFacing(enemy, angle) {
+    enemy.setFlipX(false);
+    const offset = enemy.def?.spriteAngleOffset || 0;
+    enemy.setRotation(angle + offset);
+}
+
+const DOOR_ASSAULT_PRESSURE_HARD_MIN = 0.68;
+const DOOR_ASSAULT_MIN_LOCAL_SWARM = 2;
 
 export class EnemyManager {
     constructor(scene, wallLayer, doorGroup, raycaster, lightBlockerGrid, acidPool = null, options = null) {
@@ -19,148 +34,109 @@ export class EnemyManager {
         this.raycaster = raycaster;
         this.lightBlockerGrid = lightBlockerGrid;
         this.acidPool = acidPool;
+        this.settings = (options && options.enemies) || {};
+        this.director = null;
+
+        this.enemyGroup = scene.physics.add.group();
+        this.eggGroup = scene.physics.add.group({ immovable: true, allowGravity: false });
+        
+        // Add colliders for enemies — wall edge forgiveness is applied via processCallback
+        scene.physics.add.collider(this.enemyGroup, wallLayer, null,
+            (obj, tile) => this.shouldCollideWithWallTile(obj, tile)
+        );
+        this.shouldCollideWithDoor = (enemy, door) => {
+            // Facehuggers slip under doors — no door collision
+            if (enemy && enemy.enemyType === 'facehugger') return false;
+            return !!door && !!door.doorGroup && door.doorGroup.isPassable !== true;
+        };
+        scene.physics.add.collider(this.enemyGroup, doorGroup, null, this.shouldCollideWithDoor);
+        scene.physics.add.collider(this.enemyGroup, this.enemyGroup);
+
         this.enemies = [];
+        this.eggs = [];
         this.labels = new Map();
         this.motionContacts = [];
-        this.aliveCount = 0;
-        this.detectionCooldownMs = Number(scene.runtimeSettings?.scripting?.eventTickMs) || 80;
-        this.nextDetectionAt = 0;
-        this.enemyGroup = this.scene.physics.add.group();
-        this.eggGroup = this.scene.physics.add.group({ immovable: true, allowGravity: false });
-        this.settings = (options && options.enemies) || {};
-        this.gunfireAlertMs = 3400;
-        this.visualAlertMs = 4200;
-        this.lightStimulusMemoryMs = 520;
-        this.lightStimulusRange = 460;
+        this.motionEchoes = new Map();
+
+        this.targetPressure = new Map();
+        this.targetLaneOccupancy = new Map();
+        this.committedTargetCounts = new Map();
+        this.enemyDensityGrid = new Map();
+        
         this.lightStimuli = [];
-        this.enemyHealthScale = Number(this.settings.globalHealthScale) || 0.68;
-        this.enemySpeedScale = (Number(this.settings.globalSpeedScale) || 1) * 1.5;
-        this.enemyDamageScale = Number(this.settings.globalDamageScale) || 1;
-        this.visibilitySettings = (this.scene.runtimeSettings && this.scene.runtimeSettings.visibility) || {};
-        this.spottedMemoryMs = Number(this.visibilitySettings.spottedMemoryMs) || CONFIG.SPOTTED_MEMORY_MS;
-        this.trackerRange = Number(this.visibilitySettings.trackerRange) || CONFIG.MOTION_TRACKER_RANGE;
-        this.ventPoints = ENEMY_VENT_POINTS.map((v) => tileToWorld(v.tileX, v.tileY));
-        this.eggs = [];
-        this.maxOpenEggs = 2;
+
+        // Vent points: prefer editor-authored markers from tilemap, fallback to hardcoded
+        const layoutVents = this.scene.missionLayout?.ventPoints;
+        if (Array.isArray(layoutVents) && layoutVents.length > 0) {
+            this.ventPoints = layoutVents.map(v => tileToWorld(v.tileX, v.tileY));
+        } else {
+            this.ventPoints = ENEMY_VENT_POINTS.map(v => tileToWorld(v.tileX, v.tileY));
+        }
+
+        // Cached per-frame lists (rebuilt at start of update())
+        this._cachedActiveEnemies = [];
+        this._cachedDetectedEnemies = [];
+        this._cachedActiveFrame = -1;
+
+        // Dying enemies awaiting corpse fade-out before final destruction
+        this._dyingEnemies = [];
+
+        // Sub-systems
+        this.spawner = new EnemySpawner(this);
+        this.targeting = new EnemyTargeting(this);
+        this.detection = new EnemyDetection(this);
+        this.movement = new EnemyMovement(this);
+
+        // Tuning / Settings
+        this.aliveCount = 0;
+        this.maxOpenEggs = Number(this.settings.maxOpenEggs) || 2;
+        this.enemyHealthScale = Number(this.settings.globalHealthScale ?? this.settings.healthScale) || 1;
+        this.enemySpeedScale = Number(this.settings.globalSpeedScale ?? this.settings.speedScale) || 1;
+        this.enemyDamageScale = Number(this.settings.globalDamageScale ?? this.settings.damageScale) || 1;
+        this.visualAlertMs = Number(this.settings.visualAlertMs) || 1200;
+        this.gunfireAlertMs = Number(this.settings.gunfireAlertMs) || 4000;
+        this.stuckTriggerMs = Number(this.settings.stuckTriggerMs) || 820;
+        this.unstuckCooldownMs = Number(this.settings.unstuckCooldownMs) || 520;
+        this.lightStimulusMemoryMs = Number(this.settings.lightStimulusMemoryMs) || 5000;
+        this.enemyDensityCellSize = Number(this.settings.enemyDensityCellSize) || CONFIG.TILE_SIZE;
+        this.warriorSpotPauseMs = 500;
+        this.warriorBeamPauseMs = 500;
+        this.warriorGunfireResponseMs = 2000;
+        this.wallEdgeForgivenessPx = 14;
+        this.dormantActivationRange = Number(this.settings.dormantActivationRange) || (CONFIG.TILE_SIZE * 12);
+        this.dormantScreenPadding = Number(this.settings.dormantScreenPadding) || 96;
+        this.prevGunfireActive = false;
+        this.warriorGunfireResponseUntil = 0;
+        this.warriorGunfirePoint = { x: 0, y: 0 };
+
+        this.siegeDoorUntil = 0;
+        this.siegePressure = 0;
         this.doorPressure = 0;
         this.lastDoorPressureAt = 0;
-        this.shouldCollideWithDoor = (enemy, door) => {
-            return !!door && !!door.doorGroup && door.doorGroup.state !== 'open';
-        };
-        this.createEggClusters();
-    }
+        this.lastSustainedGunfireAt = 0;
+        this.nextLabelUpdateAt = 0;
+        this.breakoutCooldownMs = Number(this.settings.breakoutCooldownMs) || 25000;
+        this.nextBreakoutAt = 0;
 
-    spawnWave(spawns, waveNumber = 1) {
-        if (!spawns || spawns.length === 0) return 0;
-        const difficulty = Math.max(1, 1 + (waveNumber - 1) * 0.14);
-
-        let spawned = 0;
-        for (const spawn of spawns) {
-            if (this.scene && this.scene.warriorOnlyTesting && spawn.type !== 'warrior') continue;
-            const p = tileToWorld(spawn.tileX, spawn.tileY);
-            if (this.spawnEnemyAtWorld(spawn.type, p.x, p.y, difficulty)) spawned++;
+        // Map-1 tuning: expanded early test map has more narrow gate interactions.
+        // Lower stuck threshold and faster retries reduce bounce/stick without globally altering later missions.
+        if (String(this.scene?.activeMission?.id || '') === 'm1') {
+            this.stuckTriggerMs = Math.min(this.stuckTriggerMs, 700);
+            this.unstuckCooldownMs = Math.min(this.unstuckCooldownMs, 420);
         }
-
-        return spawned;
     }
 
-    spawnEnemyAtWorld(type, worldX, worldY, difficulty = 1) {
-        if (this.scene && this.scene.warriorOnlyTesting && type !== 'warrior') {
-            type = 'warrior';
-        }
-        const def = ENEMIES[type];
-        if (!def) return null;
-        const enemy = new AlienEnemy(this.scene, worldX, worldY, def);
-        this.enemies.push(enemy);
-        this.enemyGroup.add(enemy);
-        this.aliveCount++;
-        const typeTuning = (this.settings.types && this.settings.types[type]) || {};
-        const hpMul = Number(typeTuning.healthMultiplier) || 1;
-        const speedMul = Number(typeTuning.speedMultiplier) || 1;
-        const dmgMul = Number(typeTuning.damageMultiplier) || 1;
-
-        enemy.maxHealth = Math.ceil(enemy.maxHealth * difficulty * this.enemyHealthScale * hpMul);
-        enemy.health = enemy.maxHealth;
-        enemy.stats.speed *= difficulty * this.enemySpeedScale * speedMul;
-        enemy.stats.contactDamage = Math.ceil(enemy.stats.contactDamage * difficulty * this.enemyDamageScale * dmgMul);
-        enemy.stats.doorAttackCooldownMs = Math.max(220, Math.floor(enemy.stats.doorAttackCooldownMs / difficulty));
-        const alienScale = Number(this.scene?.runtimeSettings?.spriteAnimation?.alienSpriteScale) || 1;
-        enemy.setScale((def.sizeScale || 1) * alienScale);
-
-        const label = this.scene.add.text(0, 0, def.name.toUpperCase(), {
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            color: '#ffffff',
-            backgroundColor: '#111111',
-            padding: { left: 3, right: 3, top: 1, bottom: 1 },
-        });
-        label.setDepth(CONFIG.DETECTION_LABEL_DEPTH);
-        label.setVisible(false);
-        this.labels.set(enemy, label);
-
-        this.scene.physics.add.collider(enemy, this.wallLayer);
-        this.scene.physics.add.collider(enemy, this.doorGroup, null, this.shouldCollideWithDoor);
-        enemy.visibleUntil = 0;
-        enemy.fullVisibleUntil = 0;
-        enemy.revealCharge = 0;
-        enemy.lastRevealTickAt = this.scene.time.now || 0;
-        enemy.intent = 'assault';
-        enemy.nextIntentAt = 0;
-        enemy.detected = false;
-        enemy.investigatePoint = null;
-        enemy.investigateUntil = 0;
-        enemy.feintPhase = Math.random() * Math.PI * 2;
-        enemy.feintDir = Math.random() < 0.5 ? -1 : 1;
-        enemy.nextFeintFlipAt = this.scene.time.now + Phaser.Math.Between(180, 520);
-        enemy.nextDodgeAt = this.scene.time.now + Phaser.Math.Between(280, 1200);
-        enemy.dodgeUntil = 0;
-        enemy.dodgeAngle = 0;
-        enemy.dodgeForwardMul = 0.5;
-        enemy.nextLungeAt = this.scene.time.now + Phaser.Math.Between(520, 1800);
-        enemy.lungeUntil = 0;
-        enemy.lungeAngle = 0;
-        enemy.lungeSpeedMul = 1;
-        enemy.setAlpha(0);
-        return enemy;
-    }
-
-    registerLightStimulus(x, y, time, power = 1) {
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(time)) return;
-        const p = Phaser.Math.Clamp(Number(power) || 1, 0.2, 2.5);
-        if (this.lightStimuli.length >= 120) this.lightStimuli.shift();
-        this.lightStimuli.push({ x, y, time, power: p });
-    }
-
-    pruneLightStimuli(time) {
-        const maxAge = this.lightStimulusMemoryMs;
-        this.lightStimuli = this.lightStimuli.filter((s) => (time - s.time) <= maxAge);
-    }
-
-    getBestLightStimulus(enemy, time) {
-        if (!enemy || !this.lightStimuli || this.lightStimuli.length === 0) return null;
-        let best = null;
-        let bestScore = 0;
-        const maxAge = Math.max(1, this.lightStimulusMemoryMs);
-        for (const s of this.lightStimuli) {
-            const age = time - s.time;
-            if (age < 0 || age > maxAge) continue;
-            const freshness = 1 - (age / maxAge);
-            const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, s.x, s.y);
-            const effectiveRange = this.lightStimulusRange * (0.75 + s.power * 0.25);
-            if (dist > effectiveRange) continue;
-            const score = (freshness * s.power) / Math.max(1, dist);
-            if (score > bestScore) {
-                best = s;
-                bestScore = score;
-            }
-        }
-        return best;
+    setDirector(director) {
+        this.director = director;
     }
 
     update(time, delta, marines, context = {}) {
-        if (!marines || marines.length === 0) return;
-        const dt = delta / 1000;
-        const camera = context.camera || this.scene.cameras.main;
+        // Rebuild cached active enemy list once per frame
+        this._rebuildActiveCache();
+
+        const camera = this.scene.cameras.main;
+        const trackerActive = context.trackerActive === true;
+        const trackerDoorOccluded = context.trackerDoorOccluded === true;
         const gunfire = context.gunfire === true;
         const combatMods = context.combatMods || {
             enemyAggressionMul: 1,
@@ -168,19 +144,62 @@ export class EnemyManager {
             enemyDoorDamageMul: 1,
             pressure: 0.3,
         };
-        this.pruneLightStimuli(time);
-        this.updateEggs(time, marines);
+
+        this.detection.pruneLightStimuli(time);
+        this.spawner.updateEggs(time, marines);
+
         const ambientDarkness = Phaser.Math.Clamp(Number(this.scene?.runtimeSettings?.lighting?.ambientDarkness) || 0.5, 0, 1);
         const darknessBias = Phaser.Math.Clamp((ambientDarkness - 0.38) / 0.62, 0, 1);
-        const targetPressure = new Map();
+
+        this.targetPressure.clear();
+        this.targetLaneOccupancy.clear();
+        this.targeting.rebuildCommittedTargetCounts(time);
+        this.detection.rebuildEnemyDensityCache();
+        this.movement._pathsThisFrame = 0;
+
+        const targetPressure = this.targetPressure;
+        const pressure = Number(combatMods?.pressure) || 0;
+        const gunfireStarted = gunfire && !this.prevGunfireActive;
+        if (gunfireStarted) {
+            this.warriorGunfireResponseUntil = time + this.warriorGunfireResponseMs;
+            const lead = this.scene?.leader;
+            this.warriorGunfirePoint = {
+                x: Number(lead?.x) || 0,
+                y: Number(lead?.y) || 0,
+            };
+        }
+        this.prevGunfireActive = gunfire;
 
         for (const enemy of this.enemies) {
             if (!enemy.active) continue;
-            const target = this.pickTargetMarine(enemy, marines, targetPressure);
+            if (this.shouldThrottleEnemySimulation(enemy, marines, camera, time, trackerActive, gunfire)) {
+                enemy.body.setVelocity(0, 0);
+                if (typeof enemy.updateWalkAnimation === 'function') enemy.updateWalkAnimation(0, 0);
+                enemy.prevVx = 0;
+                enemy.prevVy = 0;
+                enemy.navStuckMs = Math.max(0, (Number(enemy.navStuckMs) || 0) - delta * 1.5);
+                enemy.navLastSampleAt = time;
+                enemy.navLastSampleX = enemy.x;
+                enemy.navLastSampleY = enemy.y;
+                continue;
+            }
+
+            const target = this.targeting.pickTargetMarine(
+                enemy,
+                marines,
+                targetPressure,
+                time,
+                pressure,
+                this.committedTargetCounts
+            );
             if (!target || target.active === false || target.alive === false) continue;
+
+            this.targeting.assignAssaultLane(enemy, target, pressure, time);
             targetPressure.set(target, (targetPressure.get(target) || 0) + 1);
-            const hasDirectMarineSense = this.hasDirectMarineSense(enemy, marines);
-            const flashStimulus = this.getBestLightStimulus(enemy, time);
+
+            const hasDirectMarineSense = this.detection.getEnemySenseState(enemy, marines, time);
+            const flashStimulus = this.detection.getBestLightStimulus(enemy, time);
+
             if (flashStimulus) {
                 const alertMs = 900 + Math.round(1200 * flashStimulus.power * (1 + darknessBias * 0.9));
                 enemy.alertUntil = Math.max(enemy.alertUntil, time + alertMs);
@@ -192,28 +211,92 @@ export class EnemyManager {
                 enemy.alertUntil = Math.max(enemy.alertUntil, time + this.visualAlertMs);
                 enemy.lastSeenAt = time;
             }
-            if (gunfire && this.isWithinCameraAggro(enemy, camera, enemy.stats.aggroRange)) {
+            if (
+                enemy.enemyType !== 'warrior'
+                && gunfire
+                && this.targeting.isWithinCameraAggro(enemy, camera, enemy.stats.aggroRange)
+            ) {
                 enemy.alertUntil = Math.max(enemy.alertUntil, time + this.gunfireAlertMs);
+            }
+            // Warrior-only gunfire response: 2s reaction window after first shot in burst.
+            if (
+                enemy.enemyType === 'warrior'
+                && time < this.warriorGunfireResponseUntil
+                && this.targeting.isWithinCameraAggro(enemy, camera, enemy.stats.aggroRange)
+            ) {
+                enemy.alertUntil = Math.max(enemy.alertUntil, this.warriorGunfireResponseUntil);
+                enemy.investigatePoint = {
+                    x: this.warriorGunfirePoint.x,
+                    y: this.warriorGunfirePoint.y,
+                    power: 1,
+                };
+                enemy.investigateUntil = Math.max(enemy.investigateUntil || 0, this.warriorGunfireResponseUntil + 120);
+                if (!enemy._hasSpotPaused && time >= (enemy.nextScreamAt || 0)) {
+                    enemy.spotPauseUntil = Math.max(enemy.spotPauseUntil || 0, time + 280);
+                    enemy.screamUntil = enemy.spotPauseUntil;
+                    enemy.pounceAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.warriorGunfirePoint.x, this.warriorGunfirePoint.y);
+                    enemy.pounceUntil = enemy.spotPauseUntil + Phaser.Math.Between(420, 720);
+                    enemy.nextScreamAt = time + Phaser.Math.Between(2200, 3800);
+                    if (this.scene.sfx) {
+                        const dist = this.scene.leader ? Phaser.Math.Distance.Between(this.scene.leader.x, this.scene.leader.y, enemy.x, enemy.y) : 0;
+                        this.scene.sfx.playAlienScreech(dist);
+                    }
+                }
             }
 
             const isAggro = time < enemy.alertUntil;
             if (isAggro && enemy.stats.canUseVents) {
-                this.tryDroneVentAmbush(enemy, target, marines, time);
+                this.movement.tryDroneVentAmbush(enemy, target, marines, time);
             }
 
-            if (enemy.enemyType === 'facehugger' && this.updateFacehugger(enemy, target, time, dt)) {
+            if (enemy.enemyType === 'facehugger' && this.movement.updateFacehugger(enemy, target, time, delta)) {
+                if (this.scene.sfx) this.scene.sfx.playFacehuggerCrawl();
                 continue;
+            }
+
+            const hasSpotContact = hasDirectMarineSense || enemy.detected;
+            if (isAggro && enemy.enemyType !== 'facehugger' && hasSpotContact) {
+                // Spot pause fires ONCE per alien — first detection only
+                if (!enemy._hasSpotPaused) {
+                    enemy._hasSpotPaused = true;
+                    enemy.lastSpottedTargetRef = target;
+                    const isWarrior = enemy.enemyType === 'warrior';
+                    const beamSpotted = enemy.detected && !hasDirectMarineSense;
+                    const pauseMs = isWarrior
+                        ? (beamSpotted ? this.warriorBeamPauseMs : this.warriorSpotPauseMs)
+                        : Math.round(Phaser.Math.Between(90, 170));
+                    enemy.screamUntil = time + pauseMs;
+                    enemy.spotPauseUntil = enemy.screamUntil;
+                    enemy.pounceUntil = enemy.spotPauseUntil + Math.round(isWarrior ? Phaser.Math.Between(680, 980) : Phaser.Math.Between(260, 480));
+                    enemy.pounceAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+                    if (isWarrior) {
+                        enemy.investigatePoint = { x: target.x, y: target.y, power: 1 };
+                        enemy.investigateUntil = Math.max(enemy.investigateUntil || 0, time + pauseMs + 2600);
+                    }
+                    if (time >= (enemy.nextScreamAt || 0)) {
+                        if (typeof this.scene?.showFloatingText === 'function') {
+                            this.scene.showFloatingText(enemy.x, enemy.y - 20, 'SCREECH!', '#ff9f9f');
+                        }
+                        if (this.scene.sfx) {
+                            const dist = this.scene.leader ? Phaser.Math.Distance.Between(this.scene.leader.x, this.scene.leader.y, enemy.x, enemy.y) : 0;
+                            this.scene.sfx.playAlienScreech(dist);
+                        }
+                        enemy.nextScreamAt = time + Phaser.Math.Between(2200, 3800);
+                    }
+                }
             }
 
             const pursuingLightStimulus = isAggro &&
                 enemy.investigatePoint &&
                 (time < (enemy.investigateUntil || 0)) &&
                 (!enemy.detected || !hasDirectMarineSense);
+
             let desired = pursuingLightStimulus
-                ? this.computeInvestigateVelocity(enemy, enemy.investigatePoint, time)
+                ? this.movement.computeInvestigateVelocity(enemy, enemy.investigatePoint, time)
                 : (isAggro
-                    ? this.computeAggroVelocity(enemy, target, marines)
-                    : this.computePatrolVelocity(enemy));
+                    ? this.movement.computeAggroVelocity(enemy, target, marines)
+                    : this.movement.computePatrolVelocity(enemy));
+
             if (pursuingLightStimulus) {
                 const dStim = Phaser.Math.Distance.Between(
                     enemy.x,
@@ -226,61 +309,162 @@ export class EnemyManager {
                 }
             }
 
+            const focusCount = targetPressure.get(target) || 1;
             if (enemy.enemyType === 'warrior') {
-                this.updateWarriorIntent(enemy, time, combatMods.pressure);
-                desired = this.applyWarriorIntent(enemy, target, desired, combatMods);
+                this.movement.updateWarriorIntent(enemy, target, time, pressure, focusCount);
+                desired = this.movement.applyWarriorIntent(enemy, target, desired, combatMods, focusCount);
             }
 
-            if (isAggro && enemy.enemyType !== 'facehugger') {
-                const spacing = this.applyMeleeSpacing(enemy, target, desired, time);
+            // Warriors in probe or retreat skip melee spacing, door engagement, and spot-pause
+            const warriorDisengaged = enemy.enemyType === 'warrior'
+                && (enemy.intent === 'probe' || enemy.intent === 'retreat');
+
+            let navTargetX = target.x;
+            let navTargetY = target.y;
+
+            if (isAggro && !warriorDisengaged) {
+                const spacing = this.movement.applyMeleeSpacing(enemy, target, desired, time, pressure);
                 desired = spacing.desired;
-            }
-            if (isAggro) {
-                desired = this.applyAggroBurstMovement(enemy, target, desired, time, combatMods);
-            }
 
-            const doorGroup = this.findNearbyBlockingDoor(enemy, 48);
-            if (doorGroup) {
-                if (enemy.stats.canOpenUnlockedDoors && doorGroup.state === 'closed') {
-                    doorGroup.open(
-                        this.scene.pathGrid,
-                        this.scene.doorManager.physicsGroup,
-                        this.scene.lightBlockerGrid,
-                        this.scene.wallLayer
-                    );
-                }
-                const center = this.getDoorCenter(doorGroup);
-                const da = Phaser.Math.Angle.Between(enemy.x, enemy.y, center.x, center.y);
-                const doorBias = enemy.swarmSide * 0.55;
-                const nearDoor = Phaser.Math.Distance.Between(enemy.x, enemy.y, center.x, center.y) < 90;
-                if (nearDoor) {
-                    desired.vx += Math.cos(da + doorBias) * enemy.stats.speed * 0.4 * combatMods.enemyAggressionMul;
-                    desired.vy += Math.sin(da + doorBias) * enemy.stats.speed * 0.4 * combatMods.enemyAggressionMul;
-                }
-                const canDamageDoor = enemy.stats.canBreachAnyDoor || doorGroup.state !== 'open';
-                if (
-                    canDamageDoor &&
-                    Phaser.Math.Distance.Between(enemy.x, enemy.y, center.x, center.y) <= 30 &&
-                    time >= enemy.nextDoorHitAt
-                ) {
-                    const doorDamage = Math.max(1, Math.round(enemy.stats.doorDamage * combatMods.enemyDoorDamageMul));
-                    const breached = doorGroup.applyEnemyDamage(
-                        doorDamage,
-                        this.scene.pathGrid,
-                        this.scene.doorManager.physicsGroup,
-                        this.scene.lightBlockerGrid,
-                        this.scene.wallLayer
-                    );
-                    this.doorPressure += doorDamage;
-                    this.lastDoorPressureAt = time;
-                    if (this.scene && typeof this.scene.reportDoorThump === 'function') {
-                        this.scene.reportDoorThump(center.x, center.y, time, breached);
+                if (spacing.nearDoor) {
+                    const doorDist = spacing.doorDist;
+                    const doorGroup = spacing.doorGroup;
+                    const center = doorGroup.getCenter();
+                    const da = Phaser.Math.Angle.Between(enemy.x, enemy.y, center.x, center.y);
+                    const localDoorSwarm = this.detection.getEnemyDensityCount(center.x, center.y, CONFIG.TILE_SIZE * 1.6, enemy);
+                    const siegeActive = this.isDoorSiegeActive(time);
+                    const siegeBoost = siegeActive ? Phaser.Math.Clamp(1 + this.siegePressure * 0.7, 1, 1.8) : 1;
+                    const directorState = String(combatMods?.state || 'build');
+                    const intenseFirefight = directorState === 'peak'
+                        || pressure >= DOOR_ASSAULT_PRESSURE_HARD_MIN
+                        || siegeActive;
+                    const swarmGate = localDoorSwarm >= (pressure >= 0.82 ? 2 : DOOR_ASSAULT_MIN_LOCAL_SWARM);
+                    const isAlertAndStuck = enemy.alertUntil > time && spacing.nearDoor && !doorGroup.isPassable;
+                    // Any alerted alien that has a target on-screen (within ~1 screen diagonal)
+                    // is close enough to "hear" combat and should be able to bash through doors.
+                    const screenDiag = 1480;
+                    const targetDist = target
+                        ? Math.hypot(enemy.x - target.x, enemy.y - target.y)
+                        : Infinity;
+                    const marineOnScreen = isAggro && targetDist <= screenDiag;
+                    const canBreachAnyDoor = enemy.stats.canBreachAnyDoor === true;
+                    const doorImmune = doorGroup.state === 'locked' || doorGroup.state === 'welded';
+                    const canDamageDoor = canBreachAnyDoor || (!doorImmune && (
+                        (intenseFirefight && swarmGate)
+                        || isAlertAndStuck
+                        || marineOnScreen
+                    ));
+                    enemy.engagingDoor = spacing.nearDoor && !doorGroup.isPassable && canDamageDoor;
+
+                    if (siegeActive && spacing.nearDoor && enemy.enemyType === 'warrior') enemy.intent = 'breach';
+
+                    if (enemy.engagingDoor) {
+                        const shouldSnap = doorDist <= (CONFIG.TILE_SIZE * 2.2)
+                            && time >= (enemy.nextDoorPounceAt || 0)
+                            && time >= (enemy.pounceUntil || 0);
+                        if (shouldSnap) {
+                            const snap = this.getDoorAttackSnap(enemy, doorGroup, target);
+                            if (snap) {
+                                const snapA = Phaser.Math.Angle.Between(enemy.x, enemy.y, snap.x, snap.y);
+                                enemy.pounceAngle = snapA;
+                                enemy.pounceUntil = time + Phaser.Math.Between(120, 220);
+                                enemy.nextDoorPounceAt = time + Phaser.Math.Between(340, 760);
+                                navTargetX = snap.x;
+                                navTargetY = snap.y;
+                            } else {
+                                enemy.nextDoorPounceAt = time + Phaser.Math.Between(240, 460);
+                            }
+                        }
                     }
-                    enemy.nextDoorHitAt = time + enemy.stats.doorAttackCooldownMs;
+
+                    if (canDamageDoor && doorDist <= (CONFIG.TILE_SIZE * 1.95) && time >= enemy.nextDoorHitAt) {
+                        const doorDamage = Math.max(1, Math.round(enemy.stats.doorDamage * combatMods.enemyDoorDamageMul * siegeBoost));
+                        const breached = doorGroup.applyEnemyDamage(
+                            doorDamage,
+                            this.scene.pathGrid,
+                            this.scene.doorManager.physicsGroup,
+                            this.scene.lightBlockerGrid,
+                            this.scene.wallLayer,
+                            { force: canBreachAnyDoor }
+                        );
+                        this.doorPressure += doorDamage;
+                        this.lastDoorPressureAt = time;
+                        if (this.scene && typeof this.scene.reportDoorThump === 'function') {
+                            this.scene.reportDoorThump(center.x, center.y, time, breached, false, doorGroup);
+                        }
+                        if (breached && this.scene && typeof this.scene.showDoorBreachEffect === 'function') {
+                            this.scene.showDoorBreachEffect(center.x, center.y, 'enemy');
+                        }
+                        const cadence = enemy.intent === 'breach' ? 0.78 : (focusCount >= 2 ? 1.08 : 1.0);
+                        const siegeCadenceMul = siegeActive ? Phaser.Math.Linear(0.88, 0.72, this.siegePressure) : 1;
+                        enemy.nextDoorHitAt = time + Math.floor(enemy.stats.doorAttackCooldownMs * cadence * siegeCadenceMul);
+                    }
+
+                    if (spacing.nearDoor && !enemy.engagingDoor && (!canDamageDoor || doorImmune)) {
+                        const tangent = da + (Math.PI * 0.5 * (enemy.swarmSide || 1));
+                        const sideDrift = Phaser.Math.Clamp((localDoorSwarm - 1) * 0.1, 0.1, 0.34);
+                        const towardTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+                        desired.vx = desired.vx * 0.74 + Math.cos(tangent) * enemy.stats.speed * sideDrift + Math.cos(towardTarget) * enemy.stats.speed * 0.22;
+                        desired.vy = desired.vy * 0.74 + Math.sin(tangent) * enemy.stats.speed * sideDrift + Math.sin(towardTarget) * enemy.stats.speed * 0.22;
+                        const bypass = this.getDoorBypassSnap(enemy, target.x, target.y, doorGroup);
+                        if (bypass) {
+                            navTargetX = bypass.x;
+                            navTargetY = bypass.y;
+                            const toBypass = Phaser.Math.Angle.Between(enemy.x, enemy.y, bypass.x, bypass.y);
+                            desired.vx = desired.vx * 0.56 + Math.cos(toBypass) * enemy.stats.speed * 0.58;
+                            desired.vy = desired.vy * 0.56 + Math.sin(toBypass) * enemy.stats.speed * 0.58;
+                        }
+                    }
                 }
             }
 
-            const speedScale = enemy.getSpeedMultiplier(time);
+            if (isAggro && enemy.enemyType !== 'facehugger' && !warriorDisengaged) {
+                if (time < (enemy.spotPauseUntil || 0)) {
+                    const sAngle = Number.isFinite(enemy.pounceAngle) ? enemy.pounceAngle : Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+                    if (enemy.enemyType === 'warrior') {
+                        // Warriors should clearly pause/scream before rush.
+                        desired = { vx: 0, vy: 0 };
+                    } else {
+                        desired = {
+                            vx: Math.cos(sAngle) * enemy.stats.speed * 0.24,
+                            vy: Math.sin(sAngle) * enemy.stats.speed * 0.24,
+                        };
+                    }
+                } else if (time < (enemy.pounceUntil || 0)) {
+                    const pounceA = Number.isFinite(enemy.pounceAngle) ? enemy.pounceAngle : Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+                    const pSpeed = enemy.stats.speed * 1.58;
+                    desired = {
+                        vx: Math.cos(pounceA) * pSpeed,
+                        vy: Math.sin(pounceA) * pSpeed,
+                    };
+                }
+            }
+
+            if (time < (enemy.navRecoverUntil || 0)) {
+                const recX = Number.isFinite(enemy.navRecoverTargetX) ? enemy.navRecoverTargetX : navTargetX;
+                const recY = Number.isFinite(enemy.navRecoverTargetY) ? enemy.navRecoverTargetY : navTargetY;
+                const recAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, recX, recY);
+                const recDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, recX, recY);
+                const recoverWeight = Phaser.Math.Clamp(
+                    (enemy.navRecoverUntil - time) / Math.max(120, enemy.navRecoverUntil - (enemy.navLastUnstuckAt || 0)),
+                    0.25,
+                    0.8
+                );
+                const recoverSpeed = enemy.stats.speed * Phaser.Math.Linear(0.58, 0.78, Phaser.Math.Clamp(recDist / (CONFIG.TILE_SIZE * 2.8), 0, 1));
+                desired.vx = desired.vx * (1 - recoverWeight) + Math.cos(recAngle) * recoverSpeed * recoverWeight;
+                desired.vy = desired.vy * (1 - recoverWeight) + Math.sin(recAngle) * recoverSpeed * recoverWeight;
+            }
+
+            const pathHint = this.movement.getEnemyPathHint(enemy, navTargetX, navTargetY, time, isAggro);
+            if (pathHint) {
+                const steerA = Phaser.Math.Angle.Between(enemy.x, enemy.y, pathHint.x, pathHint.y);
+                const steerDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, pathHint.x, pathHint.y);
+                const steerWeight = Phaser.Math.Clamp(steerDist / (CONFIG.TILE_SIZE * 3.4), 0.32, 0.66);
+                desired.vx = desired.vx * (1 - steerWeight) + Math.cos(steerA) * enemy.stats.speed * steerWeight;
+                desired.vy = desired.vy * (1 - steerWeight) + Math.sin(steerA) * enemy.stats.speed * steerWeight;
+            }
+
+            const speedScale = enemy.getSpeedMultiplier(time) * this.movement.getSuppressionSpeedMul(enemy, time);
             const maxSpeed = enemy.stats.speed * speedScale * combatMods.enemyAggressionMul;
             desired.vx *= speedScale;
             desired.vy *= speedScale;
@@ -289,17 +473,85 @@ export class EnemyManager {
                 desired.vx = (desired.vx / mag) * maxSpeed;
                 desired.vy = (desired.vy / mag) * maxSpeed;
             }
-            enemy.body.setVelocity(desired.vx, desired.vy);
+
+            // Reduce ping-pong at tight door/object choke points by smoothing steering turns.
+            // Skip momentum smoothing when stuck — it creates a feedback loop
+            const stuckMs = Number(enemy.navStuckMs) || 0;
+            const skipMomentum = stuckMs > (enemy._stuckTriggerMs || 400) * 0.8;
+            const prevVx = Number(enemy.prevVx) || 0;
+            const prevVy = Number(enemy.prevVy) || 0;
+            const prevMag = Math.hypot(prevVx, prevVy);
+            const desiredMag = Math.hypot(desired.vx, desired.vy);
+            if (prevMag > 10 && desiredMag > 10 && !skipMomentum) {
+                const dot = (prevVx * desired.vx + prevVy * desired.vy) / (prevMag * desiredMag);
+                const sharpTurn = dot < -0.2;
+                const navStuck = Number(enemy.navStuckMs) || 0;
+                const chokeBias = enemy.engagingDoor ? 1 : 0;
+                if (sharpTurn || navStuck > 220 || chokeBias > 0) {
+                    // Keep some momentum through choke points without smearing the
+                    // turn so hard that pursuit looks delayed.
+                    const turnLerp = sharpTurn ? 0.52 : 0.64;
+                    desired.vx = Phaser.Math.Linear(prevVx, desired.vx, turnLerp);
+                    desired.vy = Phaser.Math.Linear(prevVy, desired.vy, turnLerp);
+                    if (navStuck > 420 || chokeBias > 0) {
+                        const preserve = Phaser.Math.Clamp(0.34 + chokeBias * 0.08, 0.3, 0.48);
+                        desired.vx = desired.vx * (1 - preserve) + prevVx * preserve;
+                        desired.vy = desired.vy * (1 - preserve) + prevVy * preserve;
+                    }
+                }
+            }
+            enemy.prevVx = desired.vx;
+            enemy.prevVy = desired.vy;
+
+            // Per-frame velocity jitter for organic insect-like movement
+            desired = this.movement.applyMovementJitter(enemy, desired);
+
+            // Hitstop: hold velocity at zero during brief impact freeze
+            if (enemy.hitstopUntil && time < enemy.hitstopUntil) {
+                enemy.body.setVelocity(0, 0);
+            } else {
+                enemy.body.setVelocity(desired.vx, desired.vy);
+            }
+            if (typeof enemy.updateWalkAnimation === 'function') enemy.updateWalkAnimation(desired.vx, desired.vy);
             if (Math.abs(desired.vx) + Math.abs(desired.vy) > 0.001) {
-                enemy.setRotation(Math.atan2(desired.vy, desired.vx));
+                applyEnemyFacing(enemy, Math.atan2(desired.vy, desired.vx));
             }
 
+            const pathGrid = this.scene?.pathGrid;
+            // Facehuggers slip under walls — skip stuck-in-wall recovery
+            if (pathGrid && enemy.enemyType !== 'facehugger') {
+                const tile = pathGrid.worldToTile(enemy.x, enemy.y);
+                if (!pathGrid.isWalkable(tile.x, tile.y) && time >= (enemy.nextHardResolveAt || 0)) {
+                    const corrected = this.resolveWalkableWorld(enemy.x, enemy.y, 2);
+                    if (corrected && (corrected.x !== enemy.x || corrected.y !== enemy.y)) {
+                        enemy.body.reset(corrected.x, corrected.y);
+                        enemy.body.setVelocity(0, 0);
+                    }
+                    enemy.nextHardResolveAt = time + 170;
+                }
+            }
+
+            if (pursuingLightStimulus && enemy.investigatePoint) {
+                navTargetX = enemy.investigatePoint.x;
+                navTargetY = enemy.investigatePoint.y;
+            } else if (!isAggro && enemy.patrolTarget) {
+                navTargetX = enemy.patrolTarget.x;
+                navTargetY = enemy.patrolTarget.y;
+            }
+
+            this.movement.updateEnemyNavigationHealth(enemy, navTargetX, navTargetY, desired, time, pressure);
+
             const contactDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-            const meleeMin = CONFIG.TILE_SIZE * 0.82;
-            const meleeMax = CONFIG.TILE_SIZE * 1.18;
+            const meleeMin = CONFIG.TILE_SIZE * 0.7;
+            const meleeMax = CONFIG.TILE_SIZE * 1.15;
             if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
-                if (this.rollMeleeHit(enemy, target, contactDist)) {
-                    this.applyMarineDamage(target, enemy.stats.contactDamage, enemy);
+                const targetHpPct = Phaser.Math.Clamp((Number(target?.health) || 0) / Math.max(1, Number(target?.maxHealth) || 100), 0, 1);
+                if (this.targeting.rollMeleeHit(enemy, target, contactDist)) {
+                    // Reveal alien when it attacks — acid blood sprays everywhere, can't hide.
+                    enemy.revealCharge = 1;
+                    enemy.hitRevealed = true;
+                    enemy.lastSeenAt = time;
+                    this.targeting.applyMarineDamage(target, enemy.stats.contactDamage, enemy);
                     const objTune = this.scene?.runtimeSettings?.objects || {};
                     const splashChance = Phaser.Math.Clamp(Number(objTune.acidMeleeSplashChance) || 0.48, 0, 1);
                     const poolChance = Phaser.Math.Clamp(Number(objTune.acidMeleePoolChance) || 0.26, 0, 1);
@@ -313,673 +565,444 @@ export class EnemyManager {
                             damageScale: Phaser.Math.FloatBetween(0.5, 0.9),
                         });
                     }
+                    enemy.rushUntil = Math.max(enemy.rushUntil || 0, time + Phaser.Math.Between(80, 170));
+                    enemy.rushAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+                    enemy.rushSpeedMul = Math.max(Number(enemy.rushSpeedMul) || 1, Phaser.Math.FloatBetween(1.22, 1.52));
                 }
-                enemy.nextAttackAt = time + enemy.stats.attackCooldownMs;
+                const finisherMul = targetHpPct <= 0.35 ? Phaser.Math.Linear(0.78, 0.62, (0.35 - targetHpPct) / 0.35) : 1;
+                enemy.nextAttackAt = time + Math.floor(enemy.stats.attackCooldownMs * finisherMul);
             }
         }
 
-        this.updateLabels();
-    }
+        // Hard push runs AFTER setVelocity so += delta on body.velocity is not wiped.
+        this.applyAlienMarineHardPush(marines, delta);
 
-    applyAggroBurstMovement(enemy, target, desired, time, combatMods = null) {
-        if (!enemy || !target || !desired) return desired;
-        if (enemy.enemyType !== 'warrior' && enemy.enemyType !== 'drone') return desired;
-
-        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-        const nearMin = CONFIG.TILE_SIZE * 1.25;
-        const farMax = CONFIG.TILE_SIZE * 6.2;
-        const pressure = Phaser.Math.Clamp(Number(combatMods?.pressure) || 0.3, 0, 1);
-        const burstSpeedMul = enemy.enemyType === 'drone' ? 1.26 : 1.16;
-        const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
-        if (enemy.enemyType === 'drone') {
-            if (time < (enemy.lungeUntil || 0)) {
-                const lungeA = Number(enemy.lungeAngle) || toTarget;
-                const lungeMul = Phaser.Math.Clamp(Number(enemy.lungeSpeedMul) || 1.4, 1.2, 2.2);
-                return {
-                    vx: desired.vx * 0.06 + Math.cos(lungeA) * enemy.stats.speed * lungeMul,
-                    vy: desired.vy * 0.06 + Math.sin(lungeA) * enemy.stats.speed * lungeMul,
-                };
-            }
-            const lungeRangeMin = CONFIG.TILE_SIZE * 1.4;
-            const lungeRangeMax = CONFIG.TILE_SIZE * 4.2;
-            const canLunge = dist >= lungeRangeMin && dist <= lungeRangeMax && time >= (enemy.nextLungeAt || 0);
-            if (canLunge) {
-                const lungeChance = Phaser.Math.Clamp(0.11 + pressure * 0.24, 0.1, 0.42);
-                if (Math.random() < lungeChance) {
-                    const sideOffset = Phaser.Math.FloatBetween(-0.12, 0.12) + (enemy.swarmSide || 1) * Phaser.Math.FloatBetween(0.02, 0.08);
-                    enemy.lungeAngle = toTarget + sideOffset;
-                    enemy.lungeSpeedMul = Phaser.Math.FloatBetween(1.34, 1.82);
-                    enemy.lungeUntil = time + Phaser.Math.Between(130, 220);
-                    enemy.nextLungeAt = time + Phaser.Math.Between(
-                        Math.max(620, Math.floor(1280 - pressure * 420)),
-                        Math.max(900, Math.floor(1860 - pressure * 260))
-                    );
-                    return {
-                        vx: desired.vx * 0.08 + Math.cos(enemy.lungeAngle) * enemy.stats.speed * enemy.lungeSpeedMul,
-                        vy: desired.vy * 0.08 + Math.sin(enemy.lungeAngle) * enemy.stats.speed * enemy.lungeSpeedMul,
-                    };
-                }
-                enemy.nextLungeAt = time + Phaser.Math.Between(420, 860);
-            }
+        if (time >= (this.nextLabelUpdateAt || 0)) {
+            this.updateLabels();
+            this.nextLabelUpdateAt = time + 66;
         }
 
-        if (time < (enemy.dodgeUntil || 0)) {
-            const lat = enemy.dodgeAngle || (toTarget + Math.PI * 0.5 * (enemy.swarmSide || 1));
-            const fwd = Number(enemy.dodgeForwardMul) || 0.5;
-            return {
-                vx: desired.vx * 0.18 + Math.cos(lat) * enemy.stats.speed * burstSpeedMul + Math.cos(toTarget) * enemy.stats.speed * fwd,
-                vy: desired.vy * 0.18 + Math.sin(lat) * enemy.stats.speed * burstSpeedMul + Math.sin(toTarget) * enemy.stats.speed * fwd,
-            };
-        }
-
-        if (dist < nearMin || dist > farMax || time < (enemy.nextDodgeAt || 0)) return desired;
-
-        const burstChance = Phaser.Math.Clamp(0.06 + pressure * 0.22, 0.05, 0.34);
-        if (Math.random() > burstChance) {
-            enemy.nextDodgeAt = time + Phaser.Math.Between(380, 880);
-            return desired;
-        }
-
-        const side = Math.random() < 0.5 ? -1 : 1;
-        enemy.dodgeAngle = toTarget + side * Math.PI * 0.5 + Phaser.Math.FloatBetween(-0.18, 0.18);
-        enemy.dodgeForwardMul = enemy.enemyType === 'drone'
-            ? Phaser.Math.FloatBetween(0.42, 0.58)
-            : Phaser.Math.FloatBetween(0.5, 0.7);
-        const burstMs = enemy.enemyType === 'drone'
-            ? Phaser.Math.Between(120, 240)
-            : Phaser.Math.Between(140, 260);
-        enemy.dodgeUntil = time + burstMs;
-        enemy.nextDodgeAt = time + Phaser.Math.Between(
-            Math.max(320, Math.floor(980 - pressure * 520)),
-            Math.max(620, Math.floor(1500 - pressure * 420))
-        );
-        return desired;
-    }
-
-    pickTargetMarine(enemy, marines, targetPressure = null) {
-        let best = null;
-        let bestScore = Infinity;
-        for (const m of marines) {
-            if (!m || m.active === false || m.alive === false) continue;
-            if (typeof m.health === 'number' && m.health <= 0) continue;
-            const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, m.x, m.y);
-            const pressureN = targetPressure ? (targetPressure.get(m) || 0) : 0;
-            const pressurePenalty = pressureN * 72;
-            const maxHp = Math.max(1, Number(m.maxHealth) || 100);
-            const hpPct = Phaser.Math.Clamp((Number(m.health) || 0) / maxHp, 0, 1);
-            const protectLowHpBonus = (1 - hpPct) * 42;
-            const score = d + pressurePenalty + protectLowHpBonus;
-            if (score < bestScore) {
-                bestScore = score;
-                best = m;
-            }
-        }
-        return best || marines[0] || null;
-    }
-
-    applyMarineDamage(target, amount, attacker = null) {
-        if (!target || amount <= 0) return;
-        const tuning = this.scene?.runtimeSettings?.marines || {};
-        const maxHp = Math.max(1, Number(target.maxHealth) || 100);
-        let dmg = Math.max(0, Number(amount) || 0);
-
-        const baseMul = Phaser.Math.Clamp(Number(tuning.incomingDamageMul) || 0.84, 0.2, 2);
-        const leaderMul = Phaser.Math.Clamp(Number(tuning.leaderIncomingDamageMul) || 0.9, 0.2, 2);
-        const heavyMul = Phaser.Math.Clamp(Number(tuning.heavyIncomingDamageMul) || 0.82, 0.2, 2);
-        const techMul = Phaser.Math.Clamp(Number(tuning.techIncomingDamageMul) || 0.96, 0.2, 2);
-        const medicMul = Phaser.Math.Clamp(Number(tuning.medicIncomingDamageMul) || 0.98, 0.2, 2);
-        dmg *= baseMul;
-        if (!target.roleKey) dmg *= leaderMul;
-        else if (target.roleKey === 'heavy') dmg *= heavyMul;
-        else if (target.roleKey === 'tech') dmg *= techMul;
-        else if (target.roleKey === 'medic') dmg *= medicMul;
-
-        const focusGraceMs = Phaser.Math.Clamp(Number(tuning.focusFireGraceMs) || 900, 100, 4000);
-        const focusGraceMul = Phaser.Math.Clamp(Number(tuning.focusFireGraceMul) || 0.62, 0.1, 1);
-        const lastHitAt = Number.isFinite(target.lastDamagedAt) ? target.lastDamagedAt : -100000;
-        const now = this.scene?.time?.now || 0;
-        if ((now - lastHitAt) <= focusGraceMs) {
-            dmg *= focusGraceMul;
-        }
-
-        const maxHitPct = Phaser.Math.Clamp(Number(tuning.maxHitPctOfMaxHp) || 0.16, 0.04, 0.5);
-        const maxHit = Math.max(1, Math.floor(maxHp * maxHitPct));
-        const currentHp = Math.max(0, Number(target.health) || 0);
-        const hpPct = Phaser.Math.Clamp(currentHp / maxHp, 0, 1);
-        const squad = this.scene?.squadSystem?.getAllMarines?.() || [this.scene?.leader].filter(Boolean);
-        const teamHpPctRaw = this.scene?.getTeamHealthPct ? this.scene.getTeamHealthPct(squad) : 1;
-        const teamHpPct = Phaser.Math.Clamp(Number(teamHpPctRaw) || 1, 0, 1);
-        const lowHpStart = Phaser.Math.Clamp(Number(tuning.lowHpMitigationStartPct) || 0.35, 0.1, 0.8);
-        const lowHpMinMul = Phaser.Math.Clamp(Number(tuning.lowHpMitigationMulMin) || 0.58, 0.2, 1);
-        if (hpPct < lowHpStart) {
-            const t = Phaser.Math.Clamp(hpPct / Math.max(0.001, lowHpStart), 0, 1);
-            dmg *= Phaser.Math.Linear(lowHpMinMul, 1, t);
-        }
-        if (teamHpPct < 0.5) {
-            const teamRelief = Phaser.Math.Linear(0.64, 1, Phaser.Math.Clamp(teamHpPct / 0.5, 0, 1));
-            dmg *= teamRelief;
-        }
-        if (hpPct < 0.2) dmg *= 0.86;
-        dmg = Math.max(1, Math.min(maxHit, Math.round(dmg)));
-
-        const attackerRef = attacker && attacker.active ? attacker : null;
-        if (attackerRef) {
-            target.lastThreatX = attackerRef.x;
-            target.lastThreatY = attackerRef.y;
-            target.lastThreatAt = now;
-            target.lastThreatType = attackerRef.enemyType || 'xeno';
-        }
-        if (typeof target.takeDamage === 'function') {
-            target.takeDamage(dmg);
-            if (this.scene && typeof this.scene.onMarineDamaged === 'function') {
-                this.scene.onMarineDamaged(target, dmg, now);
-            }
-            return;
-        }
-        const leader = this.scene && this.scene.leader;
-        if (leader && typeof leader.takeDamage === 'function') {
-            leader.takeDamage(dmg);
-            if (this.scene && typeof this.scene.onMarineDamaged === 'function') {
-                this.scene.onMarineDamaged(leader, dmg, now);
+        // Update dying enemy corpse fades
+        for (let i = this._dyingEnemies.length - 1; i >= 0; i--) {
+            const corpse = this._dyingEnemies[i];
+            if (!corpse || !corpse.isDying || corpse.updateCorpse(delta)) {
+                // Fully faded — destroy and remove
+                this._dyingEnemies.splice(i, 1);
+                if (corpse) corpse.destroy();
             }
         }
     }
 
-    rollMeleeHit(enemy, target, contactDist) {
-        const maxHp = Math.max(1, Number(target?.maxHealth) || 100);
-        const hpPct = Phaser.Math.Clamp((Number(target?.health) || 0) / maxHp, 0, 1);
-        let hitChance = 0.82;
-        if (enemy?.enemyType === 'drone') hitChance = 0.78;
-        if (enemy?.enemyType === 'facehugger') hitChance = 0.86;
-        if (enemy?.enemyType === 'queen' || enemy?.enemyType === 'queenLesser') hitChance = 0.9;
+    shouldThrottleEnemySimulation(enemy, marines, camera, time, trackerActive = false, gunfire = false) {
+        if (!enemy || !enemy.active) return false;
+        if (trackerActive) return false;
+        if (enemy.detected) return false;
+        if (time < (enemy.alertUntil || 0)) return false;
+        if (time < (enemy.investigateUntil || 0)) return false;
+        if (time < (enemy.navRecoverUntil || 0)) return false;
+        if (time < (enemy.pounceUntil || 0)) return false;
+        if (time < (enemy.leapUntil || 0)) return false;
 
-        const rangeSpan = Math.max(1, CONFIG.TILE_SIZE * 0.36);
-        const edgePenalty = Phaser.Math.Clamp((contactDist - CONFIG.TILE_SIZE * 0.94) / rangeSpan, 0, 1) * 0.14;
-        hitChance -= edgePenalty;
-
-        // Slight mercy when target is already critical.
-        if (hpPct < 0.32) hitChance -= (0.32 - hpPct) * 0.35;
-
-        const slowed = (this.scene?.time?.now || 0) <= (enemy?.hitSlowUntil || 0);
-        if (slowed) hitChance -= 0.08;
-
-        hitChance = Phaser.Math.Clamp(hitChance, 0.48, 0.95);
-        return Math.random() < hitChance;
-    }
-
-    isWithinCameraAggro(enemy, camera, range) {
-        const view = camera.worldView;
-        const inView = Phaser.Geom.Rectangle.Contains(view, enemy.x, enemy.y);
-        if (inView) return true;
-        const cx = view.centerX;
-        const cy = view.centerY;
-        return Phaser.Math.Distance.Between(cx, cy, enemy.x, enemy.y) <= range;
-    }
-
-    computePatrolVelocity(enemy) {
-        const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, enemy.patrolTarget.x, enemy.patrolTarget.y);
-        if (d <= 14) {
-            enemy.patrolTarget = this.pickPatrolTarget(enemy);
-        }
-        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, enemy.patrolTarget.x, enemy.patrolTarget.y);
-        return {
-            vx: Math.cos(angle) * enemy.stats.speed * 0.62,
-            vy: Math.sin(angle) * enemy.stats.speed * 0.62,
-        };
-    }
-
-    computeInvestigateVelocity(enemy, point, time) {
-        const a = Phaser.Math.Angle.Between(enemy.x, enemy.y, point.x, point.y);
-        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, point.x, point.y);
-        if (dist <= 24) {
-            const orbitDir = enemy.swarmSide || 1;
-            const wobble = Math.sin(time * 0.009 + enemy.patternSeed) * 0.35;
-            const searchA = a + orbitDir * (Math.PI * 0.5 + wobble);
-            const s = enemy.stats.speed * 0.62;
-            return {
-                vx: Math.cos(searchA) * s,
-                vy: Math.sin(searchA) * s,
-            };
-        }
-        const s = enemy.stats.speed * 0.9;
-        return {
-            vx: Math.cos(a) * s,
-            vy: Math.sin(a) * s,
-        };
-    }
-
-    hasDirectMarineSense(enemy, marines) {
-        if (!enemy || !marines || marines.length === 0) return false;
-        const senseRange = (enemy.stats.aggroRange || 220) * 1.05;
-        for (const m of marines) {
-            if (!m || !m.active || m.alive === false) continue;
-            const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, m.x, m.y);
-            if (dist > senseRange) continue;
-            if (this.hasLineOfSight(enemy.x, enemy.y, m.x, m.y, senseRange + 8)) return true;
-        }
-        return false;
-    }
-
-    pickPatrolTarget(enemy) {
-        const radiusTiles = enemy.stats.patrolRadiusTiles || 6;
-        const tile = this.scene.pathGrid.worldToTile(enemy.spawnX, enemy.spawnY);
-        for (let i = 0; i < 20; i++) {
-            const dx = Phaser.Math.Between(-radiusTiles, radiusTiles);
-            const dy = Phaser.Math.Between(-radiusTiles, radiusTiles);
-            const tx = tile.x + dx;
-            const ty = tile.y + dy;
-            if (!this.scene.pathGrid.isWalkable(tx, ty)) continue;
-            return this.scene.pathGrid.tileToWorld(tx, ty);
-        }
-        return { x: enemy.spawnX, y: enemy.spawnY };
-    }
-
-    computeAggroVelocity(enemy, target, marines) {
-        const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
-        const flank = enemy.enemyType === 'drone'
-            ? enemy.swarmSide * enemy.stats.flankStrength * 0.45
-            : enemy.swarmSide * enemy.stats.flankStrength;
-        let vx = Math.cos(toTarget) * enemy.stats.speed;
-        let vy = Math.sin(toTarget) * enemy.stats.speed;
-        vx += Math.cos(toTarget + Math.PI * 0.5) * enemy.stats.speed * flank;
-        vy += Math.sin(toTarget + Math.PI * 0.5) * enemy.stats.speed * flank;
-
-        if (enemy.enemyType === 'facehugger') {
-            const jitterA = enemy.patternSeed + this.scene.time.now * 0.011 + enemy.wobble;
-            const jitterB = enemy.patternSeed * 0.67 + this.scene.time.now * 0.009;
-            vx += Math.cos(jitterA) * enemy.stats.speed * enemy.stats.randomPatternStrength * 0.45;
-            vy += Math.sin(jitterB) * enemy.stats.speed * enemy.stats.randomPatternStrength * 0.45;
+        const view = camera?.worldView;
+        if (view) {
+            const pad = Math.max(0, Number(this.dormantScreenPadding) || 96);
+            const inView = (
+                enemy.x >= (view.x - pad)
+                && enemy.x <= (view.right + pad)
+                && enemy.y >= (view.y - pad)
+                && enemy.y <= (view.bottom + pad)
+            );
+            if (inView) return false;
         }
 
-        const sep = this.computeSeparation(enemy, marines);
-        vx += sep.vx;
-        vy += sep.vy;
-        return { vx, vy };
-    }
-
-    updateWarriorIntent(enemy, time, pressure = 0.3) {
-        if (time < enemy.nextIntentAt) return;
-        const r = Math.random();
-        let intent = 'assault';
-        if (pressure >= 0.66) {
-            intent = r < 0.52 ? 'breach' : (r < 0.82 ? 'flank' : 'assault');
-        } else if (pressure >= 0.38) {
-            intent = r < 0.38 ? 'flank' : 'assault';
-        } else {
-            intent = r < 0.2 ? 'flank' : 'assault';
+        const activationRange = Math.max(CONFIG.TILE_SIZE * 5, Number(this.dormantActivationRange) || (CONFIG.TILE_SIZE * 12));
+        const gunfireRange = activationRange * 1.25;
+        for (const marine of marines || []) {
+            if (!marine || marine.active === false || marine.alive === false) continue;
+            const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, marine.x, marine.y);
+            if (d <= activationRange) return false;
+            if (gunfire && d <= gunfireRange) return false;
         }
-        enemy.intent = intent;
-        enemy.nextIntentAt = time + Phaser.Math.Between(900, 1800);
-    }
-
-    applyWarriorIntent(enemy, target, desired, mods) {
-        const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
-        if (enemy.intent === 'flank') {
-            const side = enemy.swarmSide || 1;
-            const flankBoost = enemy.stats.speed * 0.42 * mods.enemyFlankMul;
-            desired.vx += Math.cos(toTarget + Math.PI * 0.5 * side) * flankBoost;
-            desired.vy += Math.sin(toTarget + Math.PI * 0.5 * side) * flankBoost;
-            return desired;
-        }
-        if (enemy.intent === 'breach') {
-            desired.vx += Math.cos(toTarget) * enemy.stats.speed * 0.38;
-            desired.vy += Math.sin(toTarget) * enemy.stats.speed * 0.38;
-            return desired;
-        }
-        return desired;
-    }
-
-    applyMeleeSpacing(enemy, target, desired, time = 0) {
-        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-        const toTarget = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
-        const minDist = CONFIG.TILE_SIZE * 0.82;
-        const holdDist = CONFIG.TILE_SIZE * 1.08;
-        const side = enemy.swarmSide || 1;
-
-        if (dist < minDist) {
-            const away = toTarget + Math.PI;
-            return {
-                desired: {
-                    vx: Math.cos(away) * enemy.stats.speed * 0.85 +
-                        Math.cos(toTarget + Math.PI * 0.5 * side) * enemy.stats.speed * 0.22,
-                    vy: Math.sin(away) * enemy.stats.speed * 0.85 +
-                        Math.sin(toTarget + Math.PI * 0.5 * side) * enemy.stats.speed * 0.22,
-                },
-            };
-        }
-
-        if (dist <= holdDist) {
-            const tangent = toTarget + Math.PI * 0.5 * side;
-            if (
-                enemy.enemyType !== 'facehugger' &&
-                enemy.enemyType !== 'queen' &&
-                enemy.enemyType !== 'queenLesser'
-            ) {
-                if (time >= (enemy.nextFeintFlipAt || 0)) {
-                    enemy.feintDir = (enemy.feintDir || 1) * -1;
-                    enemy.nextFeintFlipAt = time + Phaser.Math.Between(180, 520);
-                }
-                const phase = (enemy.feintPhase || 0) + time * 0.024;
-                const pulse = 0.5 + 0.5 * Math.sin(phase);
-                const foreMul = Phaser.Math.Linear(-0.36, 0.72, pulse) * (enemy.feintDir || 1);
-                const foreSpeed = enemy.stats.speed * foreMul;
-                const tangentSpeed = enemy.stats.speed * 0.36;
-                return {
-                    desired: {
-                        vx: desired.vx * 0.08 + Math.cos(toTarget) * foreSpeed + Math.cos(tangent) * tangentSpeed,
-                        vy: desired.vy * 0.08 + Math.sin(toTarget) * foreSpeed + Math.sin(tangent) * tangentSpeed,
-                    },
-                };
-            }
-            return {
-                desired: {
-                    vx: desired.vx * 0.08 + Math.cos(tangent) * enemy.stats.speed * 0.32,
-                    vy: desired.vy * 0.08 + Math.sin(tangent) * enemy.stats.speed * 0.32,
-                },
-            };
-        }
-
-        return { desired };
-    }
-
-    computeSeparation(enemy, marines) {
-        let sx = 0;
-        let sy = 0;
-        const sepR = enemy.stats.separationRadius;
-        const sepR2 = sepR * sepR;
-        for (const other of this.enemies) {
-            if (other === enemy || !other.active) continue;
-            const dx = enemy.x - other.x;
-            const dy = enemy.y - other.y;
-            const d2 = dx * dx + dy * dy;
-            if (d2 <= 0.0001 || d2 > sepR2) continue;
-            const inv = 1 / Math.sqrt(d2);
-            const strength = (1 - Math.sqrt(d2) / sepR) * enemy.stats.separationForce * enemy.stats.speed;
-            sx += dx * inv * strength;
-            sy += dy * inv * strength;
-        }
-        for (const m of marines) {
-            const dx = enemy.x - m.x;
-            const dy = enemy.y - m.y;
-            const d2 = dx * dx + dy * dy;
-            if (d2 <= 0.0001 || d2 > 900) continue;
-            const inv = 1 / Math.sqrt(d2);
-            sx += dx * inv * enemy.stats.speed * 0.1;
-            sy += dy * inv * enemy.stats.speed * 0.1;
-        }
-        return { vx: sx, vy: sy };
-    }
-
-    tryDroneVentAmbush(enemy, target, marines, time) {
-        if (!enemy.stats.canUseVents || this.ventPoints.length === 0) return false;
-        if (time < enemy.nextVentAt) return false;
-        const distToTarget = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-        if (distToTarget < enemy.stats.ventMinDist) return false;
-
-        let best = null;
-        let bestScore = -Infinity;
-        for (const v of this.ventPoints) {
-            const dTarget = Phaser.Math.Distance.Between(v.x, v.y, target.x, target.y);
-            if (dTarget < enemy.stats.ventMinDist || dTarget > enemy.stats.ventMaxDist) continue;
-            let tooClose = false;
-            for (const m of marines) {
-                if (Phaser.Math.Distance.Between(v.x, v.y, m.x, m.y) < 120) {
-                    tooClose = true;
-                    break;
-                }
-            }
-            if (tooClose) continue;
-            const dSelf = Phaser.Math.Distance.Between(v.x, v.y, enemy.x, enemy.y);
-            const score = dSelf * 0.2 + dTarget * 0.4 + Math.random() * 50;
-            if (score > bestScore) {
-                best = v;
-                bestScore = score;
-            }
-        }
-        if (!best) return false;
-
-        enemy.body.reset(best.x, best.y);
-        enemy.alertUntil = Math.max(enemy.alertUntil, time + this.visualAlertMs);
-        enemy.nextVentAt = time + enemy.stats.ventCooldownMs;
         return true;
     }
 
-    updateFacehugger(enemy, target, time, dt) {
-        if (enemy.latchedTo && enemy.latchedTo.active) {
-            const host = enemy.latchedTo;
-            enemy.body.setVelocity(0, 0);
-            enemy.x = host.x + Math.cos(time * 0.016 + enemy.patternSeed) * 3;
-            enemy.y = host.y + Math.sin(time * 0.018 + enemy.patternSeed) * 3;
-            enemy.setRotation(Phaser.Math.Angle.Between(enemy.x, enemy.y, host.x, host.y));
+    // --- DELEGATED PUBLIC API ---
 
-            if (time >= enemy.nextLatchTickAt) {
-                this.applyMarineDamage(host, enemy.stats.latchDamage, enemy);
-                const latchSplashChance = Phaser.Math.Clamp(
-                    Number(this.scene?.runtimeSettings?.objects?.acidLatchSplashChance) || 0.34,
-                    0,
-                    1
-                );
-                if (this.scene && typeof this.scene.showAlienAcidSplash === 'function' && Math.random() < latchSplashChance) {
-                    this.scene.showAlienAcidSplash(host.x, host.y);
-                }
-                enemy.nextLatchTickAt = time + enemy.stats.latchTickMs;
-            }
-            if (time >= enemy.latchUntil) {
-                enemy.latchedTo = null;
-                enemy.nextLeapAt = time + enemy.stats.leapCooldownMs * 0.6;
-            }
-            return true;
-        }
-
-        if (enemy.leaping) {
-            if (time >= enemy.leapUntil) {
-                enemy.leaping = false;
-            } else {
-                const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-                if (dist <= 26 && time >= enemy.nextAttackAt) {
-                    enemy.latchedTo = target;
-                    enemy.latchUntil = time + enemy.stats.latchDurationMs;
-                    enemy.nextLatchTickAt = time + 80;
-                    enemy.nextAttackAt = time + enemy.stats.attackCooldownMs;
-                    enemy.body.setVelocity(0, 0);
-                    enemy.leaping = false;
-                }
-                return true;
-            }
-        }
-
-        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-        if (
-            time >= enemy.nextLeapAt &&
-            dist >= enemy.stats.leapMinRange &&
-            dist <= enemy.stats.leapMaxRange
-        ) {
-            const a = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
-            const wobble = Math.sin(time * 0.02 + enemy.patternSeed) * 0.22;
-            enemy.body.setVelocity(
-                Math.cos(a + wobble) * enemy.stats.leapSpeed,
-                Math.sin(a + wobble) * enemy.stats.leapSpeed
-            );
-            enemy.setRotation(a + wobble);
-            enemy.leaping = true;
-            enemy.leapUntil = time + 320;
-            enemy.nextLeapAt = time + enemy.stats.leapCooldownMs;
-            return true;
-        }
-
-        // fallback to normal aggro/patrol flow
-        return false;
+    updateDetection(lightSources, time, context = {}) {
+        const delta = context.delta || 16;
+        const camera = context.camera || this.scene.cameras.main;
+        const marines = context.marines || this.scene.marines || [];
+        const trackerActive = context.trackerActive === true;
+        const trackerDoorOccluded = context.trackerDoorOccluded === true;
+        
+        this.detection.updateDetection(time, delta, marines, camera, trackerActive, trackerDoorOccluded, lightSources);
+        this._rebuildActiveCache(true);
     }
 
-    findNearbyBlockingDoor(enemy, radius = 48) {
-        if (!this.scene.doorManager) return null;
+    getPriorityThreat(x, y, allowUndetected = false) {
+        return this.targeting.getPriorityThreat(x, y, allowUndetected);
+    }
+
+    /**
+     * Rebuild the cached active enemies list. Called once per update.
+     * Downstream getActiveEnemies / getAliveEnemies / getAliveCount
+     * all return from this cache without allocating new arrays.
+     */
+    _rebuildActiveCache(force = false) {
+        const frame = this.scene?.game?.loop?.frame ?? -1;
+        if (!force && frame === this._cachedActiveFrame) return;
+        this._cachedActiveFrame = frame;
+        const arr = this._cachedActiveEnemies;
+        arr.length = 0;
+        const det = this._cachedDetectedEnemies;
+        det.length = 0;
+        for (let i = 0; i < this.enemies.length; i++) {
+            const e = this.enemies[i];
+            if (!e.active) continue;
+            arr.push(e);
+            if (e.detected) det.push(e);
+        }
+    }
+
+    getActiveEnemies() {
+        this._rebuildActiveCache();
+        return this._cachedActiveEnemies;
+    }
+
+    getShadowCasters() {
+        // Eggs block light, enemies do not (to keep them stealthy in darkness).
+        // Reuse array to avoid per-frame allocation.
+        if (!this._shadowCasterCache) this._shadowCasterCache = [];
+        const arr = this._shadowCasterCache;
+        arr.length = 0;
+        for (let i = 0; i < this.eggs.length; i++) {
+            const egg = this.eggs[i];
+            if (!egg.active) continue;
+            arr.push({ x: egg.x, y: egg.y, radius: 18, blocksLight: true });
+        }
+        return arr;
+    }
+
+    spawnWave(spawns, waveNumber = 1) {
+        return this.spawner.spawnWave(spawns, waveNumber);
+    }
+
+    spawnEnemyAtWorld(type, worldX, worldY, difficulty = 1) {
+        return this.spawner.spawnEnemyAtWorld(type, worldX, worldY, difficulty);
+    }
+
+    createEggClusters() {
+        return this.spawner.createEggClusters();
+    }
+
+    getMotionContacts() {
+        return this.motionContacts;
+    }
+
+    getAliveCount() {
+        this._rebuildActiveCache();
+        return this._cachedActiveEnemies.length;
+    }
+
+    getOnScreenHostileCount(camera) {
+        return this.detection.getOnScreenHostileCount(camera);
+    }
+
+    sampleDoorPressure(time = this.scene?.time?.now || 0) {
+        if (time >= this.lastDoorPressureAt + 1000) {
+            const decay = (time - this.lastDoorPressureAt) / 1000 * 0.15;
+            this.doorPressure = Math.max(0, this.doorPressure - decay);
+            this.lastDoorPressureAt = time;
+        }
+        return this.doorPressure;
+    }
+
+    getAliveEnemies() {
+        return this.getActiveEnemies();
+    }
+
+    getDetectedEnemies() {
+        this._rebuildActiveCache();
+        return this._cachedDetectedEnemies;
+    }
+
+    // --- INTERNAL HELPERS ---
+
+    getLightSources() {
+        const sources = [];
+        const marines = this.scene?.squadSystem?.getAllMarines?.()
+            || this.scene?.marines
+            || [this.scene?.leader].filter(Boolean);
+        const lighting = this.scene?.runtimeSettings?.lighting || {};
+        const halfAngle = lighting.torchConeHalfAngle ?? CONFIG.TORCH_CONE_HALF_ANGLE;
+        const range = lighting.torchRange ?? CONFIG.TORCH_RANGE;
+
+        for (const m of marines) {
+            if (!m || m.active === false || m.alive === false) continue;
+            sources.push({
+                x: m.x,
+                y: m.y,
+                angle: (m.facingAngle ?? m.rotation) || 0,
+                halfAngle,
+                range,
+                kind: 'torch',
+            });
+        }
+
+        if (this.scene?.lightSources) {
+            sources.push(...this.scene.lightSources);
+        }
+        return sources;
+    }
+
+    registerLightStimulus(x, y, time, power = 1) {
+        this.detection.registerLightStimulus(x, y, time, power);
+    }
+
+    notifyGunfire(worldX = null, worldY = null, time = this.scene?.time?.now || 0, volume = 1) {
+        // We use siege pressure to track sustained gunfire intensity.
+        // Also could alert nearby enemies directly if needed.
+        const v = Phaser.Math.Clamp(Number(volume) || 1, 0.1, 5);
+        if (worldX !== null && worldY !== null) {
+            // Potential for localized alerts
+            for (const enemy of this.enemies) {
+                if (!enemy.active) continue;
+                const d = Phaser.Math.Distance.Between(worldX, worldY, enemy.x, enemy.y);
+                if (d < (enemy.stats.aggroRange || 220) * 1.8 * v) {
+                    enemy.alertUntil = Math.max(enemy.alertUntil || 0, time + this.gunfireAlertMs * v);
+                }
+            }
+        }
+    }
+
+    notifySustainedGunfire(time = this.scene?.time?.now || 0, intensity = 1) {
+        const clamped = Phaser.Math.Clamp(Number(intensity) || 1, 0.2, 2.4);
+        this.lastSustainedGunfireAt = time;
+        this.siegePressure = Phaser.Math.Clamp(
+            Math.max(this.siegePressure || 0, Phaser.Math.Linear(0.45, 1, Math.min(1, clamped / 1.6))),
+            0,
+            1
+        );
+        const addMs = Math.floor(Phaser.Math.Linear(3200, 7400, this.siegePressure));
+        this.siegeDoorUntil = Math.max(this.siegeDoorUntil || 0, time + addMs);
+    }
+
+    isDoorSiegeActive(time = this.scene?.time?.now || 0) {
+        const active = time < (this.siegeDoorUntil || 0);
+        if (!active && (this.siegePressure || 0) > 0) {
+            this.siegePressure = Math.max(0, this.siegePressure - 0.02);
+        }
+        return active;
+    }
+
+    isWarriorInSameOpenRoom(sourceEnemy, otherEnemy, maxRange = CONFIG.TILE_SIZE * 14) {
+        if (!sourceEnemy || !otherEnemy) return false;
+        const d = Phaser.Math.Distance.Between(sourceEnemy.x, sourceEnemy.y, otherEnemy.x, otherEnemy.y);
+        if (d > maxRange) return false;
+        if (this.isClosedDoorBetweenWorldPoints(sourceEnemy.x, sourceEnemy.y, otherEnemy.x, otherEnemy.y)) return false;
+        if (!this.hasLineOfSight(sourceEnemy.x, sourceEnemy.y, otherEnemy.x, otherEnemy.y, maxRange)) return false;
+        return true;
+    }
+
+    propagateWarriorRoomRush(sourceEnemy, targetMarine, time, pauseMs) {
+        if (!sourceEnemy || !targetMarine || sourceEnemy.enemyType !== 'warrior') return;
+        if ((time - (Number(sourceEnemy.lastWarriorRoomCallAt) || -100000)) < 700) return;
+        sourceEnemy.lastWarriorRoomCallAt = time;
+        const tx = Number(targetMarine.x) || sourceEnemy.x;
+        const ty = Number(targetMarine.y) || sourceEnemy.y;
+        for (const other of this.enemies) {
+            if (!other || !other.active || other === sourceEnemy) continue;
+            if (other.enemyType !== 'warrior') continue;
+            if (!this.isWarriorInSameOpenRoom(sourceEnemy, other)) continue;
+            if ((time - (Number(other.lastWarriorRoomCallAt) || -100000)) < 700) continue;
+            other.lastWarriorRoomCallAt = time;
+            other.alertUntil = Math.max(other.alertUntil || 0, time + pauseMs + 2600);
+            other.spotPauseUntil = Math.max(other.spotPauseUntil || 0, time + pauseMs);
+            other.pounceUntil = Math.max(other.pounceUntil || 0, time + pauseMs + Phaser.Math.Between(680, 980));
+            other.pounceAngle = Phaser.Math.Angle.Between(other.x, other.y, tx, ty);
+            other.investigatePoint = { x: tx, y: ty, power: 1 };
+            other.investigateUntil = Math.max(other.investigateUntil || 0, time + pauseMs + 2400);
+            other.lastSeenAt = time;
+        }
+    }
+
+    findNearbyBlockingDoor(x, y, range) {
+        const doors = this.scene?.doorManager?.getDoorsNear?.(x, y, range) || [];
         let best = null;
         let bestDist = Infinity;
-        for (const group of this.scene.doorManager.doorGroups) {
-            if (group.state === 'open') continue;
-            const center = this.getDoorCenter(group);
-            const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, center.x, center.y);
-            if (d <= radius && d < bestDist) {
-                best = group;
+        for (const d of doors) {
+            if (!d || d.isPassable) continue;
+            const center = d.getCenter();
+            const dist = Phaser.Math.Distance.Between(x, y, center.x, center.y);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = d;
+            }
+        }
+        return best ? { group: best, dist: bestDist } : null;
+    }
+
+    findNearbyVent(x, y, range) {
+        const grid = this.scene?.pathGrid;
+        let best = null;
+        let bestDist = Infinity;
+        for (const v of this.ventPoints) {
+            const d = Phaser.Math.Distance.Between(x, y, v.x, v.y);
+            if (d < range && d < bestDist) {
+                // Validate walkability — skip vents placed inside walls
+                if (grid) {
+                    const t = grid.worldToTile(v.x, v.y);
+                    if (!grid.isWalkable(t.x, t.y)) continue;
+                }
                 bestDist = d;
+                best = v;
             }
         }
         return best;
     }
 
-    getDoorCenter(doorGroup) {
-        let sx = 0;
-        let sy = 0;
-        for (const door of doorGroup.doors) {
-            sx += door.x;
-            sy += door.y;
+    isBlockedByRoomProp(x, y, padding = 18) {
+        const roomProps = Array.isArray(this.scene?.roomProps) ? this.scene.roomProps : [];
+        for (const p of roomProps) {
+            const s = p?.sprite;
+            if (!s || s.active === false) continue;
+            const r = Math.max(10, Number(p.radius) || 18) + padding;
+            if (Phaser.Math.Distance.Between(x, y, s.x, s.y) <= r) return true;
         }
-        return { x: sx / doorGroup.doors.length, y: sy / doorGroup.doors.length };
+        return false;
     }
 
-    createEggClusters() {
-        for (const cluster of EGG_CLUSTERS) {
-            for (const eggTile of cluster) {
-                const p = tileToWorld(eggTile.tileX, eggTile.tileY);
-                const egg = new AlienEgg(this.scene, p.x, p.y);
-                this.eggs.push(egg);
-                this.eggGroup.add(egg);
-            }
-        }
-    }
-
-    updateEggs(time, marines) {
-        let openCount = 0;
-        for (const egg of this.eggs) {
-            if (!egg.active) continue;
-            if (egg.state === 'open' && time >= egg.openUntil) {
-                egg.close(time + EGG_COOLDOWN_MS);
-            }
-            if (egg.state === 'open') openCount++;
-        }
-
-        for (const egg of this.eggs) {
-            if (!egg.active) continue;
-            if (openCount >= this.maxOpenEggs) break;
-            if (egg.state !== 'closed' || time < egg.nextReadyAt) continue;
-
-            let inRange = false;
-            for (const m of marines) {
-                if (Phaser.Math.Distance.Between(egg.x, egg.y, m.x, m.y) <= EGG_TRIGGER_RANGE) {
-                    inRange = true;
-                    break;
+    getDoorBypassSnap(enemy, tx, ty, doorGroup = null) {
+        const pathGrid = this.scene?.pathGrid;
+        if (!pathGrid) return null;
+        const myTile = pathGrid.worldToTile(enemy.x, enemy.y);
+        const targetX = Number(tx) || enemy.x;
+        const targetY = Number(ty) || enemy.y;
+        const doorCenter = doorGroup?.getCenter?.() || null;
+        const isWalkable = (x, y) => !!pathGrid.isWalkable(x, y);
+        const opennessAt = (x, y) => {
+            let c = 0;
+            if (isWalkable(x + 1, y)) c++;
+            if (isWalkable(x - 1, y)) c++;
+            if (isWalkable(x, y + 1)) c++;
+            if (isWalkable(x, y - 1)) c++;
+            return c;
+        };
+        let best = null;
+        let bestScore = -Infinity;
+        for (let r = 1; r <= 4; r++) {
+            for (let dy = -r; dy <= r; dy++) {
+                for (let dx = -r; dx <= r; dx++) {
+                    const nx = myTile.x + dx;
+                    const ny = myTile.y + dy;
+                    if (!pathGrid.isWalkable(nx, ny)) continue;
+                    const door = this.scene.doorManager.getDoorAtTile(nx, ny);
+                    if (door && !door.isPassable) continue;
+                    const world = pathGrid.tileToWorld(nx, ny);
+                    if (this.isBlockedByRoomProp(world.x, world.y, 14)) continue;
+                    const toTarget = Phaser.Math.Distance.Between(world.x, world.y, targetX, targetY);
+                    const fromEnemy = Phaser.Math.Distance.Between(world.x, world.y, enemy.x, enemy.y);
+                    const openness = opennessAt(nx, ny);
+                    const doorPenalty = doorCenter
+                        ? Phaser.Math.Clamp(
+                            1 - (Phaser.Math.Distance.Between(world.x, world.y, doorCenter.x, doorCenter.y) / (CONFIG.TILE_SIZE * 2.3)),
+                            0,
+                            1
+                        ) * 36
+                        : 0;
+                    const blockedLOS = this.scene?.doorManager?.hasClosedDoorBetweenWorldPoints?.(world.x, world.y, targetX, targetY) === true;
+                    const score = (-toTarget * 0.9) + (fromEnemy * 0.22) + (openness * 15) - doorPenalty - (blockedLOS ? 40 : 0);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = world;
+                    }
                 }
             }
-            if (!inRange) continue;
-
-            egg.open(time + EGG_OPEN_DURATION_MS);
-            openCount++;
-            const a = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
-            const sx = egg.x + Math.cos(a) * 18;
-            const sy = egg.y + Math.sin(a) * 18;
-            const eggSpawnType = this.scene && this.scene.warriorOnlyTesting ? 'warrior' : 'facehugger';
-            const spawned = this.spawnEnemyAtWorld(eggSpawnType, sx, sy, 1);
-            if (spawned) {
-                spawned.alertUntil = Math.max(spawned.alertUntil, time + this.visualAlertMs);
-                spawned.nextLeapAt = time + 180;
-            }
         }
+        return best;
     }
 
-    handleEggHit(egg, damage) {
-        if (!egg || !egg.active) return false;
-        const killed = egg.takeDamage(damage);
-        if (killed) {
-            const idx = this.eggs.indexOf(egg);
-            if (idx >= 0) this.eggs.splice(idx, 1);
-        }
-        return killed;
-    }
-
-    updateDetection(lightSources, time, options = {}) {
-        if (!lightSources || lightSources.length === 0) return;
-        if (time < this.nextDetectionAt) return;
-        this.nextDetectionAt = time + this.detectionCooldownMs;
-        this.motionContacts = [];
-        const trackerActive = options.trackerActive === true;
-        const camera = options.camera || this.scene.cameras.main;
-        const holdVisibleMs = 2000;
-        const fadeMemoryMs = Math.max(400, Number(this.visibilitySettings.spottedMemoryMs) || this.spottedMemoryMs);
-        const trackerRange = Number(this.visibilitySettings.trackerRange) || this.trackerRange;
-        const view = camera ? camera.worldView : null;
-        const leader = lightSources[0];
-
-        for (const enemy of this.enemies) {
-            if (!enemy.active) continue;
-            let litNow = false;
-            let litByPersistent = false;
-            const dt = Math.max(0, time - (enemy.lastRevealTickAt || time));
-            enemy.lastRevealTickAt = time;
-
-            for (const source of lightSources) {
-                const dist = Phaser.Math.Distance.Between(source.x, source.y, enemy.x, enemy.y);
-                if (dist > source.range) continue;
-                if (!this.isInLightCone(source, enemy)) continue;
-                if (!this.hasLineOfSight(source.x, source.y, enemy.x, enemy.y, source.range)) continue;
-                litNow = true;
-                const kind = String(source.kind || 'torch').toLowerCase();
-                if (kind === 'torch') litByPersistent = true;
-            }
-
-            if (litNow) {
-                const revealBoost = litByPersistent ? 1 : 0.62;
-                enemy.revealCharge = Math.max(enemy.revealCharge || 0, revealBoost);
-                enemy.lastSeenAt = time;
-                if (litByPersistent) {
-                    enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
+    getDoorAttackSnap(enemy, doorGroup, target) {
+        if (!enemy || !doorGroup || !this.scene?.pathGrid) return null;
+        const grid = this.scene.pathGrid;
+        const center = doorGroup.getCenter();
+        const centerTile = grid.worldToTile(center.x, center.y);
+        const toTarget = Phaser.Math.Angle.Between(center.x, center.y, target.x, target.y);
+        const sideA = toTarget + Math.PI;
+        let best = null;
+        let bestScore = Infinity;
+        for (let r = 1; r <= 2; r++) {
+            for (let dy = -r; dy <= r; dy++) {
+                for (let dx = -r; dx <= r; dx++) {
+                    const tx = centerTile.x + dx;
+                    const ty = centerTile.y + dy;
+                    if (!grid.isWalkable(tx, ty)) continue;
+                    const door = this.scene.doorManager.getDoorAtTile(tx, ty);
+                    if (door && !door.isPassable) continue;
+                    const w = grid.tileToWorld(tx, ty);
+                    if (this.isBlockedByRoomProp(w.x, w.y, 14)) continue;
+                    const dDoor = Phaser.Math.Distance.Between(w.x, w.y, center.x, center.y);
+                    if (dDoor > CONFIG.TILE_SIZE * 1.55) continue;
+                    const a = Phaser.Math.Angle.Between(center.x, center.y, w.x, w.y);
+                    const sideDelta = Math.abs(Phaser.Math.Angle.Wrap(a - sideA));
+                    const enemyDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, w.x, w.y);
+                    const score = sideDelta * 160 + enemyDist * 0.24;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = w;
+                    }
                 }
             }
-            const trackerReveal = trackerActive && view && Phaser.Geom.Rectangle.Contains(view, enemy.x, enemy.y);
-            if (trackerReveal) {
-                enemy.revealCharge = 1;
-                enemy.lastSeenAt = time;
-                enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, time + holdVisibleMs);
-            }
-            const holdVisible = !litNow && !trackerReveal && time <= (enemy.fullVisibleUntil || 0);
-            const visibleNow = litNow || holdVisible || trackerReveal;
-            if (visibleNow) {
-                const inRate = dt / Math.max(60, fadeMemoryMs * 0.18);
-                enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge + inRate, 0, 1);
-            } else {
-                // Let flash/spark reveals ghost out quickly, while torch/tracker still honor the 2s hold window.
-                const outRate = dt / Math.max(120, fadeMemoryMs * 0.24);
-                enemy.revealCharge = Phaser.Math.Clamp(enemy.revealCharge - outRate, 0, 1);
-            }
+        }
+        return best;
+    }
 
-            const visible = enemy.revealCharge > 0.03;
-            const ghostMin = 0.34;
-            const ghostMax = 1;
-            const alpha = visible
-                ? Phaser.Math.Clamp(ghostMin + enemy.revealCharge * (ghostMax - ghostMin), ghostMin, ghostMax)
-                : CONFIG.DETECTION_FADE_ALPHA;
-            enemy.detected = visible;
-            enemy.setAlpha(alpha);
-            const tintColor = this.getVisibilityTintColor(enemy, enemy.revealCharge, visible);
-            enemy.currentDisplayTint = tintColor;
-            enemy.setTint(tintColor);
-
-            const label = this.labels.get(enemy);
-            if (label) {
-                label.setVisible(visible);
-            }
-
-            if (!leader) continue;
-            const trackerDist = Phaser.Math.Distance.Between(leader.x, leader.y, enemy.x, enemy.y);
-            const inTrackerScope = trackerReveal || trackerDist <= trackerRange;
-            if (trackerActive && inTrackerScope) {
-                this.motionContacts.push({
-                    type: enemy.enemyType,
-                    x: enemy.x,
-                    y: enemy.y,
-                    tracked: trackerReveal,
-                });
+    resolveWalkableWorld(x, y, radiusTiles = 2) {
+        const pathGrid = this.scene?.pathGrid;
+        if (!pathGrid) return { x, y };
+        const origin = pathGrid.worldToTile(x, y);
+        if (pathGrid.isWalkable(origin.x, origin.y) && !this.isBlockedByRoomProp(x, y, 14)) return { x, y };
+        for (let r = 1; r <= radiusTiles; r++) {
+            for (let dy = -r; dy <= r; dy++) {
+                for (let dx = -r; dx <= r; dx++) {
+                    const tx = origin.x + dx;
+                    const ty = origin.y + dy;
+                    if (!pathGrid.isWalkable(tx, ty)) continue;
+                    const world = pathGrid.tileToWorld(tx, ty);
+                    if (this.isBlockedByRoomProp(world.x, world.y, 14)) continue;
+                    return world;
+                }
             }
         }
+        return { x, y };
+    }
+
+    pickPatrolTarget(enemy) {
+        const radiusTiles = enemy.stats.patrolRadiusTiles || 6;
+        const tile = this.scene.pathGrid.worldToTile(enemy.spawnX, enemy.spawnY);
+        let best = null;
+        let bestScore = -Infinity;
+        const lastTarget = enemy.lastPatrolTarget || null;
+        for (let i = 0; i < 28; i++) {
+            const dx = Phaser.Math.Between(-radiusTiles, radiusTiles);
+            const dy = Phaser.Math.Between(-radiusTiles, radiusTiles);
+            const tx = tile.x + dx;
+            const ty = tile.y + dy;
+            if (!this.scene.pathGrid.isWalkable(tx, ty)) continue;
+            const world = this.scene.pathGrid.tileToWorld(tx, ty);
+            const fromSpawn = Phaser.Math.Distance.Between(world.x, world.y, enemy.spawnX, enemy.spawnY);
+            const fromEnemy = Phaser.Math.Distance.Between(world.x, world.y, enemy.x, enemy.y);
+            const novelty = lastTarget ? Phaser.Math.Distance.Between(world.x, world.y, lastTarget.x, lastTarget.y) : (CONFIG.TILE_SIZE * 3);
+            const distScore = Phaser.Math.Clamp(fromSpawn / (CONFIG.TILE_SIZE * radiusTiles), 0.2, 1.2) * 56;
+            const moveScore = Phaser.Math.Clamp(fromEnemy / (CONFIG.TILE_SIZE * 6), 0.1, 1.2) * 38;
+            const noveltyScore = Phaser.Math.Clamp(novelty / (CONFIG.TILE_SIZE * 4), 0, 1.5) * 24;
+            const score = distScore + moveScore + noveltyScore + Phaser.Math.FloatBetween(-8, 8);
+            if (score > bestScore) {
+                bestScore = score;
+                best = world;
+            }
+        }
+        return best || { x: enemy.spawnX, y: enemy.spawnY };
     }
 
     updateLabels() {
@@ -996,13 +1019,16 @@ export class EnemyManager {
 
     getVisibilityTintColor(enemy, revealCharge = 0, visible = false) {
         const base = Phaser.Display.Color.ValueToColor(enemy.baseTint || 0x9dcbb9);
-        const contrastBoost = Phaser.Math.Clamp(Number(this.visibilitySettings?.alienContrastBoost) || 1.15, 0.6, 2);
+        const contrastBoost = Phaser.Math.Clamp(Number(this.settings.visibility?.alienContrastBoost) || 1.26, 0.6, 2);
         const boostChannel = (v) => Phaser.Math.Clamp(Math.round(v * contrastBoost), 0, 255);
         if (!visible) {
+            const ghostNeutralMix = Phaser.Math.Clamp(Number(this.settings.visibility?.ghostBlueMix) || 76, 0, 100);
+            const neutralFog = Phaser.Display.Color.ValueToColor(0x98a2aa);
+            const ghost = Phaser.Display.Color.Interpolate.ColorWithColor(base, neutralFog, 100, ghostNeutralMix);
             return Phaser.Display.Color.GetColor(
-                boostChannel(base.r),
-                boostChannel(base.g),
-                boostChannel(base.b)
+                boostChannel(ghost.r),
+                boostChannel(ghost.g),
+                boostChannel(ghost.b)
             );
         }
         const c = Phaser.Display.Color.Interpolate.ColorWithColor(
@@ -1027,89 +1053,93 @@ export class EnemyManager {
     }
 
     hasLineOfSight(x1, y1, x2, y2, maxRange) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len <= 0.0001) return true;
+        return this.detection.hasLineOfSight(x1, y1, x2, y2, maxRange);
+    }
 
-        const dirX = dx / len;
-        const dirY = dy / len;
-        const segments = this.lightBlockerGrid.getSegmentsNear(x1, y1, maxRange + CONFIG.TILE_SIZE);
+    isWorldPointWalkableWithWallEdgeForgiveness(worldX, worldY, edgePx = this.wallEdgeForgivenessPx) {
+        const grid = this.scene?.pathGrid;
+        if (!grid) return true;
+        const tileSize = Number(CONFIG.TILE_SIZE) || 64;
+        const t = grid.worldToTile(worldX, worldY);
+        if (grid.isWalkable(t.x, t.y)) return true;
+        const doorAtTile = this.scene?.doorManager?.getDoorAtTile?.(t.x, t.y);
+        if (doorAtTile && doorAtTile.isPassable !== true) return false;
+        const localX = worldX - (t.x * tileSize);
+        const localY = worldY - (t.y * tileSize);
+        const tol = Phaser.Math.Clamp(Number(edgePx) || 10, 0, tileSize * 0.45);
+        if (tol <= 0) return false;
+        if (localX <= tol && grid.isWalkable(t.x - 1, t.y)) return true;
+        if (localX >= (tileSize - tol) && grid.isWalkable(t.x + 1, t.y)) return true;
+        if (localY <= tol && grid.isWalkable(t.x, t.y - 1)) return true;
+        if (localY >= (tileSize - tol) && grid.isWalkable(t.x, t.y + 1)) return true;
+        return false;
+    }
 
-        for (const seg of segments) {
-            const hit = this.raycaster.raySegmentIntersection(
-                x1, y1, dirX, dirY,
-                seg.x1, seg.y1, seg.x2, seg.y2
-            );
-            if (hit && hit.dist < len) {
-                return false;
-            }
+    shouldCollideWithWallTile(enemy, tile) {
+        if (!enemy || enemy.active === false || !tile) return false;
+        // Facehuggers slip under walls — no wall collision
+        if (enemy.enemyType === 'facehugger') return false;
+        const body = enemy.body;
+        if (!body) return true;
+        const centerX = Number(body.center?.x) || Number(enemy.x) || 0;
+        const centerY = Number(body.center?.y) || Number(enemy.y) || 0;
+        const edgePx = this.wallEdgeForgivenessPx;
+        if (this.isWorldPointWalkableWithWallEdgeForgiveness(centerX, centerY, edgePx)) {
+            return false;
         }
         return true;
     }
 
-    getMotionContacts() {
-        return this.motionContacts;
+    isClosedDoorBetweenWorldPoints(x1, y1, x2, y2) {
+        return this.detection.isClosedDoorBetweenWorldPoints(x1, y1, x2, y2);
     }
 
-    getDetectedEnemies() {
-        const list = [];
-        for (const enemy of this.enemies) {
-            if (!enemy.active || !enemy.detected) continue;
-            list.push(enemy);
+    onEnemyKilled(enemy) {
+        this.aliveCount = Math.max(0, this.aliveCount - 1);
+        
+        const idx = this.enemies.indexOf(enemy);
+        if (idx >= 0) {
+            this.enemies.splice(idx, 1);
+            // Invalidate cache immediately
+            this._cachedActiveFrame = -1;
         }
-        return list;
-    }
 
-    getAliveEnemies() {
-        const list = [];
-        for (const enemy of this.enemies) {
-            if (!enemy.active) continue;
-            list.push(enemy);
+        const label = this.labels.get(enemy);
+        if (label) {
+            label.destroy();
+            this.labels.delete(enemy);
         }
-        return list;
-    }
-
-    getPriorityThreat(x, y, allowUndetected = false) {
-        const pool = this.getDetectedEnemies();
-        if (pool.length === 0 && allowUndetected) {
-            pool.push(...this.getAliveEnemies());
-        }
-        if (pool.length === 0) return null;
-
-        let best = null;
-        let bestDist = Infinity;
-        for (const enemy of pool) {
-            const d = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
-            if (d < bestDist) {
-                bestDist = d;
-                best = enemy;
-            }
-        }
-        return best;
-    }
-
-    getShadowCasters() {
-        const casters = [];
-        for (const enemy of this.enemies) {
-            if (!enemy.active || !enemy.detected) continue;
-            casters.push({
+        const now = this.scene.time.now;
+        if (enemy.detected) {
+            this.motionEchoes.set(enemy, {
                 x: enemy.x,
                 y: enemy.y,
-                radius: 13,
-                blocksLight: true,
+                confidence: enemy.revealCharge || 0.5,
+                speed: enemy.body?.speed || 0,
+                expiresAt: now + 760,
             });
         }
-        return casters;
+        
+        this.scene.events.emit('enemy-killed', enemy);
+
+        // Move to dying list for corpse fade-out instead of immediate destruction
+        if (enemy.isDying) {
+            this._dyingEnemies.push(enemy);
+        } else {
+            // Fallback: destroy immediately if not in dying state
+            enemy.destroy();
+        }
     }
 
     handleBulletHit(enemy, damage, projectile = null) {
         if (!enemy || !enemy.active) return false;
         const now = this.scene?.time?.now || 0;
         enemy.lastSeenAt = now;
-        enemy.fullVisibleUntil = Math.max(enemy.fullVisibleUntil || 0, now + 2000);
-        enemy.revealCharge = Math.max(enemy.revealCharge || 0, 0.65);
-        enemy.lastRevealTickAt = now;
+        enemy.revealCharge = 1;
+        enemy.hitRevealed = true;
+
+        if (this.scene.sfx) this.scene.sfx.playAlienHiss();
+
         const killed = enemy.takeDamage(damage);
         if (!killed && projectile && enemy.body) {
             const key = projectile.weaponKey || 'pulseRifle';
@@ -1127,14 +1157,16 @@ export class EnemyManager {
             enemy.body.velocity.x += ix;
             enemy.body.velocity.y += iy;
             if (key === 'shotgun') {
-                const now = this.scene?.time?.now || 0;
                 enemy.hitSlowUntil = Math.max(enemy.hitSlowUntil || 0, now + 220);
                 enemy.hitSlowMultiplier = Math.min(enemy.hitSlowMultiplier || 1, 0.38);
             }
             if (this.scene && typeof this.scene.showAlienAcidSplash === 'function') {
-                const acidSprayChance = key === 'shotgun' ? 0.34 : (key === 'pistol' ? 0.14 : 0.22);
+                const acidSprayChance = key === 'shotgun' ? 0.72 : (key === 'pistol' ? 0.22 : 0.42);
                 if (Math.random() < acidSprayChance) {
-                    this.scene.showAlienAcidSplash(enemy.x, enemy.y, { spawnPool: false });
+                    this.scene.showAlienAcidSplash(enemy.x, enemy.y, {
+                        spawnPool: false,
+                        intensity: key === 'shotgun' ? 0.95 : (key === 'pistol' ? 0.5 : 0.68),
+                    });
                 }
             }
             if (this.scene && typeof this.scene.spawnAcidHazard === 'function') {
@@ -1153,53 +1185,19 @@ export class EnemyManager {
             }
         }
         if (killed) {
-            this.aliveCount = Math.max(0, this.aliveCount - 1);
-            const label = this.labels.get(enemy);
-            if (label) label.setVisible(false);
+            this.onEnemyKilled(enemy);
         }
         return killed;
     }
 
-    getAliveCount() {
-        return this.aliveCount;
-    }
-
-    getAliveCountByType(enemyType) {
-        let count = 0;
-        for (const enemy of this.enemies) {
-            if (!enemy.active) continue;
-            if (enemy.enemyType === enemyType) count++;
+    handleEggHit(egg, damage) {
+        if (!egg || !egg.active) return false;
+        const killed = egg.takeDamage(damage);
+        if (killed) {
+            const idx = this.eggs.indexOf(egg);
+            if (idx >= 0) this.eggs.splice(idx, 1);
         }
-        return count;
-    }
-
-    getEggAliveCount() {
-        let count = 0;
-        for (const egg of this.eggs) {
-            if (egg.active) count++;
-        }
-        return count;
-    }
-
-    getOnScreenHostileCount(camera) {
-        const cam = camera || this.scene.cameras.main;
-        if (!cam || !cam.worldView) return this.getAliveCount();
-        let count = 0;
-        for (const enemy of this.enemies) {
-            if (!enemy.active) continue;
-            if (Phaser.Geom.Rectangle.Contains(cam.worldView, enemy.x, enemy.y)) count++;
-        }
-        return count;
-    }
-
-    sampleDoorPressure(time) {
-        const dt = Math.max(0, time - this.lastDoorPressureAt);
-        if (dt > 0) {
-            const decay = dt / 1600;
-            this.doorPressure = Math.max(0, this.doorPressure - decay);
-            this.lastDoorPressureAt = time;
-        }
-        return this.doorPressure;
+        return killed;
     }
 
     getPhysicsGroup() {
@@ -1208,5 +1206,57 @@ export class EnemyManager {
 
     getEggPhysicsGroup() {
         return this.eggGroup;
+    }
+
+    applyAlienMarineHardPush(marines, delta) {
+        if (!marines || marines.length === 0) return;
+        const dt = Math.max(0.001, delta / 1000);
+        const activeEnemies = this.getActiveEnemies();
+        if (activeEnemies.length === 0) return;
+
+        // Configuration
+        const minSpacing = 48; // Increased from 32 to 48
+        const pushForce = 320; // Increased velocity units per second for hard push
+
+        for (const enemy of activeEnemies) {
+            // Facehuggers can overlap during leap
+            if (enemy.enemyType === 'facehugger' && enemy.leapUntil) continue;
+
+            for (const marine of marines) {
+                if (!marine.active || marine.alive === false) continue;
+
+                const dx = enemy.x - marine.x;
+                const dy = enemy.y - marine.y;
+                const d2 = dx * dx + dy * dy;
+
+                if (d2 > 0.0001 && d2 < minSpacing * minSpacing) {
+                    const dist = Math.sqrt(d2);
+                    const overlap = minSpacing - dist;
+                    const inv = 1 / dist;
+                    const pushMag = overlap * pushForce * dt;
+                    
+                    const px = (dx * inv) * pushMag;
+                    const py = (dy * inv) * pushMag;
+
+                    // Push enemy away from marine
+                    enemy.body.velocity.x += px;
+                    enemy.body.velocity.y += py;
+                }
+            }
+
+            // Also keep away from closed doors to prevent clipping through
+            const doorCheck = this.findNearbyBlockingDoor(enemy.x, enemy.y, 40);
+            if (doorCheck) {
+                const center = doorCheck.group.getCenter();
+                const dx = enemy.x - center.x;
+                const dy = enemy.y - center.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0.0001 && dist < 42) {
+                    const push = (42 - dist) * pushForce * 0.8 * dt;
+                    enemy.body.velocity.x += (dx / dist) * push;
+                    enemy.body.velocity.y += (dy / dist) * push;
+                }
+            }
+        }
     }
 }

@@ -121,7 +121,7 @@ export class AStar {
         openHeap.push(startNode);
         bestG.set(`${startX},${startY}`, 0);
 
-        while (openHeap.size > 0) {
+        while (openHeap && Number(openHeap.size) > 0) {
             const current = openHeap.pop();
             if (!current) break;
             const currentKey = `${current.x},${current.y}`;

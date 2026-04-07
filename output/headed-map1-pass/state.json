@@ -1,0 +1,171 @@
+{
+  "hasRenderBridge": true,
+  "hasScene": false,
+  "parsed": {
+    "coordinateSystem": "origin top-left, +x right, +y down, units in world pixels",
+    "mode": "combat",
+    "timeMs": 12448,
+    "leader": {
+      "x": 1043,
+      "y": 803,
+      "health": 100,
+      "maxHealth": 100,
+      "facingRad": "0.089"
+    },
+    "squad": [
+      {
+        "role": "leader",
+        "x": 1043,
+        "y": 803,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      },
+      {
+        "role": "tech",
+        "x": 990,
+        "y": 800,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      },
+      {
+        "role": "medic",
+        "x": 896,
+        "y": 803,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      },
+      {
+        "role": "heavy",
+        "x": 776,
+        "y": 807,
+        "hp": 100,
+        "alive": true,
+        "morale": 0
+      }
+    ],
+    "hostiles": [
+      {
+        "type": "warrior",
+        "x": 2953,
+        "y": 2708,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5268,
+        "y": 3310,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 3924,
+        "y": 724,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5485,
+        "y": 212,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 180,
+        "y": 2708,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "drone",
+        "x": 3146,
+        "y": 2904,
+        "hp": 67,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5268,
+        "y": 3121,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 3220,
+        "y": 1696,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "warrior",
+        "x": 5959,
+        "y": 712,
+        "hp": 42,
+        "visible": false
+      },
+      {
+        "type": "facehugger",
+        "x": 5257,
+        "y": 3209,
+        "hp": 27,
+        "visible": false
+      }
+    ],
+    "tracker": {
+      "active": false,
+      "contacts": [
+        {
+          "x": 5268,
+          "y": 3310,
+          "confidence": 0.4,
+          "speed": 46,
+          "echo": false
+        },
+        {
+          "x": 3924,
+          "y": 724,
+          "confidence": 0.4,
+          "speed": 67,
+          "echo": false
+        },
+        {
+          "x": 5960,
+          "y": 712,
+          "confidence": 0.4,
+          "speed": 46,
+          "echo": false
+        },
+        {
+          "x": 5257,
+          "y": 3206,
+          "confidence": 0.4,
+          "speed": 164,
+          "echo": false
+        }
+      ]
+    },
+    "combat": {
+      "pressure": 0.1,
+      "state": "build"
+    },
+    "objective": {
+      "completed": 0,
+      "total": 0
+    }
+  },
+  "acidHazards": 0,
+  "acidWithSubHoles": 0,
+  "doors": {
+    "total": 0,
+    "closed": 0,
+    "welded": 0,
+    "destroyed": 0
+  }
+}

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALIENS — Gameplan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=block" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/nav.css">
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: #101820;
+            --panel-2: #0c1420;
+            --panel-3: #0a1420;
+            --input: #0c1828;
+            --line: #1a3a52;
+            --text: #f0f6ff;
+            --muted: #8ea8c0;
+            --muted-bright: #b0d0e8;
+            --accent: #4aa4d8;
+            --accent-bright: #7ecfff;
+            --accent-hover: rgba(74, 164, 216, 0.08);
+            --accent-active: rgba(74, 164, 216, 0.15);
+            --selection: rgba(74, 164, 216, 0.25);
+            --ok: #33ff66;
+            --warn: #ffaa00;
+            --danger: #ff4444;
+            --status-muted: #3a6a4a;
+            --save-bg: rgba(51, 255, 102, 0.12);
+            --danger-bg: rgba(255, 68, 68, 0.12);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', 'Consolas', monospace;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: calc(100vh - 28px);
+            margin-top: 28px;
+        }
+
+        /* ── Sidebar: Table of Contents ── */
+        .sidebar {
+            background: var(--panel);
+            border-right: 1px solid var(--line);
+            padding: 12px;
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            color: var(--accent);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--line);
+        }
+        .toc-item {
+            display: block;
+            padding: 5px 8px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 11px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-bottom: 1px;
+            border: none;
+            background: none;
+            text-align: left;
+            width: 100%;
+            font-family: inherit;
+        }
+        .toc-item:hover { background: var(--accent-hover); color: var(--muted-bright); }
+        .toc-item.active { color: var(--accent-bright); background: var(--accent-active); }
+
+        .sidebar-actions {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--bg);
+            border: 1px solid var(--accent);
+            color: var(--accent-bright);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .btn:hover { background: var(--panel-2); }
+        .btn-save { border-color: var(--ok); color: var(--ok); }
+        .btn-save:hover { background: var(--save-bg); }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+        .btn-danger:hover { background: var(--danger-bg); }
+
+        /* ── Main content: Editor ── */
+        .main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: var(--panel-2);
+            border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+        .toolbar .status {
+            font-size: 11px;
+            color: var(--status-muted);
+            margin-left: auto;
+        }
+        .toolbar .status.modified { color: var(--warn); }
+        .toolbar .status.saved { color: var(--ok); }
+        .toolbar .status.error { color: var(--danger); }
+
+        .section-title {
+            color: var(--accent);
+            font-size: 12px;
+            padding: 4px 16px;
+            background: var(--panel-3);
+            border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+
+        .editor-wrap {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        #editor {
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: none;
+            resize: none;
+            padding: 12px 16px;
+            outline: none;
+            tab-size: 4;
+        }
+        #editor::selection {
+            background: var(--selection);
+        }
+
+        /* Search bar */
+        .search-bar {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 16px;
+            background: var(--input);
+            border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+        .search-bar.visible { display: flex; }
+        .search-bar input {
+            flex: 1;
+            padding: 4px 8px;
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+            border-radius: 2px;
+            outline: none;
+        }
+        .search-bar input:focus { border-color: var(--accent); }
+        .search-info { font-size: 10px; color: var(--muted); }
+    </style>
+</head>
+<body>
+
+<nav class="dev-nav">
+    <span class="nav-title">ALIENS</span>
+    <a href="/game">Game</a>
+    <a href="/editors">Editors</a>
+    <a href="/settings">Settings</a>
+    <a href="/gameplan" class="active">Gameplan</a>
+</nav>
+
+<div class="layout">
+    <aside class="sidebar">
+        <h2>Game Bible</h2>
+        <div id="toc"></div>
+        <div class="sidebar-actions">
+            <button class="btn btn-save" onclick="save()">Save Changes</button>
+            <button class="btn" onclick="reload()">Reload from Disk</button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <div class="toolbar">
+            <button class="btn" onclick="toggleSearch()">Find (Ctrl+F)</button>
+            <button class="btn btn-save" onclick="save()">Save</button>
+            <span class="status" id="status">Loading...</span>
+        </div>
+        <div class="search-bar" id="searchBar">
+            <input type="text" id="searchInput" placeholder="Search..." oninput="doSearch()">
+            <button class="btn" onclick="searchNext()">Next</button>
+            <button class="btn" onclick="searchPrev()">Prev</button>
+            <span class="search-info" id="searchInfo"></span>
+            <button class="btn" onclick="toggleSearch()" style="margin-left:auto;">Close</button>
+        </div>
+        <div class="section-title" id="sectionTitle">ATS.txt — Aliens: Corridor Ops Game Bible</div>
+        <div class="editor-wrap">
+            <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+const editor = document.getElementById('editor');
+const statusEl = document.getElementById('status');
+const tocEl = document.getElementById('toc');
+let originalContent = '';
+let modified = false;
+let searchMatches = [];
+let searchIndex = -1;
+
+// ── Load ATS.txt ──
+async function load() {
+    try {
+        const res = await fetch('/api/ats');
+        const data = await res.json();
+        if (data.ok) {
+            editor.value = data.content;
+            originalContent = data.content;
+            modified = false;
+            setStatus('Loaded', 'saved');
+            buildTOC(data.content);
+        } else {
+            setStatus('Load failed: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch (err) {
+        setStatus('Load error: ' + err.message, 'error');
+    }
+}
+
+// ── Save ATS.txt ──
+async function save() {
+    setStatus('Saving...', '');
+    try {
+        const res = await fetch('/api/ats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: editor.value }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            originalContent = editor.value;
+            modified = false;
+            setStatus('Saved (' + data.size + ' bytes)', 'saved');
+            buildTOC(editor.value);
+        } else {
+            setStatus('Save failed: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch (err) {
+        setStatus('Save error: ' + err.message, 'error');
+    }
+}
+
+async function reload() {
+    if (modified && !confirm('Discard unsaved changes and reload from disk?')) return;
+    await load();
+}
+
+function setStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+// ── Track modifications ──
+editor.addEventListener('input', () => {
+    modified = editor.value !== originalContent;
+    if (modified) setStatus('Modified — unsaved changes', 'modified');
+    else setStatus('No changes', 'saved');
+});
+
+// ── Build table of contents from section headers ──
+function buildTOC(content) {
+    tocEl.innerHTML = '';
+    const lines = content.split('\n');
+    const sections = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Match section headers like "1. DESIGN INTENT & CORE PILLARS"
+        const match = line.match(/^(\d+)\.\s+(.+)$/);
+        if (match) {
+            sections.push({ num: match[1], title: match[2].trim(), line: i });
+        }
+    }
+
+    for (const sec of sections) {
+        const btn = document.createElement('button');
+        btn.className = 'toc-item';
+        btn.textContent = sec.num + '. ' + sec.title;
+        btn.onclick = () => scrollToLine(sec.line);
+        tocEl.appendChild(btn);
+    }
+}
+
+function scrollToLine(lineNum) {
+    const lines = editor.value.split('\n');
+    let charPos = 0;
+    for (let i = 0; i < lineNum && i < lines.length; i++) {
+        charPos += lines[i].length + 1;
+    }
+    editor.focus();
+    editor.setSelectionRange(charPos, charPos);
+    // Scroll to position
+    const lineHeight = 20; // approximate
+    editor.scrollTop = Math.max(0, lineNum * lineHeight - 100);
+}
+
+// ── Search ──
+function toggleSearch() {
+    const bar = document.getElementById('searchBar');
+    bar.classList.toggle('visible');
+    if (bar.classList.contains('visible')) {
+        document.getElementById('searchInput').focus();
+    }
+}
+
+function doSearch() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    searchMatches = [];
+    searchIndex = -1;
+    if (!query) {
+        document.getElementById('searchInfo').textContent = '';
+        return;
+    }
+    const text = editor.value.toLowerCase();
+    let pos = 0;
+    while ((pos = text.indexOf(query, pos)) !== -1) {
+        searchMatches.push(pos);
+        pos += query.length;
+    }
+    document.getElementById('searchInfo').textContent = searchMatches.length + ' matches';
+    if (searchMatches.length > 0) searchNext();
+}
+
+function searchNext() {
+    if (searchMatches.length === 0) return;
+    searchIndex = (searchIndex + 1) % searchMatches.length;
+    highlightMatch();
+}
+
+function searchPrev() {
+    if (searchMatches.length === 0) return;
+    searchIndex = (searchIndex - 1 + searchMatches.length) % searchMatches.length;
+    highlightMatch();
+}
+
+function highlightMatch() {
+    const query = document.getElementById('searchInput').value;
+    const pos = searchMatches[searchIndex];
+    editor.focus();
+    editor.setSelectionRange(pos, pos + query.length);
+    // Approximate scroll
+    const beforeText = editor.value.substring(0, pos);
+    const lineNum = beforeText.split('\n').length;
+    editor.scrollTop = Math.max(0, lineNum * 20 - 100);
+    document.getElementById('searchInfo').textContent =
+        (searchIndex + 1) + ' / ' + searchMatches.length;
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        save();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        toggleSearch();
+    }
+    if (e.key === 'Escape') {
+        const bar = document.getElementById('searchBar');
+        if (bar.classList.contains('visible')) toggleSearch();
+    }
+});
+
+// ── Warn on unsaved close ──
+window.addEventListener('beforeunload', (e) => {
+    if (modified) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// ── Init ──
+load();
+</script>
+</body>
+</html>

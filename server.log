@@ -1,0 +1,10 @@
+nohup: ignoring input
+Tiled File Watcher
+==================
+Watching: /home/drevilbob/Aliens/maps/*.json
+Press Ctrl+C to stop.
+
+
+[1:03:29 AM] Change detected: (startup)
+  Rebuilding tiledMaps.generated.js...
+  ✓ Build complete. Refresh browser to see changes.

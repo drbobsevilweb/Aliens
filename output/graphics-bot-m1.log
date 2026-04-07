@@ -1,0 +1,24 @@
+[m1][INFO] === GRAPHICS BOT START m1 ===
+[m1][WARN] [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[m1][WARN] [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[m1][WARN] [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[m1][WARN] [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+[m1][INFO] Renderer: type=2 GL=WebGL 1.0 (OpenGL ES 2.0 Chromium) WebKit WebGL
+[m1][INFO] MaxTexSize=8192 MaxTexUnits=32
+[m1][ERROR] Pipeline AlienTonePipeline: MISSING
+[m1][ERROR] Pipeline ScanlinePipeline: MISSING
+[m1][ERROR] Pipeline TiltShiftPipeline: MISSING
+[m1][ERROR] Pipeline DoorRipplePipeline: MISSING
+[m1][INFO] Camera post-pipelines: 0 — []
+[m1][INFO] Textures: 9 found, 0 missing, 207 total
+[m1][INFO] Lighting: overlay=true raycaster=true blockers=true
+[m1][INFO]   Sources: 0 torch, 217 static, 14 segments nearby
+[m1][INFO]   RenderTexture: 1280x720
+[m1][INFO] Depth entities: 11, issues: 0
+[m1][INFO] Starting FPS sampling (60s)...
+[m1][INFO] FPS: min=5 max=20 avg=6 samples=87
+[m1][INFO] Memory peak: 150MB
+[m1][INFO] FX: atmosphere=true bulletPool=true acid=false fxPools=0
+[m1][INFO] HUD: visible=true depth=0 tracker=true objectives=true
+[m1][INFO] Entity FX: tails=0 dying=0 active=11
+[m1][INFO] === GRAPHICS BOT COMPLETE m1 ===

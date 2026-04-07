@@ -1,0 +1,6 @@
+[
+  {
+    "type": "pageerror",
+    "text": "TypeError: this.reinforcementSystem.getDoorGroupCenter is not a function"
+  }
+]

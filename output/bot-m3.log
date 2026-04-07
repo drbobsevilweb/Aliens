@@ -1,0 +1,105 @@
+[m3][INFO] === BOT START m3 (headless) ===
+[m3][INFO] Map 6656x4480, Extract(6176,3872), Waves=2
+[m3][INFO] Leader(928,800) HP=100/100
+[m3][INFO] Squad=4 Hostiles=20 Mode=combat
+[m3][INFO] Bot loop started
+[m3][STATUS] 0s | HP:100/100 | Sq:4/4 | H:20 | K:0 | combat P=0.09 W=1
+[m3][WARN] STUCK (928,800) 4.4s
+[m3][WARN] STUCK (928,800) 4.9s
+[m3][WARN] STUCK (928,800) 5.3s
+[m3][STATUS] 5s | HP:100/100 | Sq:4/4 | H:20 | K:0 | combat P=0.06 W=1
+[m3][STATUS] 10s | HP:100/100 | Sq:4/4 | H:21 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (678,426) 4.3s
+[m3][WARN] STUCK (678,426) 4.8s
+[m3][WARN] STUCK (678,426) 5.2s
+[m3][STATUS] 16s | HP:100/100 | Sq:4/4 | H:21 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 21s | HP:100/100 | Sq:4/4 | H:21 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1116,723) 4.3s
+[m3][STATUS] 26s | HP:100/100 | Sq:4/4 | H:21 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1116,723) 4.7s
+[m3][WARN] STUCK (1116,723) 5.2s
+[m3][STATUS] 31s | HP:100/100 | Sq:4/4 | H:23 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1172,723) 4.3s
+[m3][WARN] STUCK (1172,723) 4.8s
+[m3][WARN] STUCK (1172,723) 5.2s
+[m3][STATUS] 36s | HP:100/100 | Sq:4/4 | H:23 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 42s | HP:100/100 | Sq:4/4 | H:23 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (869,1238) 4.3s
+[m3][WARN] STUCK (869,1238) 4.7s
+[m3][WARN] STUCK (869,1238) 5.2s
+[m3][STATUS] 47s | HP:100/100 | Sq:4/4 | H:23 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (987,1000) 4.2s
+[m3][WARN] STUCK (987,1000) 4.7s
+[m3][WARN] STUCK (987,1000) 5.1s
+[m3][STATUS] 52s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 57s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (930,429) 4.3s
+[m3][WARN] STUCK (930,429) 4.7s
+[m3][WARN] STUCK (930,429) 5.1s
+[m3][STATUS] 62s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 67s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (805,723) 4.3s
+[m3][WARN] STUCK (805,723) 4.7s
+[m3][WARN] STUCK (805,723) 5.1s
+[m3][STATUS] 72s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 78s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1050,1174) 4.3s
+[m3][WARN] STUCK (1050,1174) 4.8s
+[m3][WARN] STUCK (1050,1174) 5.2s
+[m3][STATUS] 83s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1068,1092) 4.3s
+[m3][WARN] STUCK (1068,1092) 4.8s
+[m3][WARN] STUCK (1068,1092) 5.2s
+[m3][STATUS] 88s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 93s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (868,1430) 4.3s
+[m3][WARN] STUCK (868,1430) 4.7s
+[m3][WARN] STUCK (868,1430) 5.1s
+[m3][STATUS] 98s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 104s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1305,937) 4.3s
+[m3][WARN] STUCK (1305,937) 4.8s
+[m3][WARN] STUCK (1305,937) 5.2s
+[m3][STATUS] 109s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 114s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1313,618) 4.3s
+[m3][WARN] STUCK (1313,618) 4.7s
+[m3][WARN] STUCK (1313,618) 5.1s
+[m3][STATUS] 119s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 124s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (878,608) 4.3s
+[m3][WARN] STUCK (878,608) 4.7s
+[m3][WARN] STUCK (878,608) 5.1s
+[m3][STATUS] 129s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (490,862) 4.2s
+[m3][WARN] STUCK (490,862) 4.7s
+[m3][STATUS] 134s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (490,862) 5.1s
+[m3][STATUS] 140s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (669,1175) 4.3s
+[m3][WARN] STUCK (669,1175) 4.8s
+[m3][WARN] STUCK (669,1175) 5.2s
+[m3][STATUS] 145s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 150s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1048,1183) 4.3s
+[m3][WARN] STUCK (1048,1183) 4.7s
+[m3][WARN] STUCK (1048,1183) 5.1s
+[m3][STATUS] 155s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (808,998) 4.3s
+[m3][STATUS] 160s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (808,998) 4.7s
+[m3][WARN] STUCK (808,998) 5.1s
+[m3][STATUS] 165s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (922,808) 4.3s
+[m3][WARN] STUCK (922,808) 4.7s
+[m3][WARN] STUCK (922,808) 5.1s
+[m3][STATUS] 170s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][STATUS] 176s | HP:100/100 | Sq:4/4 | H:24 | K:0 | combat P=0.05 W=1
+[m3][WARN] STUCK (1430,738) 4.3s
+[m3][WARN] STUCK (1430,738) 4.8s
+[m3][WARN] STUCK (1430,738) 5.2s
+[m3][WARN] Timeout after 180s
+[m3][INFO] ════════════════════════════════════
+[m3][INFO] m3 DONE: timeout | 180.4s
+[m3][INFO] HP:100/100 Sq:4/4 K:0
+[m3][INFO] Issues: 60 | Modes: combat

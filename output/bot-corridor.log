@@ -1,0 +1,48 @@
+[corridor][INFO] === BOT START corridor (headless) ===
+[corridor][INFO] Map 1920x2560, Extract(992,288), Waves=2
+[corridor][INFO] Leader(992,2272) HP=100/100
+[corridor][INFO] Squad=4 Hostiles=1 Mode=combat
+[corridor][INFO] Bot loop started
+[corridor][STATUS] 0s | HP:100/100 | Sq:4/4 | H:1 | K:0 | combat P=0.12 W=1
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][STATUS] 5s | HP:100/100 | Sq:4/4 | H:1 | K:1 | combat P=0.08 W=1
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][STATUS] 10s | HP:100/100 | Sq:4/4 | H:1 | K:1 | combat P=0.06 W=1
+[corridor][WARN] STUCK (921,2286) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-1.png
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][WARN] STUCK (921,2286) 5.6s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-2.png
+[corridor][WARN] STUCK (921,2286) 6.5s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-3.png
+[corridor][EVENT] MODE: combat → intermission
+[corridor][STATUS] 16s | HP:100/100 | Sq:4/4 | H:0 | K:2 | intermission P=0.07 W=1
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][EVENT] MODE: intermission → combat
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][WARN] STUCK (930,2095) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-1.png
+[corridor][WARN] STUCK (930,2095) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-2.png
+[corridor][STATUS] 21s | HP:100/100 | Sq:4/4 | H:1 | K:2 | combat P=0.06 W=2
+[corridor][WARN] STUCK (930,2095) 6.6s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-3.png
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][STATUS] 26s | HP:93/100 | Sq:4/4 | H:1 | K:3 | combat P=0.07 W=2
+[corridor][ERROR] Console: [bot-debug] no walkable tile found near target (4,6)
+[corridor][WARN] STUCK (975,2103) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-1.png
+[corridor][WARN] STUCK (975,2103) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-2.png
+[corridor][WARN] STUCK (975,2103) 6.7s - screenshot: /home/drevilbob/Aliens/output/bot-corridor-stuck-3.png
+[corridor][EVENT] MODE: combat → extract
+[corridor][STATUS] 32s | HP:93/100 | Sq:4/4 | H:0 | K:4 | extract P=0.08 W=2
+[corridor][STATUS] 37s | HP:93/100 | Sq:4/4 | H:0 | K:4 | extract P=0.06 W=2
+[corridor][STATUS] 42s | HP:93/100 | Sq:4/4 | H:0 | K:4 | extract P=0.05 W=2
+[corridor][STATUS] 47s | HP:93/100 | Sq:4/4 | H:0 | K:4 | extract P=0.05 W=2
+[corridor][EVENT] MODE: extract → victory
+[corridor][INFO] VICTORY at 49.0s
+[corridor][INFO] ════════════════════════════════════
+[corridor][INFO] corridor DONE: victory | 49.1s
+[corridor][INFO] HP:93/100 Sq:4/4 K:4
+[corridor][INFO] Issues: 24 | Modes: combat→intermission→combat→extract→victory

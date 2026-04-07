@@ -1,0 +1,162 @@
+══════════════════════════════════════════════════════════════════════
+  ALIENS GRAPHICS BOT — COMPREHENSIVE REPORT
+══════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────
+  MISSION: m1
+──────────────────────────────────────────────────────────────────────
+  Issues: 99 (0 critical, 91 high, 4 medium, 4 low)
+  FPS: min=5 max=20 avg=6
+
+  ISSUES:
+    [HIGH] (91):
+      [shader] Pipeline AlienTonePipeline not registered
+      [shader] Pipeline ScanlinePipeline not registered
+      [shader] Pipeline TiltShiftPipeline not registered
+      [shader] Pipeline DoorRipplePipeline not registered
+      [lighting] No light sources active
+      [performance] FPS critically low: 13 (enemies=11, tier=-1)
+      [performance] FPS critically low: 13 (enemies=11, tier=-1)
+      [performance] FPS critically low: 11 (enemies=11, tier=-1)
+      [performance] FPS critically low: 10 (enemies=11, tier=-1)
+      [performance] FPS critically low: 10 (enemies=11, tier=-1)
+      [performance] FPS critically low: 9 (enemies=11, tier=-1)
+      [performance] FPS critically low: 8 (enemies=11, tier=-1)
+      [performance] FPS critically low: 8 (enemies=11, tier=-1)
+      [performance] FPS critically low: 7 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 6 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] FPS critically low: 5 (enemies=11, tier=-1)
+      [performance] Average FPS below 30: 6
+      [performance] FPS dropped below 10: 5
+    [MEDIUM] (4):
+      [shader] No post-pipelines applied to camera
+      [performance] FPS below 30: 20 (enemies=11)
+      [performance] FPS below 30: 16 (enemies=11)
+      [performance] FPS below 30: 16 (enemies=11)
+    [LOW] (4):
+      [webgl] WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+      [webgl] WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+      [webgl] WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+      [webgl] WebGL warning: [.WebGL-0x162400144a00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+
+  CHECKS:
+    ✓ boot: PASS (1/1)
+        Game booted in WebGL mode
+    ✓ webgl_context: PASS (1/1)
+        WebGL context active
+    ✗ pipeline_AlienTonePipeline: FAIL (0/1)
+        AlienTonePipeline missing
+    ✗ pipeline_ScanlinePipeline: FAIL (0/1)
+        ScanlinePipeline missing
+    ✗ pipeline_TiltShiftPipeline: FAIL (0/1)
+        TiltShiftPipeline missing
+    ✗ pipeline_DoorRipplePipeline: FAIL (0/1)
+        DoorRipplePipeline missing
+    ✓ texture: PASS (9/9)
+        tileset (1280x64)
+        marine_leader (256x64)
+        marine_team_leader (256x64)
+        bullet (12x12)
+        torch_hotspot (2048x2048)
+        torch_beam_tip (128x80)
+        fx_flare (64x32)
+        fx_dot (16x16)
+        fx_smoke (32x32)
+    ✓ lighting_overlay: PASS (1/1)
+        LightingOverlay active
+    ✓ lighting_raycaster: PASS (1/1)
+        Raycaster active
+    ✓ lighting_blockers: PASS (1/1)
+        LightBlockerGrid active
+    ✓ depth_sorting: PASS (1/1)
+        No depth conflicts detected
+    ✗ fps_stability: FAIL (0/1)
+        avg=6 min=5 max=20
+    ✓ fx_systems: PASS (1/1)
+        BulletPool active
+    ✓ atmosphere: PASS (1/1)
+        AtmosphereSystem active
+    ✓ hud: PASS (1/1)
+        HUD initialized
+    ✓ motion_tracker: PASS (1/1)
+        Motion tracker present
+
+══════════════════════════════════════════════════════════════════════
+  OVERALL
+──────────────────────────────────────────────────────────────────────
+  1 missions | 99 issues (0 critical, 91 high)
+  ISSUES FOUND
+══════════════════════════════════════════════════════════════════════

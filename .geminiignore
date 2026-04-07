@@ -1,0 +1,19 @@
+# Ignore large data and artifacts
+node_modules/
+__pycache__/
+.git/
+logs/
+output/
+images/
+*.mp3
+*.flac
+*.mp4
+*.png
+*.jpg
+*.jpeg
+*.ico
+*.zip
+*.bin
+*.ndjson
+*.log
+*.template.json

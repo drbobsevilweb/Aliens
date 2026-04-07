@@ -1,0 +1,273 @@
+═══════════════════════════════════════════════════════════════════════════════
+HUD LAYOUT EDITOR MODERNIZATION — FINAL RECOMMENDATION
+═══════════════════════════════════════════════════════════════════════════════
+
+PROJECT SCOPE
+─────────────
+Upgrade /editors/tabs/hud.js with:
+  • Color picker integration (bgColor, borderColor, textColor)
+  • Font controls (family, size, weight)
+  • Alignment/distribution tools
+  • Breakpoint support (1280×720, 1920×1080, tablet, mobile)
+  • Responsive export format
+
+TIMELINE TARGET: 3-4 hours (240 minutes)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+WINNING APPROACH: CANVAS + CUSTOM UI
+═══════════════════════════════════════════════════════════════════════════════
+
+**VERDICT: ✅ STRONGLY RECOMMENDED**
+
+Why This Wins:
+  1. Pragmatic — Fits your timeline and constraints perfectly
+  2. Zero dependencies — Native HTML5 color input, system fonts
+  3. Full control — JSON export format stays under your ownership
+  4. Pattern match — Mirrors your existing tilemap editor architecture
+  5. Fast shipping — 3-4 hours to production-ready implementation
+
+Architecture:
+  • Extend existing canvas-based property panel system
+  • Add breakpoint tabs above canvas (1280×720, 1920×1080, tablet, mobile)
+  • Add styling controls section: colors, typography, effects, alignment
+  • Render color/font preview on canvas in real-time
+  • Persist to _style object in JSON config
+
+
+═══════════════════════════════════════════════════════════════════════════════
+EFFORT BREAKDOWN (240 MINUTES TOTAL)
+═══════════════════════════════════════════════════════════════════════════════
+
+Phase 1: Foundation (45 min)
+  • Breakpoint tab UI + switching logic
+  • Canvas resizing per breakpoint
+  • Load/save breakpoint state
+
+Phase 2: Styling Controls (90 min)
+  • Colors section (3 color pickers)
+  • Typography section (font dropdown + size + weight)
+  • Effects section (opacity, border width, glow)
+
+Phase 3: Alignment Tools (45 min)
+  • Alignment buttons (left/center/right)
+  • Distribute buttons (horizontal/vertical)
+  • Snap size configuration
+
+Phase 4: Data & Integration (30 min)
+  • Serialize _style to JSON
+  • HUD.js consumer code to read styles
+  • Backward compatibility testing
+
+Phase 5: Testing & Polish (30 min)
+  • Cross-breakpoint consistency
+  • Canvas redraw performance (<16ms)
+  • End-to-end game integration
+
+
+═══════════════════════════════════════════════════════════════════════════════
+REJECTED ALTERNATIVES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. FIGMA EMBED (6-8 hours)
+   ❌ Requires $12+/mo account; embed is read-only; premium for full editor
+   ❌ 2MB vendor bundle; MCP integration unproven (March 2026)
+   ❌ Overkill for single HUD config
+   ✓ Better for: Organization-wide design system collaboration
+
+2. FRAMER (8-12 hours / Not viable)
+   ❌ Framer is a website builder, not an embeddable editor
+   ❌ Headless API is for CMS content, not layout editing
+   ❌ Output format (React/Framer) doesn't match your JSON
+   ✓ Better for: Building Aliens.com marketing site
+
+3. WEB COMPONENTS (5-7 hours)
+   ❌ Over-engineered for 5 panels; design systems shine at 10+ components
+   ❌ Adds abstraction layer that doesn't save time here
+   ❌ Still need visual editor; doesn't solve the problem faster
+   ✓ Better for: Multi-year design system projects
+
+4. CSS-IN-JS BUILDERS (4-6h iframe / 12h+ native)
+   ❌ Webstudio/Pinegrow are full website builders, not HUD editors
+   ❌ Output (CSS/HTML/React) doesn't map to your JSON
+   ❌ 500KB+ bloat; complex iframe sync; no native integration path
+   ✓ Better for: Landing pages, marketing sites
+
+
+═══════════════════════════════════════════════════════════════════════════════
+IMPLEMENTATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+PHASE 1: FOUNDATION (45 MIN)
+  [ ] Add breakpoints object to config structure
+  [ ] Build breakpoint tab UI (1280×720, 1920×1080, tablet, mobile)
+  [ ] Implement breakpoint switching (update canvas, load/swap panel positions)
+  [ ] Update resizeCanvas() to read breakpoint dimensions
+
+PHASE 2: STYLING SECTION (90 MIN)
+  [ ] Colors subsection: bgColor, borderColor, textColor pickers
+  [ ] Typography subsection: font dropdown, size/weight controls
+  [ ] Effects subsection: opacity, border width, glow blur, glow color
+  [ ] Real-time canvas preview on input change
+
+PHASE 3: ALIGNMENT TOOLS (45 MIN)
+  [ ] Alignment buttons: left, center, right
+  [ ] Distribute buttons: horizontally, vertically
+  [ ] Snap-size configuration in grid settings
+  [ ] Canvas-side distribute logic (equal spacing)
+
+PHASE 4: DATA & INTEGRATION (30 MIN)
+  [ ] Update panelsToConfig() to serialize _style
+  [ ] Update buildPanels() to deserialize _style
+  [ ] Update draw() to render colors/fonts from _style
+  [ ] HUD.js consumer code to read and apply styles
+
+PHASE 5: TESTING & VALIDATION (30 MIN)
+  [ ] Color picker changes persist on save/reload
+  [ ] Font size changes render on canvas
+  [ ] Breakpoint switch preserves styling per breakpoint
+  [ ] Canvas redraw <16ms (no performance regression)
+  [ ] HUD.js applies custom colors/fonts in game
+  [ ] Backward compatibility (old configs load without _style)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+KEY TECHNICAL DECISIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+DATA FORMAT (BACKWARD-COMPATIBLE)
+  Current: { x, y, width, height }
+  Enhanced: { x, y, width, height, _style: {...}, breakpoints: {...} }
+  
+  Fallback: If _style missing, use hardcoded HUD_COLORS from HUD.js
+  Migration: No schema version needed; optional fields handled gracefully
+
+COLOR PICKER IMPLEMENTATION
+  Use native <input type="color"> (browser built-in)
+  Parse: #rrggbb ↔ 0xrrggbb conversion via parseInt(color.replace('#', ''), 16)
+  Preview: Update on change event, not on blur (immediate feedback)
+
+FONT RENDERING
+  System fonts only (Share Tech Mono, IBM Plex Mono, Georgia, sans-serif)
+  No web font loading (keep editor performant)
+  Font prop: "fontSize weight family" for ctx.font = "..."
+
+BREAKPOINT STRUCTURE
+  Each panel tracks positions separately per breakpoint
+  Use nested: panel.breakpoints[bpKey] = { x, y, width, height, _style }
+  Active breakpoint: selectedPanel uses breakpoints[activeBreakpoint]
+
+ALIGNMENT ALGORITHM
+  Distribute: Calculate average spacing = (rightmost - leftmost) / (count - 1)
+  Snap: Math.round(value / gridSize) * gridSize
+
+
+═══════════════════════════════════════════════════════════════════════════════
+TESTING STRATEGY
+═══════════════════════════════════════════════════════════════════════════════
+
+Manual Verification:
+  1. Open /editors?tab=hud
+  2. Click breakpoint tab "1920×1080"
+  3. Select leader card
+  4. Change color picker (should redraw immediately)
+  5. Change font size (should render on canvas)
+  6. Click "Save to Game"
+  7. Open /game (should apply custom colors/fonts)
+  8. Reload page; should persist
+
+Regression Testing:
+  • Old configs (without _style) still load and position correctly
+  • Canvas redraw <16ms (monitor dev tools Performance tab)
+  • No JavaScript console errors
+
+Edge Cases:
+  • Very long panel labels (font overflow on canvas)
+  • Overlapping panels (z-order rendering)
+  • Minimal font sizes (readability floor: 8px)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+SUCCESS METRICS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Timeline: Complete within 240 minutes (4 hours max)
+✅ Features: Color picker + font controls + alignment + breakpoints working
+✅ Data: JSON export backward-compatible; existing configs load
+✅ Performance: Canvas redraw <16ms; no lag on input change
+✅ Integration: HUD.js reads _style without modification to core renderer
+✅ Zero regressions: Existing positioning/resizing unchanged
+
+
+═══════════════════════════════════════════════════════════════════════════════
+NEXT STEPS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. STAKEHOLDER APPROVAL
+   [ ] Confirm Canvas + Custom UI approach is acceptable
+   [ ] Confirm 3-4 hour timeline is realistic
+
+2. PREPARATION
+   [ ] Define final breakpoint list (1280×720, 1920×1080, 768×1024, 375×667?)
+   [ ] Test HUD.js color parsing with custom hex values
+   [ ] Set up test mission for game integration
+
+3. IMPLEMENTATION
+   [ ] Reserve 4-hour uninterrupted block
+   [ ] Use implementation checklist above
+   [ ] Commit after each phase (incremental delivery)
+
+4. REVIEW & MERGE
+   [ ] Code review by GRAPHICS or SHADERS agent
+   [ ] Verify HUD.js applies styles correctly in-game
+   [ ] Merge to main
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RISK ASSESSMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+Risk: Canvas font rendering edge cases (different browsers, custom fonts)
+Mitigation: Test with system fonts only; fall back to monospace if not available
+
+Risk: Breakpoint state management complexity
+Mitigation: Use simple nested object structure; load/save in phases
+
+Risk: Timeline overrun if alignment distribute algorithm complex
+Mitigation: Start with basic "snap to grid" only; defer distribute to Phase 2
+
+Overall: LOW RISK — All components are well-understood; no experimental tech
+
+
+═══════════════════════════════════════════════════════════════════════════════
+REFERENCES & SOURCES
+═══════════════════════════════════════════════════════════════════════════════
+
+Research documents:
+  • ./research-hud-editor-modernization.md (full technical deep-dive)
+  • ./hud-editor-approach-comparison.md (quick reference matrix)
+
+External resources:
+  • [Puck Editor: Open-source React visual editor](https://puckeditor.com/docs)
+  • [interact.js: Drag & drop library](https://interactjs.io/)
+  • [Konva: Canvas 2D library](https://konvajs.org/)
+  • [Figma MCP Server](https://www.francescatabor.com/articles/2026/3/31/building-a-figma-driven-mcp-production-pipeline)
+  • [Framer Developers](https://www.framer.com/developers/)
+  • [Responsive Design Breakpoints](https://www.browserstack.com/guide/responsive-design-breakpoints)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RECOMMENDATION: ✅ PROCEED WITH CANVAS + CUSTOM UI
+═══════════════════════════════════════════════════════════════════════════════
+
+This is the right approach for your project constraints:
+  • Realistic timeline (3-4 hours)
+  • No external dependencies or accounts
+  • Full data ownership
+  • Aligned with existing codebase patterns
+  • Immediate shipping potential
+
+Start with Phase 1 (breakpoint tabs); each subsequent phase is independently
+shippable. Estimated completion: Next development session.
+
+═══════════════════════════════════════════════════════════════════════════════
