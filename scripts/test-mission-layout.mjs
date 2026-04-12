@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { resolveMissionLayout } from '../src/map/missionLayout.js';
+import { MissionFlow } from '../src/systems/MissionFlow.js';
 import {
     initRuntimeOverrides,
     getMissionDirectorEventsForMission,
@@ -74,6 +75,34 @@ function withSettingsMock(settings, fn) {
     } finally {
         globalThis.window = prevWindow;
     }
+}
+
+function hasReachablePath(tilemap, startTile, endTile, allowDoors = true) {
+    const terrain = tilemap?.terrain;
+    const doors = tilemap?.doors;
+    const width = Math.max(0, tilemap?.width || terrain?.[0]?.length || 0);
+    const height = Math.max(0, tilemap?.height || terrain?.length || 0);
+    if (!Array.isArray(terrain) || !startTile || !endTile || width <= 0 || height <= 0) return false;
+    const key = (x, y) => `${x},${y}`;
+    const queue = [[startTile.x, startTile.y]];
+    const visited = new Set([key(startTile.x, startTile.y)]);
+    let head = 0;
+    while (head < queue.length) {
+        const [x, y] = queue[head++];
+        if (x === endTile.x && y === endTile.y) return true;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            if (terrain[ny]?.[nx] !== 0) continue;
+            if (!allowDoors && (doors?.[ny]?.[nx] || 0) > 0) continue;
+            const nextKey = key(nx, ny);
+            if (visited.has(nextKey)) continue;
+            visited.add(nextKey);
+            queue.push([nx, ny]);
+        }
+    }
+    return false;
 }
 
 function testForceWarriorOnly() {
@@ -297,6 +326,158 @@ async function testDirectorEventFieldsSurviveRuntimeProjection() {
     console.log('[test-mission-layout] director event projection assertions passed.');
 }
 
+async function testZeroAuthoredSpawnPointsProduceNoAliens() {
+    console.log('[test-mission-layout] Testing zero authored spawn points disable alien fallback...');
+    const size = 20;
+    const emptyGrid = () => Array.from({ length: size }, () => Array(size).fill(0));
+    const pkg = {
+        version: '1.0',
+        maps: [{
+            id: 'lv1_colony_hub',
+            name: 'Level 1: Colony Hub',
+            width: size,
+            height: size,
+            terrain: emptyGrid(),
+            doors: emptyGrid(),
+            markers: Array.from({ length: size }, (_, y) =>
+                Array.from({ length: size }, (_, x) => {
+                    if (x === 1 && y === 1) return 1;
+                    if (x === 18 && y === 18) return 2;
+                    return 0;
+                })
+            ),
+            terrainTextures: Array.from({ length: size }, () => Array(size).fill(null)),
+            props: [],
+            lights: [],
+            spawnPoints: [],
+        }],
+        missions: [{
+            id: 'm1',
+            name: 'Mission 1',
+            mapId: 'lv1_colony_hub',
+            difficulty: 'normal',
+            enemyBudget: 24,
+            requiredCards: 0,
+            requiredTerminals: 0,
+            objective: '',
+            notes: '',
+            director: {},
+        }],
+        directorEvents: [],
+        audioCues: [],
+    };
+
+    const layout = await withRuntimeApiMock(
+        { package: pkg },
+        () => resolveMissionLayout('m1'),
+        { search: '?package=local' }
+    );
+
+    assert.equal(layout.spawnPoints.length, 0, 'map should report zero canonical spawn points');
+    assert.equal(layout.missionWaves.length, 0, 'mission should not synthesize fallback alien waves');
+    console.log('[test-mission-layout] zero-authored-spawn assertions passed.');
+}
+
+function testBuiltInMissionOneRequiresAuthoredAlienSpawns() {
+    console.log('[test-mission-layout] Testing built-in m1 preserves authored timed alien spawns...');
+    const layout = resolveMissionLayout('m1');
+    assert.equal(layout.mission.requireAuthoredAlienSpawns, true, 'm1 should explicitly require authored alien spawns');
+    assert.equal(layout.spawnPoints.length, 3, 'built-in m1 should expose the three authored alien spawn points from the Tiled map');
+    assert.ok(layout.spawnPoints.every((point) => point.enemyType === 'warrior'), 'built-in m1 should preserve authored enemy types');
+    assert.ok(layout.spawnPoints.every((point) => point.spawnTimeSec === 2.5), 'built-in m1 should preserve authored timed spawn delay');
+    assert.equal(layout.missionWaves.length, 0, 'built-in m1 should not synthesize an opening wave when all authored spawns are delayed');
+    console.log('[test-mission-layout] built-in m1 authored timed-spawn assertions passed.');
+}
+
+function testBuiltInCampaignUsesAuthoredSpawnPointsOnly() {
+    console.log('[test-mission-layout] Testing built-in authored-spawn-only wave projection...');
+    const missionIds = ['m2', 'm3', 'm4', 'm5'];
+    for (const missionId of missionIds) {
+        const layout = resolveMissionLayout(missionId);
+        const immediateSpawnCount = layout.spawnPoints
+            .filter((point) => (Number(point.spawnTimeSec) || 0) <= 0)
+            .reduce((sum, point) => sum + Math.max(1, Math.round(Number(point.count) || 1)), 0);
+        const waveSpawnCount = layout.missionWaves.reduce((sum, wave) => sum + wave.length, 0);
+        assert.equal(layout.requireAuthoredAlienSpawns, true, `${missionId} should use authored alien spawns only`);
+        assert.equal(layout.missionWaves.length, immediateSpawnCount > 0 ? 1 : 0, `${missionId} should only project one opening authored-spawn wave`);
+        assert.equal(waveSpawnCount, immediateSpawnCount, `${missionId} opening wave should match immediate authored spawn count`);
+    }
+    console.log('[test-mission-layout] built-in authored-spawn-only assertions passed.');
+}
+
+async function testTimedAndTypedSpawnPointsSurviveLayoutProjection() {
+    console.log('[test-mission-layout] Testing typed/timed authored spawn point projection...');
+    const size = 20;
+    const emptyGrid = () => Array.from({ length: size }, () => Array(size).fill(0));
+    const pkg = {
+        version: '1.0',
+        maps: [{
+            id: 'lv1_colony_hub',
+            name: 'Level 1: Colony Hub',
+            width: size,
+            height: size,
+            terrain: emptyGrid(),
+            doors: emptyGrid(),
+            markers: Array.from({ length: size }, (_, y) =>
+                Array.from({ length: size }, (_, x) => {
+                    if (x === 1 && y === 1) return 1;
+                    if (x === 18 && y === 18) return 2;
+                    return 0;
+                })
+            ),
+            terrainTextures: Array.from({ length: size }, () => Array(size).fill(null)),
+            props: [],
+            lights: [],
+            spawnPoints: [
+                { tileX: 12, tileY: 12, count: 2, enemyType: 'drone', spawnTimeSec: 0 },
+                { tileX: 14, tileY: 14, count: 1, enemyType: 'queenLesser', spawnTimeSec: 6 },
+            ],
+        }],
+        missions: [{
+            id: 'm1',
+            name: 'Mission 1',
+            mapId: 'lv1_colony_hub',
+            difficulty: 'normal',
+            enemyBudget: 0,
+            requiredCards: 0,
+            requiredTerminals: 0,
+            objective: '',
+            notes: '',
+            director: {},
+        }],
+        directorEvents: [],
+        audioCues: [],
+    };
+
+    const layout = await withRuntimeApiMock(
+        { package: pkg },
+        () => resolveMissionLayout('m1'),
+        { search: '?package=local' }
+    );
+
+    assert.deepEqual(layout.spawnPoints, [
+        { tileX: 12, tileY: 12, count: 2, enemyType: 'drone', spawnTimeSec: 0 },
+        { tileX: 14, tileY: 14, count: 1, enemyType: 'queenLesser', spawnTimeSec: 6 },
+    ], 'layout should preserve canonical typed/timed spawn point fields');
+    assert.equal(layout.missionWaves.length, 1, 'package tilemap overrides should only build the opening immediate authored-spawn wave');
+    assert.equal(layout.missionWaves[0].length, 2, 'only immediate authored spawns should appear in opening wave');
+    assert.ok(layout.missionWaves[0].every((spawn) => spawn.type === 'drone'), 'explicit enemyType should be used for immediate authored spawns');
+    console.log('[test-mission-layout] typed/timed spawn projection assertions passed.');
+}
+
+function testFallbackObjectiveTargetsStayReachable() {
+    console.log('[test-mission-layout] Testing fallback objective targets stay reachable from spawn...');
+    const layout = resolveMissionLayout('m1');
+    const flow = new MissionFlow(layout.mission, layout.tilemap, { warriorOnly: layout.warriorOnly === true });
+    assert.ok(flow.cardTargets.length >= 1, 'm1 should produce at least one card target');
+    assert.equal(
+        hasReachablePath(layout.tilemap, layout.spawnTile, flow.cardTargets[0], true),
+        true,
+        `fallback card target should be reachable from spawn, got (${flow.cardTargets[0].x},${flow.cardTargets[0].y})`
+    );
+    console.log('[test-mission-layout] fallback objective reachability assertions passed.');
+}
+
 async function main() {
     try {
         testForceWarriorOnly();
@@ -304,6 +485,11 @@ async function main() {
         await testPackageOverridePreservesVentEggMarkersAndSpawnCounts();
         await testPackageMapSelectionDoesNotFallBackToFirstMap();
         await testDirectorEventFieldsSurviveRuntimeProjection();
+        await testZeroAuthoredSpawnPointsProduceNoAliens();
+        testBuiltInMissionOneRequiresAuthoredAlienSpawns();
+        testBuiltInCampaignUsesAuthoredSpawnPointsOnly();
+        await testTimedAndTypedSpawnPointsSurviveLayoutProjection();
+        testFallbackObjectiveTargetsStayReachable();
         console.log('missionLayout.spec: ok');
     } catch (e) {
         console.error('missionLayout.spec FAILED:', e);

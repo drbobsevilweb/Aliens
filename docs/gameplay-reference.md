@@ -1,6 +1,6 @@
 # Aliens — Tactical Shooter: Gameplay Reference
 
-> Colonial Marines top-down tactical shooter. One player controls the Team Leader; three AI followers (Tech, Medic, Heavy) operate autonomously according to their roles and the tactical situation.
+> Colonial Marines top-down tactical shooter. One player controls the Team Leader; three AI followers (Tech, Medic, Heavy) operate autonomously according to their roles and the tactical situation. Mission combat is authored-spawn-first, with package-authored director beats layered on top where enabled.
 
 ---
 
@@ -531,18 +531,24 @@ Walk the Team Leader within 52 px of a card marker tile to collect it. Each card
 
 Same collection mechanic as cards — approach within 52 px to activate. At least one mission (M2+) requires activating a terminal after collecting the card.
 
-#### Wave Cleared
+#### Story Points
 
-Waves track through `StageFlow`. Each wave is `'combat'` state. When all live aliens are dead and the director has exhausted its budget, the wave transitions:
-- If more waves remain: 1.5 s intermission → next wave
-- If this was the last wave: `StageFlow` enters `'extract'` — satisfying the wave objective
+Package-authored maps can place story points on tiles. When the Team Leader reaches one, runtime currently:
+- emits floating text + mission-log subtitle text
+- records the trigger in scene history/debug state
+- emits node-graph events: `storyPointTriggered` and `missionStoryPointTriggered`
 
-Standard generated missions currently use 2 waves on normal and 3 on hard/extreme, so "wave cleared" means finishing the active stage before extraction unlocks.
+#### Combat Stage Cleared
+
+`StageFlow` still governs the mission phase progression (`combat` → `intermission` → `extract`), but runtime hostile flow is no longer based on assuming generic fallback waves for every mission. In the live code:
+- stock/package missions primarily rely on authored spawn points
+- optional mission-package director events can add authored runtime beats
+- extraction unlock logic keys off the mission entering `extract`, not on old documentation assumptions about generic fixed wave counts
 
 ### Extraction Flow
 
 **All three conditions must be met simultaneously:**
-1. Waves cleared (`StageFlow.state === 'extract'`)
+1. Combat phase cleared (`StageFlow.state === 'extract'`)
 2. All required security cards collected
 3. All required terminals activated
 

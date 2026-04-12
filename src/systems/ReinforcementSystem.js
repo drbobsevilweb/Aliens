@@ -334,6 +334,7 @@ export class ReinforcementSystem {
 
     tryGunfireReinforcement(time, sourceX, sourceY, marines) {
         const s = this.scene;
+        if (s.areAmbientEnemySpawnsSuppressed?.()) return;
         if (!s.enemyManager || !s.doorManager || s.stageFlow.isEnded()) return;
         if (time < s.nextGunfireReinforceAt) return;
         if (time < (s.nextReinforcementSpawnAt || 0)) return;
@@ -375,6 +376,7 @@ export class ReinforcementSystem {
 
     spawnGunfireDoorPack(time, sourceX, sourceY, marines) {
         const s = this.scene;
+        if (s.areAmbientEnemySpawnsSuppressed?.()) return 0;
         if (s.stageFlow?.state === 'extract' || s.stageFlow?.isEnded?.()) return 0;
         const slots = this.getAvailableReinforcementSlots('gunfire');
         if (slots <= 0) return 0;
@@ -507,6 +509,7 @@ export class ReinforcementSystem {
 
     updateIdlePressureSpawns(time, marines) {
         const s = this.scene;
+        if (s.areAmbientEnemySpawnsSuppressed?.()) return;
         if (s.isStagingSafeActive(time)) return;
         if (!s.enemyManager || s.stageFlow.isEnded()) return;
         if (this.getAvailableReinforcementSlots('idle') <= 0) return;
@@ -543,6 +546,7 @@ export class ReinforcementSystem {
 
     spawnIdlePressureWave(_time, marines) {
         const s = this.scene;
+        if (s.areAmbientEnemySpawnsSuppressed?.()) return 0;
         if (s.isStagingSafeActive(_time)) return 0;
         const leader = s.leader;
         if (!leader || !s.pathGrid) return 0;
@@ -637,6 +641,7 @@ export class ReinforcementSystem {
 
     updateInactivityAmbush(time, marines) {
         const s = this.scene;
+        if (s.areAmbientEnemySpawnsSuppressed?.()) return;
         if (s.isStagingSafeActive(time)) return;
         if (!s.enemyManager || s.stageFlow.isEnded()) return;
         if (s.stageFlow.state === 'intermission') return;

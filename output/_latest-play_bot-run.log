@@ -1,0 +1,122 @@
+
+══════════════════════════════════════════════════════════════════════
+  ALIENS PLAYTEST BOT — COMPREHENSIVE REPORT
+══════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────
+  MISSION: m1  |  OUTCOME: timeout  |  180.4s
+──────────────────────────────────────────────────────────────────────
+  HP: 64/100  Squad: 3/3  Kills: 9  MaxHostiles: 11
+  Modes: combat
+
+  ISSUES (162):
+    [HIGH] (1):
+      [spawn] warrior at 52px from medic (HP 92/92)
+    [MEDIUM] (161):
+      [error] Console error: [bot-debug] findPath returned null from (12,26) to (30,8)
+      [pathfinding] Stuck at (800,1696)
+      [error] Console error: [bot-debug] findPath returned null from (11,28) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (10,30) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (10,33) to (30,8)
+      [follower] tech idle with 2 enemies < 350px
+      [pathfinding] Stuck at (674,2128)
+      [pathfinding] Stuck at (673,2075)
+      [pathfinding] Stuck at (608,2163)
+      [error] Console error: [bot-debug] findPath returned null from (9,33) to (30,8)
+      [pathfinding] Stuck at (587,2130)
+      [error] Console error: [bot-debug] findPath returned null from (10,31) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (10,28) to (30,8)
+      [pathfinding] Stuck at (671,1838)
+      [error] Console error: [bot-debug] findPath returned null from (12,28) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (14,29) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (16,29) to (30,8)
+      [pathfinding] Stuck at (1042,1885)
+      [error] Console error: [bot-debug] findPath returned null from (15,29) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (17,29) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (20,28) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (22,27) to (30,8)
+      [pathfinding] Stuck at (1426,1765)
+      [error] Console error: [bot-debug] findPath returned null from (18,27) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (16,26) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (14,25) to (30,8)
+      [pathfinding] Stuck at (943,1639)
+      [error] Console error: [bot-debug] findPath returned null from (13,26) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (15,28) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (16,30) to (30,8)
+      [pathfinding] Stuck at (1048,1939)
+      [error] Console error: [bot-debug] findPath returned null from (14,30) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (15,25) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (15,24) to (30,8)
+      [pathfinding] Stuck at (991,1582)
+      [error] Console error: [bot-debug] findPath returned null from (14,26) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (16,28) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (18,29) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (19,31) to (30,8)
+      [pathfinding] Stuck at (1239,2005)
+      [error] Console error: [bot-debug] findPath returned null from (17,32) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (15,32) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (13,31) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (9,31) to (30,8)
+      [pathfinding] Stuck at (621,2018)
+      [error] Console error: [bot-debug] findPath returned null from (8,33) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (7,35) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (6,38) to (30,8)
+      [pathfinding] Stuck at (422,2451)
+      [error] Console error: [bot-debug] findPath returned null from (8,39) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (10,41) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (11,42) to (30,8)
+      [pathfinding] Stuck at (725,2708)
+      [error] Console error: [bot-debug] findPath returned null from (10,40) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (10,38) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (11,35) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (11,33) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (11,31) to (30,8)
+      [pathfinding] Stuck at (735,2030)
+      [error] Console error: [bot-debug] findPath returned null from (12,33) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (12,36) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (13,38) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (13,39) to (30,8)
+      [pathfinding] Stuck at (861,2514)
+      [error] Console error: [bot-debug] findPath returned null from (13,37) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (16,37) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (17,37) to (30,8)
+      [pathfinding] Stuck at (1106,2401)
+      [error] Console error: [bot-debug] findPath returned null from (16,38) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (15,35) to (30,8)
+      [error] Console error: [bot-debug] findPath returned null from (14,33) to (30,8)
+
+  CHECKS:
+    ✓ boot: PASS (1/1)
+        Game booted and initialized
+    ✓ tracker: PASS (149/149)
+        Tracker activation command accepted
+        Tracker reported 1 contact(s)
+        Tracker cooldown observed (29s)
+    ✗ spawn: FAIL (0/1)
+        1 proximity violations
+    ✗ completion: FAIL (0/1)
+        Outcome: timeout
+
+  FOLLOWER DEATHS:
+    24.9s: 1 () | 5 enemies | P=0.19
+
+  BURST DAMAGE:
+    24.9s: -17HP→83 | warrior@177px | firing:3/3
+
+  CONSOLE ERRORS (106):
+    - [bot-debug] findPath returned null from (12,26) to (30,8)
+    - [bot-debug] findPath returned null from (11,28) to (30,8)
+    - [bot-debug] findPath returned null from (10,30) to (30,8)
+    - [bot-debug] findPath returned null from (10,33) to (30,8)
+    - [bot-debug] findPath returned null from (9,33) to (30,8)
+
+══════════════════════════════════════════════════════════════════════
+  OVERALL
+──────────────────────────────────────────────────────────────────────
+  1 missions | 0 victory | 0 defeat
+  162 issues (0 critical, 1 high)
+  ISSUES FOUND
+══════════════════════════════════════════════════════════════════════
+
+Results: /home/drevilbob/Aliens/output/bot-playtest-results.json
+Report:  /home/drevilbob/Aliens/output/bot-report.txt

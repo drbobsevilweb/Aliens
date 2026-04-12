@@ -4,7 +4,7 @@ Project entry point for Claude and external coding agents working on the Aliens 
 
 ## Project Summary
 
-Top-down squad tactical shooter built with **Phaser 3**, vanilla ES modules, no bundler. Colonial Marines aesthetic — CRT HUD panels, procedural audio, raycasted lighting, wave-based alien combat with a CombatDirector tension curve (build → peak → release). Includes a full browser-based mission/map editor for codeless game creation.
+Top-down squad tactical shooter built with **Phaser 3**, vanilla ES modules, no bundler. Colonial Marines aesthetic — CRT HUD panels, procedural audio, raycasted lighting, and authored-spawn-first alien combat with a CombatDirector tension curve (build → peak → release). Includes a full browser-based mission/map editor for codeless game creation.
 
 ## Quick Start
 
@@ -74,7 +74,7 @@ scripts/        verify.sh, Tiled export/import/generate, Playwright test suites
 | Actions | Node/action graph authoring surface for story/event wiring and the node-editor migration |
 | SVG Actions | SVG-driven action and asset workflows for effect authoring |
 
-The editor publishes mission packages to localStorage; the game reads them via `missionPackageRuntime.js`. The newest editor planning/docs live under `prompts/`. 
+The editor publishes server-backed editor state and mission packages; the game reads them via `missionPackageRuntime.js`, with package runtime enabled through `?package=local`. The newest editor planning/docs live under `prompts/`.
 
 ### Sprite Pipeline
 
@@ -86,14 +86,14 @@ data/sprite_registry.json               <- dimensions + reference sprite metadat
 
 - **Image Editor is the sole authority on sprite sizing.** No game code may call `setScale()` on sprites (except HUD).
 - Game renders sprites at 1:1 pixel size from `/assets/sprites/scaled/`.
-- Physics body derived from sprite registry dimensions.
+- Gameplay bodies currently derive from loaded texture dimensions; registry metadata is preserved for editor/reference flows.
 - Marine (Team Leader) is the baseline reference — all sprites compared against it.
-- Scaling one character animation propagates to all sibling animations.
+- Cross-animation propagation is not fully implemented yet; do not assume save-time sibling propagation exists.
 - Reset re-copies from `reference/` to start over.
 
 ### Settings Page (9 tabs)
 
-Marines, Enemies, Objects, Walls, Other, Game, Map Tile, Scripting, Sprite & Animate. All changes apply via `runtimeSettings` (localStorage) — no game restart needed.
+Marines, Enemies, Objects, Walls, Other, Game, Map Tile, Scripting, Sprite & Animate. Most gameplay/runtime tuning applies via `runtimeSettings` (localStorage) without restart, but HUD/layout authoring remains in `/editors` and some Sprite & Animate controls are legacy.
 
 ## Key Technical Facts
 
@@ -137,17 +137,17 @@ Ranked by impact. Last audited 2026-04-06.
 
 ### Tier 1 — High Impact
 
-1. **Environmental zone tiles** — Tag map areas as colony/damaged/hive with varying darkness and torch range. Editor needs zone painting support.
-2. **Queen signature FX** — Queen death needs a mega-burst (acid geyser + screen shake + particle storm) instead of the standard warrior-style death pass.
-3. **Door breach FX** — Queen/explosion door breach still needs debris shower + shockwave payoff.
-4. **Node-graph package publishing parity** — the `Actions` tab foundation exists, but package/schema/runtime flow still needs to fully carry authored node graphs end-to-end.
+1. **Environmental zone authoring expansion** — Zone props and runtime lighting overrides are live, but the broader painted-region workflow is still missing.
+2. **Door breach FX specialization** — baseline breach FX are live, but queen/explosion-specific escalation still needs a stronger payoff.
+3. **Story point runtime expansion** — story points now trigger runtime text/history beats, but broader gameplay/system consumption still needs expansion.
+4. **Node-graph runtime parity expansion** — package/schema/runtime carriage is live; remaining work is broader authored action/event coverage plus deeper end-to-end validation.
 
 ### Tier 2 — Medium Impact
 
 5. **Material impact matrix** — Bullets hitting metal/organic/acid surfaces should emit distinct sparks/splashes.
 6. **Radio processing filter** — Bandpass + distortion chain for squad callout audio.
 7. **Settings consolidation** — `/editors` tuning surfaces and `/settings` should cross-reference or converge more clearly.
-8. **storyPoints runtime consumption** — authored story points now exist in the toolchain, but broader gameplay/system consumption still needs expansion.
+8. **Backend/API parity** — `server.js` and `dev_server.py` still diverge on several editor/runtime endpoints, especially SVG Actions and legacy tool flows.
 
 ### Tier 3 — Polish
 
@@ -158,6 +158,8 @@ Ranked by impact. Last audited 2026-04-06.
 ### Recently Completed (removed from backlog)
 
 - ~~Editor-authored spawn points~~ — implemented across `missionLayout.js`, the map/editor flow, and `EnemySpawner`
+- ~~Queen signature FX~~ — queen and lesser-queen deaths now have the dedicated mega-death pass
+- ~~Node-graph package publishing parity~~ — authored `nodeGraphs` now publish, validate, load, and execute in runtime
 - ~~Phantom tracker blips~~ — CombatDirector build pressure now drives brief phantom contacts
 - ~~HUD portrait video feed~~ — implemented with video-first refined layout
 - ~~Enable audio system~~ — SfxEngine active, procedural + sample audio working

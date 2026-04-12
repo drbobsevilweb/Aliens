@@ -6,6 +6,7 @@ export const MISSION_SET = Object.freeze([
         objective: 'Reach elevator with access credentials',
         difficulty: 'normal',
         enemyBudget: 24,
+        requireAuthoredAlienSpawns: true,
         requiredCards: 1,
         requiredTerminals: 0,
         setpieces: Object.freeze([

@@ -3,6 +3,55 @@
  * Used by both the editor (property panels) and runtime (ActionDispatcher).
  */
 
+const ENEMY_TYPE_OPTIONS = Object.freeze([
+    { value: 'warrior', label: 'Warrior' },
+    { value: 'drone', label: 'Drone' },
+    { value: 'facehugger', label: 'Facehugger' },
+    { value: 'queenLesser', label: 'Lesser Queen' },
+    { value: 'queen', label: 'Queen' },
+]);
+
+const PACK_ENEMY_TYPE_OPTIONS = Object.freeze([
+    { value: 'warrior', label: 'Warrior' },
+    { value: 'drone', label: 'Drone' },
+    { value: 'facehugger', label: 'Facehugger' },
+    { value: 'queenLesser', label: 'Lesser Queen' },
+]);
+
+const DIRECTION_OPTIONS = Object.freeze([
+    { value: '', label: 'Auto / Random' },
+    { value: 'N', label: 'North' },
+    { value: 'S', label: 'South' },
+    { value: 'E', label: 'East' },
+    { value: 'W', label: 'West' },
+]);
+
+const DECAL_TYPE_OPTIONS = Object.freeze([
+    { value: 'acid', label: 'Acid' },
+    { value: 'scorch', label: 'Scorch' },
+]);
+
+const LIGHTING_TOGGLE_OPTIONS = Object.freeze([
+    { value: 1, label: 'On' },
+    { value: 0, label: 'Off' },
+]);
+
+const DOOR_ACTION_OPTIONS = Object.freeze([
+    { value: 'open', label: 'Open' },
+    { value: 'close', label: 'Close' },
+    { value: 'lock', label: 'Lock' },
+    { value: 'weld', label: 'Weld' },
+    { value: 'breach', label: 'Breach' },
+]);
+
+const STAGE_OPTIONS = Object.freeze([
+    { value: 'combat', label: 'Combat' },
+    { value: 'intermission', label: 'Intermission' },
+    { value: 'extract', label: 'Extract' },
+    { value: 'victory', label: 'Victory' },
+    { value: 'defeat', label: 'Defeat' },
+]);
+
 export const ACTION_DEFS = {
     // ── Visual / FX ──
     screen_shake: {
@@ -51,7 +100,7 @@ export const ACTION_DEFS = {
         label: 'Spawn Floor Decal',
         category: 'fx',
         params: [
-            { key: 'type', label: 'Type (acid/scorch)', type: 'text', default: 'acid' },
+            { key: 'type', label: 'Type', type: 'text', default: 'acid', options: DECAL_TYPE_OPTIONS },
         ],
     },
 
@@ -77,7 +126,7 @@ export const ACTION_DEFS = {
         label: 'Emergency Lighting',
         category: 'lighting',
         params: [
-            { key: 'enabled', label: 'Enabled (1/0)', type: 'number', default: 1 },
+            { key: 'enabled', label: 'Enabled', type: 'number', default: 1, options: LIGHTING_TOGGLE_OPTIONS },
         ],
     },
 
@@ -86,7 +135,7 @@ export const ACTION_DEFS = {
         label: 'Play Sound',
         category: 'audio',
         params: [
-            { key: 'key', label: 'Sound key', type: 'text', default: '' },
+            { key: 'key', label: 'Sound key', type: 'text', default: '', editor: 'sound-select' },
         ],
     },
 
@@ -96,15 +145,15 @@ export const ACTION_DEFS = {
         category: 'spawn',
         params: [
             { key: 'size', label: 'Count', type: 'number', default: 3 },
-            { key: 'type', label: 'Enemy type', type: 'text', default: 'warrior' },
-            { key: 'dir', label: 'Direction (N/S/E/W)', type: 'text', default: '' },
+            { key: 'type', label: 'Enemy type', type: 'text', default: 'warrior', options: PACK_ENEMY_TYPE_OPTIONS },
+            { key: 'dir', label: 'Direction', type: 'text', default: '', options: DIRECTION_OPTIONS },
         ],
     },
     spawn_alien: {
         label: 'Spawn Alien',
         category: 'spawn',
         params: [
-            { key: 'type', label: 'Type', type: 'text', default: 'warrior' },
+            { key: 'type', label: 'Type', type: 'text', default: 'warrior', options: ENEMY_TYPE_OPTIONS },
             { key: 'count', label: 'Count', type: 'number', default: 1 },
         ],
     },
@@ -140,43 +189,43 @@ export const ACTION_DEFS = {
         label: 'Door Action',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
-            { key: 'action', label: 'Action (open/close/lock/weld)', type: 'text', default: 'open' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
+            { key: 'action', label: 'Action', type: 'text', default: 'open', options: DOOR_ACTION_OPTIONS },
         ],
     },
     open_door: {
         label: 'Open Door',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
         ],
     },
     close_door: {
         label: 'Close Door',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
         ],
     },
     lock_door: {
         label: 'Lock Door',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
         ],
     },
     weld_door: {
         label: 'Weld Door',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
         ],
     },
     breach_door: {
         label: 'Breach Door',
         category: 'door',
         params: [
-            { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
+            { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
         ],
     },
 
@@ -200,7 +249,7 @@ export const ACTION_DEFS = {
         label: 'Force Stage',
         category: 'director',
         params: [
-            { key: 'stage', label: 'Stage (combat/intermission/extract)', type: 'text', default: 'combat' },
+            { key: 'stage', label: 'Stage', type: 'text', default: 'combat', options: STAGE_OPTIONS },
         ],
     },
 

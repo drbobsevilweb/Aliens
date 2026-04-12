@@ -36,7 +36,7 @@ const DIAMOND_SLOT_LAYOUT = [
     { role: 'tech',  nx: -0.55, ny:  1.05 },
     { role: 'medic', nx: -1.85, ny:  0.0  },
 ];
-const ROLE_SCAN_SECTOR = Object.freeze({
+export const ROLE_SCAN_SECTOR = Object.freeze({
     heavy: Math.PI,         // West
     tech: 0,               // East
     medic: -Math.PI * 0.5, // North
@@ -742,6 +742,7 @@ export class SquadSystem {
     isWorldBlockedByProp(worldX, worldY, radius = 11) {
         const props = Array.isArray(this.scene?.roomProps) ? this.scene.roomProps : [];
         for (const prop of props) {
+            if (prop?.blocksPath === false) continue;
             const s = prop?.sprite;
             if (!s || s.active === false) continue;
             const pr = Math.max(8, Number(prop?.radius) || 16);

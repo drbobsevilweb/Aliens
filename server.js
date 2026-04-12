@@ -118,6 +118,36 @@ function readSpriteRegistry() {
     }
 }
 
+function listSvgAssets(requestedCategory = null) {
+    const registry = readSpriteRegistry();
+    const categories = requestedCategory ? [requestedCategory] : SVG_CATEGORIES;
+    return categories.flatMap((category) => {
+        const dir = `assets/svg/${category}`;
+        return walkFiles(dir, { recursive: false, extensionPattern: SVG_EXT_RE }).map((entry) => {
+            const baseName = path.parse(entry.file).name;
+            const meta = registry.svgAssets?.[category]?.[baseName] || {};
+            return {
+                category,
+                name: baseName,
+                filename: entry.file,
+                sourcePath: entry.path,
+                rasterPath: meta.rasterPath || null,
+                width: Number(meta.width) || null,
+                height: Number(meta.height) || null,
+                viewBox: meta.viewBox || null,
+                brightness: Number(meta.brightness) || 0,
+                contrast: Number(meta.contrast) || 0,
+                overlayColor: meta.overlayColor || '#4aa4d8',
+                overlayAlpha: Number(meta.overlayAlpha) || 0,
+                usage: meta.usage || null,
+                target: meta.target || null,
+                notes: meta.notes || '',
+                updatedAt: meta.updatedAt || null,
+            };
+        });
+    }).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+}
+
 function writeSpriteRegistry(registry) {
     fs.mkdirSync(path.dirname(SPRITE_REGISTRY_FILE), { recursive: true });
     fs.writeFileSync(SPRITE_REGISTRY_FILE, JSON.stringify({
@@ -282,36 +312,15 @@ app.get('/api/svg-assets', (req, res) => {
     if (req.query.category && !requestedCategory) {
         return res.status(400).json({ ok: false, error: 'Invalid SVG category' });
     }
+    res.json({ ok: true, assets: listSvgAssets(requestedCategory) });
+});
 
-    const registry = readSpriteRegistry();
-    const categories = requestedCategory ? [requestedCategory] : SVG_CATEGORIES;
-    const assets = categories.flatMap((category) => {
-        const dir = `assets/svg/${category}`;
-        return walkFiles(dir, { recursive: false, extensionPattern: SVG_EXT_RE }).map((entry) => {
-            const baseName = path.parse(entry.file).name;
-            const meta = registry.svgAssets?.[category]?.[baseName] || {};
-            return {
-                category,
-                name: baseName,
-                filename: entry.file,
-                sourcePath: entry.path,
-                rasterPath: meta.rasterPath || null,
-                width: Number(meta.width) || null,
-                height: Number(meta.height) || null,
-                viewBox: meta.viewBox || null,
-                brightness: Number(meta.brightness) || 0,
-                contrast: Number(meta.contrast) || 0,
-                overlayColor: meta.overlayColor || '#4aa4d8',
-                overlayAlpha: Number(meta.overlayAlpha) || 0,
-                usage: meta.usage || null,
-                target: meta.target || null,
-                notes: meta.notes || '',
-                updatedAt: meta.updatedAt || null,
-            };
-        });
-    }).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
-
-    res.json({ ok: true, assets });
+app.get('/api/svg-assets/list', (req, res) => {
+    const requestedCategory = req.query.category ? normalizeSvgCategory(req.query.category) : null;
+    if (req.query.category && !requestedCategory) {
+        return res.status(400).json({ ok: false, error: 'Invalid SVG category' });
+    }
+    res.json({ ok: true, assets: listSvgAssets(requestedCategory) });
 });
 
 app.get('/api/svg-assets/content', (req, res) => {
@@ -666,6 +675,8 @@ app.post('/api/hud-config', (req, res) => {
 
 const STORIES_DIR = path.join(ROOT, 'data/stories');
 fs.mkdirSync(STORIES_DIR, { recursive: true });
+const SVG_ACTIONS_DIR = path.join(ROOT, 'data/svg_actions');
+fs.mkdirSync(SVG_ACTIONS_DIR, { recursive: true });
 
 // List all stories
 app.get('/api/stories', (req, res) => {
@@ -707,6 +718,52 @@ app.delete('/api/stories/:id', (req, res) => {
     if (!id || /[^a-zA-Z0-9_-]/.test(id)) return res.status(400).json({ ok: false, error: 'Invalid story ID' });
     const file = path.join(STORIES_DIR, `${id}.json`);
     if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'Story not found' });
+    fs.unlinkSync(file);
+    res.json({ ok: true });
+});
+
+app.get('/api/svg-actions', (req, res) => {
+    const graphs = [];
+    for (const file of fs.readdirSync(SVG_ACTIONS_DIR)) {
+        if (!file.endsWith('.json')) continue;
+        try {
+            const data = JSON.parse(fs.readFileSync(path.join(SVG_ACTIONS_DIR, file), 'utf-8'));
+            graphs.push({
+                id: data.id || file.replace('.json', ''),
+                name: data.name || file.replace('.json', ''),
+            });
+        } catch {
+            // Skip malformed graph files.
+        }
+    }
+    res.json({ ok: true, graphs });
+});
+
+app.get('/api/svg-actions/:id', (req, res) => {
+    const id = req.params.id;
+    if (!id || /[^a-zA-Z0-9_-]/.test(id)) return res.status(400).json({ ok: false, error: 'Invalid graph ID' });
+    const file = path.join(SVG_ACTIONS_DIR, `${id}.json`);
+    if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'Action graph not found' });
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    res.json({ ok: true, graph: data });
+});
+
+app.post('/api/svg-actions/:id', (req, res) => {
+    const id = req.params.id;
+    if (!id || /[^a-zA-Z0-9_-]/.test(id)) return res.status(400).json({ ok: false, error: 'Invalid graph ID' });
+    const graph = req.body;
+    if (!graph || typeof graph !== 'object') return res.status(400).json({ ok: false, error: 'Invalid graph data' });
+    const file = path.join(SVG_ACTIONS_DIR, `${id}.json`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(graph, null, 2), 'utf-8');
+    res.json({ ok: true, path: `data/svg_actions/${id}.json` });
+});
+
+app.delete('/api/svg-actions/:id', (req, res) => {
+    const id = req.params.id;
+    if (!id || /[^a-zA-Z0-9_-]/.test(id)) return res.status(400).json({ ok: false, error: 'Invalid graph ID' });
+    const file = path.join(SVG_ACTIONS_DIR, `${id}.json`);
+    if (!fs.existsSync(file)) return res.status(404).json({ ok: false, error: 'Action graph not found' });
     fs.unlinkSync(file);
     res.json({ ok: true });
 });
@@ -782,6 +839,28 @@ app.post('/api/editor-state', (req, res) => {
     res.json({ ok: true });
 });
 
+app.get('/api/editor-test-map', (req, res) => {
+    const testMapPath = path.join(ROOT, 'data/editor_test_map.json');
+    if (!fs.existsSync(testMapPath)) return res.json({ ok: true, testMap: null });
+    try {
+        const testMap = JSON.parse(fs.readFileSync(testMapPath, 'utf-8'));
+        res.json({ ok: true, testMap });
+    } catch (err) {
+        res.status(500).json({ ok: false, error: err.message });
+    }
+});
+
+app.post('/api/editor-test-map', (req, res) => {
+    const testMapPath = path.join(ROOT, 'data/editor_test_map.json');
+    const testMap = req.body;
+    if (!testMap || typeof testMap !== 'object') {
+        return res.status(400).json({ ok: false, error: 'Invalid test map payload' });
+    }
+    fs.mkdirSync(path.dirname(testMapPath), { recursive: true });
+    fs.writeFileSync(testMapPath, JSON.stringify(testMap, null, 2), 'utf-8');
+    res.json({ ok: true, url: '/game?mission=test&map=/data/editor_test_map.json' });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  API: MISSION PACKAGE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -805,7 +884,7 @@ app.post('/api/mission-package', (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 app.post('/api/tiled-build', (req, res) => {
-    exec('npm run build:tiled-maps', { cwd: ROOT, timeout: 30000 }, (err, stdout, stderr) => {
+    exec('npm run build:tiled', { cwd: ROOT, timeout: 30000 }, (err, stdout, stderr) => {
         if (err) {
             return res.status(500).json({
                 ok: false,

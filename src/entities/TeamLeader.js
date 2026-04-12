@@ -132,18 +132,34 @@ export class TeamLeader extends Phaser.Physics.Arcade.Sprite {
     }
 
     takeDamage(amount) {
+        if (!this.alive) return 0;
         const dmg = Math.max(0, Number(amount) || 0);
-        if (dmg <= 0) return;
+        if (dmg <= 0) return 0;
         const healthBefore = this.health;
         this.lastDamagedAt = this.scene?.time?.now ?? this.lastDamagedAt;
         this.health = Math.max(0, this.health - dmg);
         if (this.onHealthChange) this.onHealthChange(this.health, this.maxHealth);
         this.scene?.eventBus?.emit('leaderDamaged', { leader: this, amount: dmg, healthAfter: this.health, healthBefore });
+        if (this.health <= 0) {
+            this.alive = false;
+            if (this.body) {
+                this.body.setVelocity(0, 0);
+                this.body.enable = false;
+            }
+            if (this.shadowSprite) this.shadowSprite.setVisible(false);
+            this.scene?.eventBus?.emit('leaderDied', { leader: this, x: this.x, y: this.y });
+        }
+        return dmg;
     }
 
     heal(amount) {
-        this.health = Math.min(this.maxHealth, this.health + amount);
+        if (!this.alive || this.active === false) return 0;
+        const gain = Math.max(0, Number(amount) || 0);
+        if (gain <= 0) return 0;
+        const before = this.health;
+        this.health = Math.min(this.maxHealth, this.health + gain);
         if (this.onHealthChange) this.onHealthChange(this.health, this.maxHealth);
-        this.scene?.eventBus?.emit('leaderHealed', { leader: this, amount, healthAfter: this.health });
+        this.scene?.eventBus?.emit('leaderHealed', { leader: this, amount: Math.max(0, this.health - before), healthAfter: this.health });
+        return Math.max(0, this.health - before);
     }
 }

@@ -14,17 +14,14 @@
       "alienDamage": 10,
       "occlusionStartHealth": 1000,
       "occlusionEndHealth": 1000,
-      "expectedTotal": 24,
-      "actualTotal": 24,
+      "expectedTotal": 0,
+      "actualTotal": 0,
       "spawnTile": {
         "x": 12,
         "y": 26
       },
-      "minSpawnDist": 8.06225774829855,
-      "closestEnemyCoord": {
-        "x": 13,
-        "y": 34
-      }
+      "minSpawnDist": 999,
+      "closestEnemyCoord": null
     },
     "walkableSpawns": true
   },

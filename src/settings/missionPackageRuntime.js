@@ -21,6 +21,33 @@ const DIRECTOR_KEYS = Object.freeze([
 let cachedMissionPackage = null;
 let cachedPackageMeta = null;
 
+function normalizeSpawnEnemyType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'auto';
+    const key = raw.toLowerCase();
+    if (key === 'auto' || key === 'random' || key === 'mixed') return 'auto';
+    if (key === 'warrior') return 'warrior';
+    if (key === 'drone') return 'drone';
+    if (key === 'facehugger') return 'facehugger';
+    if (key === 'queenlesser' || key === 'queen_lesser' || key === 'lesserqueen' || key === 'lesser_queen') return 'queenLesser';
+    if (key === 'queen') return 'queen';
+    return 'auto';
+}
+
+function normalizeSpawnPoint(point) {
+    if (!point || typeof point !== 'object') return null;
+    const tileX = Math.round(Number(point.tileX));
+    const tileY = Math.round(Number(point.tileY));
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return null;
+    return {
+        tileX,
+        tileY,
+        count: Math.max(1, Math.round(Number(point.count) || 1)),
+        enemyType: normalizeSpawnEnemyType(point.enemyType ?? point.spawnType),
+        spawnTimeSec: Math.max(0, Number(point.spawnTimeSec ?? point.timer ?? point.spawnTimerSec) || 0),
+    };
+}
+
 function unwrapApiObjectPayload(payload, key) {
     if (!payload || typeof payload !== 'object') return null;
     if (payload[key] && typeof payload[key] === 'object') return payload[key];
@@ -69,6 +96,7 @@ export async function initRuntimeOverrides() {
                                 props: Array.isArray(m?.props) ? m.props : [],
                                 lights: Array.isArray(m?.lights) ? m.lights : [],
                                 storyPoints: Array.isArray(m?.storyPoints) ? m.storyPoints : [],
+                                spawnPoints: Array.isArray(m?.spawnPoints) ? m.spawnPoints : [],
                                 atmosphere: m?.atmosphere && typeof m.atmosphere === 'object' ? { ...m.atmosphere } : {},
                                 largeTextures: Array.isArray(m?.largeTextures) ? m.largeTextures : [],
                             }))
@@ -204,6 +232,8 @@ function normalizePackageMapShape(map) {
                 && Number.isFinite(Number(point.tileX))
                 && Number.isFinite(Number(point.tileY))
                 && Number.isFinite(Number(point.count)) && point.count >= 1)
+                .map((point) => normalizeSpawnPoint(point))
+                .filter(Boolean)
             : [],
         atmosphere: map.atmosphere && typeof map.atmosphere === 'object' ? { ...map.atmosphere } : {},
         largeTextures: Array.isArray(map.largeTextures) ? map.largeTextures : [],

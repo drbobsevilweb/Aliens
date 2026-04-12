@@ -147,6 +147,7 @@ export class EnemyMovement {
         const toTargetA = Phaser.Math.Angle.Between(enemy.x, enemy.y, targetX, targetY);
         const orbitSide = Number(enemy.swarmSide) || (Math.random() < 0.5 ? -1 : 1);
         for (const p of props) {
+            if (p?.blocksPath === false) continue;
             const s = p?.sprite;
             if (!s || s.active === false) continue;
             const propRadius = Math.max(12, Number(p?.radius) || 18);
@@ -517,7 +518,7 @@ export class EnemyMovement {
                     vx: Math.cos(enemy._attackLeapAngle) * s,
                     vy: Math.sin(enemy._attackLeapAngle) * s,
                 };
-                if (dist <= CONFIG.TILE_SIZE * 1.35) {
+                if (dist <= CONFIG.TILE_SIZE * 1.5) {
                     enemy._attackLeapUntil = 0;
                     enemy._swipeState = 'bounce';
                     enemy._swipeNextAt = time + Phaser.Math.Between(100, 180);
@@ -541,9 +542,9 @@ export class EnemyMovement {
             }
         }
 
-        const meleeStrikeRange = CONFIG.TILE_SIZE * 1.1;
-        const meleeHoldRange = CONFIG.TILE_SIZE * 1.45;
-        const meleeEngageRange = CONFIG.TILE_SIZE * 2.15;
+        const meleeStrikeRange = CONFIG.TILE_SIZE * 1.22;
+        const meleeHoldRange = CONFIG.TILE_SIZE * 1.6;
+        const meleeEngageRange = CONFIG.TILE_SIZE * 2.2;
         const inMeleeZone = dist <= meleeEngageRange && !isBypassing;
 
         if (inMeleeZone) {
@@ -1000,6 +1001,7 @@ export class EnemyMovement {
         if (!pathGrid || props.length <= 0) return snap;
         const blockedByProp = (x, y) => {
             for (const p of props) {
+                if (p?.blocksPath === false) continue;
                 const s = p?.sprite;
                 if (!s || s.active === false) continue;
                 const pr = Math.max(12, Number(p?.radius) || 18);

@@ -169,6 +169,18 @@ function templateToTiled(template) {
 
     // --- Marker object layer ---
     const markerObjects = [];
+    const spawnPointByTile = new Map();
+    for (const point of Array.isArray(template?.spawnPoints) ? template.spawnPoints : []) {
+        const tileX = Math.round(Number(point?.tileX));
+        const tileY = Math.round(Number(point?.tileY));
+        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) continue;
+        spawnPointByTile.set(`${tileX},${tileY}`, {
+            count: Math.max(1, Math.round(Number(point?.count) || 1)),
+            enemyType: String(point?.enemyType || 'auto').trim() || 'auto',
+            spawnTimeSec: Math.max(0, Number(point?.spawnTimeSec) || 0),
+        });
+    }
+    const emittedSpawnTiles = new Set();
     let markerId = doorObjects.length + 1;
     if (Array.isArray(markers)) {
         for (let y = 0; y < markers.length; y++) {
@@ -178,6 +190,7 @@ function templateToTiled(template) {
                 const val = row[x];
                 if (val <= 0) continue;
                 const markerType = MARKER_VALUE_MAP[val] || `marker_${val}`;
+                const spawnMeta = val === 5 ? spawnPointByTile.get(`${x},${y}`) : null;
                 markerObjects.push({
                     id: markerId++,
                     name: markerType,
@@ -190,10 +203,39 @@ function templateToTiled(template) {
                     visible: true,
                     properties: [
                         { name: 'markerValue', type: 'int', value: val },
+                        ...(spawnMeta
+                            ? [
+                                { name: 'count', type: 'int', value: spawnMeta.count },
+                                { name: 'enemyType', type: 'string', value: spawnMeta.enemyType || 'auto' },
+                                { name: 'spawnTimeSec', type: 'float', value: spawnMeta.spawnTimeSec || 0 },
+                            ]
+                            : []),
                     ],
                 });
+                if (val === 5) emittedSpawnTiles.add(`${x},${y}`);
             }
         }
+    }
+    for (const [key, spawnMeta] of spawnPointByTile.entries()) {
+        if (emittedSpawnTiles.has(key)) continue;
+        const [x, y] = key.split(',').map(Number);
+        markerObjects.push({
+            id: markerId++,
+            name: 'alien_spawn',
+            type: 'alien_spawn',
+            x: x * TILE_SIZE,
+            y: y * TILE_SIZE,
+            width: TILE_SIZE,
+            height: TILE_SIZE,
+            rotation: 0,
+            visible: true,
+            properties: [
+                { name: 'markerValue', type: 'int', value: 5 },
+                { name: 'count', type: 'int', value: spawnMeta.count },
+                { name: 'enemyType', type: 'string', value: spawnMeta.enemyType || 'auto' },
+                { name: 'spawnTimeSec', type: 'float', value: spawnMeta.spawnTimeSec || 0 },
+            ],
+        });
     }
 
     // --- Per-tile texture override object layer ---

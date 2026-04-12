@@ -1,3 +1,32 @@
+const AUTHORED_SPAWN_ENEMY_TYPES = new Set(['warrior', 'drone', 'facehugger', 'queenLesser', 'queen']);
+
+function normalizeSpawnEnemyType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'auto';
+    const key = raw.toLowerCase();
+    if (key === 'auto' || key === 'random' || key === 'mixed') return 'auto';
+    if (key === 'warrior') return 'warrior';
+    if (key === 'drone') return 'drone';
+    if (key === 'facehugger') return 'facehugger';
+    if (key === 'queenlesser' || key === 'queen_lesser' || key === 'lesserqueen' || key === 'lesser_queen') return 'queenLesser';
+    if (key === 'queen') return 'queen';
+    return 'auto';
+}
+
+function normalizeSpawnPoint(sp) {
+    if (!sp || typeof sp !== 'object') return null;
+    const tileX = Math.round(Number(sp.tileX));
+    const tileY = Math.round(Number(sp.tileY));
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return null;
+    return {
+        tileX,
+        tileY,
+        count: Math.max(1, Math.round(Number(sp.count) || 1)),
+        enemyType: normalizeSpawnEnemyType(sp.enemyType ?? sp.spawnType),
+        spawnTimeSec: Math.max(0, Number(sp.spawnTimeSec ?? sp.timer ?? sp.spawnTimerSec) || 0),
+    };
+}
+
 export function normalizeMissionPackage(input) {
     const src = input && typeof input === 'object' ? input : {};
     const version = '1.0';
@@ -33,11 +62,8 @@ export function normalizeMissionPackage(input) {
                         && Number.isFinite(Number(sp.tileX))
                         && Number.isFinite(Number(sp.tileY))
                         && Number(sp.count) >= 1)
-                    .map((sp) => ({
-                        tileX: Math.round(Number(sp.tileX)),
-                        tileY: Math.round(Number(sp.tileY)),
-                        count: Math.max(1, Math.round(Number(sp.count))),
-                    })) : [],
+                    .map((sp) => normalizeSpawnPoint(sp))
+                    .filter(Boolean) : [],
                 largeTextures: Array.isArray(m.largeTextures) ? m.largeTextures.filter(lt => lt && typeof lt === 'object' && typeof lt.tileX === 'number').map(lt => ({
                     id: String(lt.id || ''),
                     imageKey: String(lt.imageKey || ''),

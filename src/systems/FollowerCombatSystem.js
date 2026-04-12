@@ -1,5 +1,11 @@
 import { CONFIG } from '../config.js';
 
+const ROLE_SCAN_SECTOR = Object.freeze({
+    heavy: Math.PI,         // West
+    tech: 0,                // East
+    medic: -Math.PI * 0.5,  // North
+});
+
 /**
  * Handles AI combat logic for squad followers.
  */
@@ -18,14 +24,8 @@ export class FollowerCombatSystem {
     getFollowerCombatState(roleKey) {
         let state = this.followerCombatState.get(roleKey);
         if (state) return state;
-        
-        const MARINE_SWEEP_ANCHORS = {
-            tech: Math.PI / 2,       // South — matches GameScene constant
-            medic: Math.PI,          // West
-            heavy: -Math.PI / 4,     // North East
-        };
 
-        const anchor = MARINE_SWEEP_ANCHORS[roleKey] ?? 0;
+        const anchor = ROLE_SCAN_SECTOR[roleKey] ?? 0;
         state = {
             nextFireAt: 0,
             jamUntil: 0,
@@ -54,6 +54,12 @@ export class FollowerCombatSystem {
     update(time, delta, marines) {
         if (!marines || marines.length === 0 || !this.scene.enemyManager) return;
         const dtSec = Math.max(0.001, delta / 1000);
+        const followerHeatMax = Math.max(1, Number(this.scene.weaponManager?.pulseMaxAmmo) || 99);
+        const followerOverheatUnlockHeat = Phaser.Math.Clamp(
+            followerHeatMax - Math.max(0, Math.min(followerHeatMax, Number(this.scene.weaponManager?.pulseUnlockAt) || 24)),
+            0,
+            followerHeatMax
+        );
 
         // Follower overheat cooling.
         for (const [key, ammo] of (this.scene.marineAmmo || new Map())) {
@@ -63,7 +69,7 @@ export class FollowerCombatSystem {
             if (ammo.isOverheated) {
                 if (time >= ammo.overheatCooldownUntil) {
                     ammo.pulseHeat = Math.max(0, ammo.pulseHeat - coolRate * dtSec);
-                    if (ammo.pulseHeat <= 0) { ammo.pulseHeat = 0; ammo.isOverheated = false; }
+                    if (ammo.pulseHeat <= followerOverheatUnlockHeat) ammo.isOverheated = false;
                 }
             } else if (ammo.pulseHeat > 0) {
                 ammo.pulseHeat = Math.max(0, ammo.pulseHeat - coolRate * dtSec);
@@ -77,7 +83,7 @@ export class FollowerCombatSystem {
         const swarmPerSec = Phaser.Math.Clamp(Number(marineTuning.panicSwarmPerSec) || 6, 0, 40);
         const selfHitLoss = Phaser.Math.Clamp(Number(marineTuning.panicSelfHitLoss) || 10, 0, 60);
         const allyHitLoss = Phaser.Math.Clamp(Number(marineTuning.panicAllyHitLoss) || 3, 0, 30);
-        const suppressWindowMs = 500;
+        const suppressWindowMs = Phaser.Math.Clamp(Number(marineTuning.supportSuppressWindowMs) || 760, 200, 3000);
         const combatMods = this.scene.combatMods || {
             marineAccuracyMul: 1,
             marineJamMul: 1,
@@ -86,6 +92,16 @@ export class FollowerCombatSystem {
         };
         
         const laneDirective = this.scene.parseCommanderLaneDirective ? this.scene.parseCommanderLaneDirective(this.scene.currentCommanderDirective || '') : { mode: 'none' };
+        const directiveProfile = this.scene.getCommanderTacticalProfile
+            ? this.scene.getCommanderTacticalProfile(this.scene.currentCommanderDirective || '')
+            : {
+                mode: 'none',
+                laneReactionMul: 1,
+                offLaneReactionMul: 1,
+                laneHitMul: 1,
+                offLaneHitMul: 1,
+                suppressWindowMul: 1,
+            };
         
         if (this.scene.totalKills > this.lastMoraleKillCount) {
             const gain = (this.scene.totalKills - this.lastMoraleKillCount) * 5;
@@ -109,6 +125,7 @@ export class FollowerCombatSystem {
         const lighting = this.scene.runtimeSettings?.lighting || {};
         const halfAngle = lighting.torchConeHalfAngle ?? CONFIG.TORCH_CONE_HALF_ANGLE;
         const range = (lighting.torchRange ?? CONFIG.TORCH_RANGE) * 1.1; // Slightly extended for followers
+        const closeThreatScanRadiusSq = Math.pow(CONFIG.TILE_SIZE * 5.5, 2);
         
         const isWithinFiringCone = (marine, tx, ty, coneHalfAngle = 1.22) => { // ~70 deg half-angle — wider awareness
             const angleToTarget = Phaser.Math.Angle.Between(marine.x, marine.y, tx, ty);
@@ -196,6 +213,17 @@ export class FollowerCombatSystem {
             const selfRecentlyAttacked = Number.isFinite(follower.lastDamagedAt) && (time - follower.lastDamagedAt <= 1500);
             const maxHp = Math.max(1, Number(follower.maxHealth) || 100);
             const hpPct = Phaser.Math.Clamp((Number(follower.health) || 0) / maxHp, 0, 1);
+            let closeThreatNearby = false;
+            for (let enemyIdx = 0; enemyIdx < allEnemies.length; enemyIdx++) {
+                const enemy = allEnemies[enemyIdx];
+                if (!enemy?.active || enemy.isDying) continue;
+                const dx = follower.x - enemy.x;
+                const dy = follower.y - enemy.y;
+                if ((dx * dx) + (dy * dy) <= closeThreatScanRadiusSq) {
+                    closeThreatNearby = true;
+                    break;
+                }
+            }
 
             const allyRecentlyAttacked = teammateRecentlyAttacked
                 && (!Number.isFinite(follower.lastDamagedAt) || (time - follower.lastDamagedAt) > 1500);
@@ -243,14 +271,66 @@ export class FollowerCombatSystem {
             const effectiveFireRate = pulseDefBase
                 ? this.scene.weaponManager.getAdjustedFireRate(pulseDefBase, { fireRateMul: profile.fireRateMul })
                 : 110;
+            const getLaneCombatBias = (enemy = null) => {
+                if (!assignedLane || !enemy || !this.scene.getDirectionBucket) {
+                    return {
+                        reactionMul: 1,
+                        hitMul: 1,
+                        suppressWindowMul: 1,
+                    };
+                }
+                const enemyLane = this.scene.getDirectionBucket(enemy.x, enemy.y);
+                const inLane = enemyLane === assignedLane;
+                return {
+                    reactionMul: inLane ? (directiveProfile.laneReactionMul || 1) : (directiveProfile.offLaneReactionMul || 1),
+                    hitMul: inLane ? (directiveProfile.laneHitMul || 1) : (directiveProfile.offLaneHitMul || 1),
+                    suppressWindowMul: inLane ? (directiveProfile.suppressWindowMul || 1) : 1,
+                };
+            };
+            const scoreEnemyForRole = (enemy, d) => {
+                let score = d;
+                // Facehuggers are the highest immediate threat — heavily prioritize
+                if (enemy.enemyType === 'facehugger') score -= 300;
+                // Close-range enemies (within 2 tiles) get emergency priority
+                if (d < CONFIG.TILE_SIZE * 2) score -= 150;
+                const dLeader = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.scene.leader.x, this.scene.leader.y);
+                if (assignedLane) {
+                    const enemyLane = this.scene.getDirectionBucket(enemy.x, enemy.y);
+                    if (enemyLane === assignedLane) score -= follower.roleKey === 'heavy' ? 48 : 34;
+                    else score += follower.roleKey === 'heavy' ? 24 : 16;
+                }
+                if (follower.roleKey === 'heavy') {
+                    score += dLeader * 0.28;
+                    if (enemy.enemyType === 'queen' || enemy.enemyType === 'queenLesser') score -= 64;
+                    if (dLeader <= CONFIG.TILE_SIZE * 2.1) score -= 34;
+                } else if (follower.roleKey === 'tech') {
+                    if (enemy.engagingDoor === true) score -= 56;
+                    if (enemy.enemyType === 'drone') score -= 16;
+                } else if (follower.roleKey === 'medic') {
+                    const wounded = lowestHpAlly && lowestHpPct < 0.72 ? lowestHpAlly : null;
+                    if (wounded) {
+                        const dWounded = Phaser.Math.Distance.Between(enemy.x, enemy.y, wounded.x, wounded.y);
+                        score += dWounded * 0.22;
+                        if (dWounded <= CONFIG.TILE_SIZE * 2.2) score -= 42;
+                    } else {
+                        score += 18;
+                    }
+                    if (d > range * 0.62) score += 24;
+                }
+                if (threatenedAlly && threatenedAlly !== follower) {
+                    const dThreatened = Phaser.Math.Distance.Between(enemy.x, enemy.y, threatenedAlly.x, threatenedAlly.y);
+                    score += dThreatened * 0.18;
+                }
+                return score;
+            };
             let best = state.targetRef && state.targetRef.active ? state.targetRef : null;
             let bestDist = best ? Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y) : Infinity;
-            let bestScore = bestDist;
+            let bestScore = best ? scoreEnemyForRole(best, bestDist) : Infinity;
             let bestActualDist = bestDist;
 
             if (time >= state.nextThinkAt) {
                 // Adaptive think speed: faster when threats are nearby
-                const nearestEnemyDist = best ? Phaser.Math.Distance.Between(follower.x, follower.y, best.x, best.y) : Infinity;
+                const nearestEnemyDist = bestDist;
                 const adaptiveThink = nearestEnemyDist < CONFIG.TILE_SIZE * 2 ? 35 : // Emergency: 35ms when very close
                                       nearestEnemyDist < CONFIG.TILE_SIZE * 5 ? 55 : // Alert: 55ms when medium range
                                       thinkIntervalMs; // Standard: 70ms
@@ -258,46 +338,10 @@ export class FollowerCombatSystem {
                 best = null;
                 bestDist = Infinity;
                 bestScore = Infinity;
-                
-                const scoreEnemyForRole = (enemy, d) => {
-                    let score = d;
-                    // Facehuggers are the highest immediate threat — heavily prioritize
-                    if (enemy.enemyType === 'facehugger') score -= 300;
-                    // Close-range enemies (within 2 tiles) get emergency priority
-                    if (d < CONFIG.TILE_SIZE * 2) score -= 150;
-                    const dLeader = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.scene.leader.x, this.scene.leader.y);
-                    if (assignedLane) {
-                        const enemyLane = this.scene.getDirectionBucket(enemy.x, enemy.y);
-                        if (enemyLane === assignedLane) score -= follower.roleKey === 'heavy' ? 48 : 34;
-                        else score += follower.roleKey === 'heavy' ? 24 : 16;
-                    }
-                    if (follower.roleKey === 'heavy') {
-                        score += dLeader * 0.28;
-                        if (enemy.enemyType === 'queen' || enemy.enemyType === 'queenLesser') score -= 64;
-                        if (dLeader <= CONFIG.TILE_SIZE * 2.1) score -= 34;
-                    } else if (follower.roleKey === 'tech') {
-                        if (enemy.engagingDoor === true) score -= 56;
-                        if (enemy.enemyType === 'drone') score -= 16;
-                    } else if (follower.roleKey === 'medic') {
-                        const wounded = lowestHpAlly && lowestHpPct < 0.72 ? lowestHpAlly : null;
-                        if (wounded) {
-                            const dWounded = Phaser.Math.Distance.Between(enemy.x, enemy.y, wounded.x, wounded.y);
-                            score += dWounded * 0.22;
-                            if (dWounded <= CONFIG.TILE_SIZE * 2.2) score -= 42;
-                        } else {
-                            score += 18;
-                        }
-                        if (d > range * 0.62) score += 24;
-                    }
-                    if (threatenedAlly && threatenedAlly !== follower) {
-                        const dThreatened = Phaser.Math.Distance.Between(enemy.x, enemy.y, threatenedAlly.x, threatenedAlly.y);
-                        score += dThreatened * 0.18;
-                    }
-                    return score;
-                };
 
                 // If any marine was recently attacked, allow 360-degree scanning and include undetected enemies
-                const reactiveMode = selfRecentlyAttacked || teammateRecentlyAttacked;
+                // Close-range threats should trigger the same 360-degree scan path as recent damage.
+                const reactiveMode = selfRecentlyAttacked || teammateRecentlyAttacked || closeThreatNearby;
                 const scanPool = reactiveMode ? allEnemies : enemies;
                 for (const enemy of scanPool) {
                     if (!canAcquire(follower, enemy, reactiveMode)) continue;
@@ -343,17 +387,20 @@ export class FollowerCombatSystem {
                     }
                 }
             } else if (best && !canAcquire(follower, best, true)) {
+                const combatBias = getLaneCombatBias(best);
                 state.lastKnownX = best.x;
                 state.lastKnownY = best.y;
                 state.lastKnownAt = time;
-                state.suppressionUntil = time + suppressWindowMs;
+                state.suppressionUntil = time + Math.round(suppressWindowMs * (combatBias.suppressWindowMul || 1));
                 best = null;
                 state.targetRef = null;
                 state.burstShotsLeft = 0;
             }
 
             if (!best) {
-                const hasLastKnown = Number.isFinite(state.lastKnownAt) && (time - state.lastKnownAt) <= suppressWindowMs;
+                const hasLastKnown = Number.isFinite(state.lastKnownX)
+                    && Number.isFinite(state.lastKnownY)
+                    && time <= Math.max((state.suppressionUntil || 0), (state.lastKnownAt || -Infinity) + suppressWindowMs);
                 if (hasLastKnown && Number.isFinite(state.lastKnownX) && Number.isFinite(state.lastKnownY)) {
                     const aimLast = Phaser.Math.Angle.Between(follower.x, follower.y, state.lastKnownX, state.lastKnownY);
                     follower.setDesiredRotation(aimLast);
@@ -379,8 +426,8 @@ export class FollowerCombatSystem {
                                         ammoState.displayedAmmo = Math.max(0, ammoState.displayedAmmo - Phaser.Math.Between(1, 8));
                                     }
                                     ammoState.lastFiredAt = time;
-                                    ammoState.pulseHeat = Math.min(99, (ammoState.pulseHeat || 0) + (Number(profile.heatPerShot) || 9));
-                                    if (ammoState.pulseHeat >= 99) {
+                                    ammoState.pulseHeat = Math.min(followerHeatMax, (ammoState.pulseHeat || 0) + (Number(profile.heatPerShot) || 9));
+                                    if (ammoState.pulseHeat >= followerHeatMax) {
                                         ammoState.isOverheated = true;
                                         ammoState.overheatCooldownUntil = time + 2000;
                                     }
@@ -421,7 +468,8 @@ export class FollowerCombatSystem {
             // Reaction delay — apply when acquiring a NEW target
             const isNewTarget = best !== state.targetRef;
             if (isNewTarget) {
-                state.readyAt = time + profile.reactionMs * (combatMods.marineReactionMul || 1);
+                const combatBias = getLaneCombatBias(best);
+                state.readyAt = time + Math.round(profile.reactionMs * (combatMods.marineReactionMul || 1) * (combatBias.reactionMul || 1));
                 state.burstShotsLeft = 0; // Reset burst for new engagement
                 // Emit callout for new contact
                 this._emitCallout(follower, best, time);
@@ -463,14 +511,16 @@ export class FollowerCombatSystem {
 
             // FINAL STRICT CHECK BEFORE FIRING
             if (canFireAt(follower, best.x, best.y)) {
+                const combatBias = getLaneCombatBias(best);
+                const engagementHitChance = Phaser.Math.Clamp(followerHitChance * (combatBias.hitMul || 1), 0.03, 0.995);
                 // Initialize burst if not active
                 if (state.burstShotsLeft <= 0) {
                     state.burstShotsLeft = Phaser.Math.Between(profile.burstMin, profile.burstMax);
                 }
 
                 let shotAngle = aim;
-                if (Math.random() > followerHitChance && typeof this.scene.getMissAngleOffset === 'function') {
-                    shotAngle += this.scene.getMissAngleOffset(follower.roleKey || 'marine', followerHitChance);
+                if (Math.random() > engagementHitChance && typeof this.scene.getMissAngleOffset === 'function') {
+                    shotAngle += this.scene.getMissAngleOffset(follower.roleKey || 'marine', engagementHitChance);
                 }
                 const fired = pulseDef
                     ? this.scene.bulletPool.fire(follower.x, follower.y, shotAngle, time, { ...pulseDef, ownerRoleKey: follower.roleKey })
@@ -483,8 +533,8 @@ export class FollowerCombatSystem {
                         ammoState.displayedAmmo = Math.max(0, ammoState.displayedAmmo - Phaser.Math.Between(1, 8));
                     }
                     ammoState.lastFiredAt = time;
-                    ammoState.pulseHeat = Math.min(99, (ammoState.pulseHeat || 0) + (Number(profile.heatPerShot) || 9));
-                    if (ammoState.pulseHeat >= 99) {
+                    ammoState.pulseHeat = Math.min(followerHeatMax, (ammoState.pulseHeat || 0) + (Number(profile.heatPerShot) || 9));
+                    if (ammoState.pulseHeat >= followerHeatMax) {
                         ammoState.isOverheated = true;
                         ammoState.overheatCooldownUntil = time + 2000;
                     }

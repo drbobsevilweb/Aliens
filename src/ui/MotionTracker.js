@@ -1,6 +1,21 @@
 import { CONFIG } from '../config.js';
 
 const TRACKER_READOUT_FONT = 'SevenSegment, Alarm, "Share Tech Mono", monospace';
+const TRACKER_CONE_RANGE = (CONFIG.TILE_SIZE || 64) * 23;
+const DEFAULT_SIGNAL_PROFILE = Object.freeze({
+    classification: 'none',
+    confidence: 0,
+    proximity: 0,
+    coneCount: 0,
+    confirmedCount: 0,
+    trackedCount: 0,
+    ventCount: 0,
+    uncertainCount: 0,
+    phantomCount: 0,
+    echoCount: 0,
+    labelColor: '#33ff88',
+    bgTint: 0xaaccee,
+});
 
 // Directional cone: 60° arc (±30° from leader facing), 23 tiles range
 const CONE_HALF_ANGLE = Math.PI / 6;
@@ -14,6 +29,8 @@ export class MotionTracker {
         this._interEndAt = 0;
         this._nextPeriodicAt = 0;
         this._becameActiveAt = 0;
+        this._signalProfile = { ...DEFAULT_SIGNAL_PROFILE };
+        this.range = TRACKER_CONE_RANGE;
 
         const W = 36;
         const H = 36;
@@ -70,25 +87,28 @@ export class MotionTracker {
      * @param {number} time     — scene time (ms)
      */
     update(leaderX, leaderY, facingAngle, contacts, time) {
-        const coneRange = (CONFIG.TILE_SIZE || 64) * 23;
-        const allContacts = Array.isArray(contacts) ? contacts.filter(Boolean) : [];
+        const coneRange = this.range || TRACKER_CONE_RANGE;
+        const coneContacts = [];
+        const rawContacts = Array.isArray(contacts) ? contacts : [];
 
-        // Filter: within 60° cone ahead and within 15-tile range
-        const coneContacts = allContacts.filter(c => {
-            const dx = (Number(c.x) || 0) - leaderX;
-            const dy = (Number(c.y) || 0) - leaderY;
+        // Filter: within 60° cone ahead and within 15-tile range.
+        for (const contact of rawContacts) {
+            if (!contact) continue;
+            const dx = (Number(contact.x) || 0) - leaderX;
+            const dy = (Number(contact.y) || 0) - leaderY;
             const distSq = dx * dx + dy * dy;
-            if (distSq > coneRange * coneRange) return false;
+            if (distSq > coneRange * coneRange) continue;
             const angle = Math.atan2(dy, dx);
             let diff = angle - facingAngle;
             while (diff > Math.PI) diff -= Math.PI * 2;
             while (diff < -Math.PI) diff += Math.PI * 2;
-            return Math.abs(diff) <= CONE_HALF_ANGLE;
-        });
+            if (Math.abs(diff) <= CONE_HALF_ANGLE) coneContacts.push(contact);
+        }
 
         const prevCount = this._coneCount;
         const count = coneContacts.length;
         this._coneCount = count;
+        this._signalProfile = this._summarizeConeContacts(leaderX, leaderY, coneContacts, coneRange);
 
         // Anchor below the leader sprite in world space
         this.container.setPosition(leaderX, leaderY + 28);
@@ -133,6 +153,8 @@ export class MotionTracker {
         // CRT breathing pulse — sine-wave brightness on background and scale on label
         const t = time * 0.001; // seconds
         const bgPulse = 0.85 + 0.15 * Math.sin(t * 4.0);
+        this.bgImage.setTint(this._signalProfile.bgTint || 0xaaccee);
+        this._interVid.setTint(this._signalProfile.bgTint || 0xaaccff);
         this.bgImage.setAlpha(0.92 * bgPulse);
 
         // Count label — flash while enemies in cone
@@ -150,6 +172,7 @@ export class MotionTracker {
                 this._flashOn = !this._flashOn;
             }
             this.countLabel.setText(String(count));
+            this.countLabel.setColor(this._signalProfile.labelColor || '#33ff88');
             this.countLabel.setAlpha(this._flashOn ? 1 : 0.15);
             this.countLabel.setVisible(true);
             // Subtle scale pulse on count label
@@ -158,9 +181,91 @@ export class MotionTracker {
         } else {
             this.countLabel.setVisible(false);
             this.countLabel.setScale(1);
+            this.countLabel.setColor(DEFAULT_SIGNAL_PROFILE.labelColor);
+            this.bgImage.setTint(DEFAULT_SIGNAL_PROFILE.bgTint);
+            this._interVid.setTint(0xaaccff);
+            this._signalProfile = { ...DEFAULT_SIGNAL_PROFILE };
             this._flashTimer = 0;
             this._flashOn = true;
         }
+    }
+
+    _summarizeConeContacts(leaderX, leaderY, coneContacts, coneRange) {
+        if (!Array.isArray(coneContacts) || coneContacts.length <= 0) {
+            return { ...DEFAULT_SIGNAL_PROFILE };
+        }
+
+        const profile = {
+            classification: 'uncertain',
+            confidence: 0,
+            proximity: 0,
+            coneCount: coneContacts.length,
+            confirmedCount: 0,
+            trackedCount: 0,
+            ventCount: 0,
+            uncertainCount: 0,
+            phantomCount: 0,
+            echoCount: 0,
+            labelColor: DEFAULT_SIGNAL_PROFILE.labelColor,
+            bgTint: DEFAULT_SIGNAL_PROFILE.bgTint,
+        };
+
+        for (const contact of coneContacts) {
+            if (!contact) continue;
+            const conf = Phaser.Math.Clamp(Number(contact.confidence) || 0, 0, 1);
+            const dist = Phaser.Math.Distance.Between(leaderX, leaderY, Number(contact.x) || 0, Number(contact.y) || 0);
+            const prox = Phaser.Math.Clamp(1 - (dist / Math.max(1, coneRange)), 0, 1);
+            const tracked = contact.tracked === true;
+            const phantom = contact.isPhantom === true || String(contact.type || '').toLowerCase() === 'phantom';
+            const echo = contact.isEcho === true;
+            const vent = contact.vent === true;
+            const confirmed = !phantom && !echo && !vent && (conf >= 0.72 || (tracked && conf >= 0.55));
+
+            profile.confidence = Math.max(profile.confidence, conf);
+            profile.proximity = Math.max(profile.proximity, prox);
+
+            if (phantom) profile.phantomCount += 1;
+            if (echo) profile.echoCount += 1;
+            if (vent) profile.ventCount += 1;
+            if (confirmed) {
+                profile.confirmedCount += 1;
+                continue;
+            }
+            if (tracked && !phantom && !echo && !vent) {
+                profile.trackedCount += 1;
+                continue;
+            }
+            profile.uncertainCount += 1;
+        }
+
+        if (profile.confirmedCount > 0) {
+            profile.classification = 'confirmed';
+            if (profile.proximity >= 0.6) {
+                profile.labelColor = '#ff8f7a';
+                profile.bgTint = 0xffc7b8;
+            } else {
+                profile.labelColor = '#ffc56e';
+                profile.bgTint = 0xe0c29c;
+            }
+        } else if (profile.trackedCount > 0) {
+            profile.classification = 'tracked';
+            profile.labelColor = '#66ff99';
+            profile.bgTint = 0x9fd9b5;
+        } else if (profile.ventCount > 0) {
+            profile.classification = 'vent';
+            profile.labelColor = '#7dd8ff';
+            profile.bgTint = 0x9cccf0;
+        } else if (profile.uncertainCount > 0 || profile.phantomCount > 0 || profile.echoCount > 0) {
+            profile.classification = 'uncertain';
+            profile.labelColor = '#ffd36b';
+            profile.bgTint = 0xe1c98e;
+        } else {
+            profile.classification = 'tracked';
+            profile.labelColor = '#66ff99';
+            profile.bgTint = 0x9fd9b5;
+        }
+
+        return profile;
     }
 
     /** Video bursts in then fades out, revealing the bg art + count label */

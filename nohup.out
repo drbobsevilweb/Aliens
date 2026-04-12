@@ -1,0 +1,5 @@
+error: unexpected argument '--ozone-platform' found
+
+Usage: code-tunnel tunnel --accept-server-license-terms
+
+For more information, try '--help'.

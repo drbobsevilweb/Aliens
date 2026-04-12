@@ -25,6 +25,7 @@
           "props": { "type": "array" },
           "lights": { "type": "array" },
           "storyPoints": { "type": "array" },
+          "spawnPoints": { "type": "array" },
           "atmosphere": { "type": "object" },
           "largeTextures": { "type": "array" }
         },

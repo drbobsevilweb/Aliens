@@ -1,5 +1,48 @@
 import { normalizeMissionPackage } from './normalizeMissionPackage.js';
 
+const AUTHORED_SPAWN_ENEMY_TYPES = new Set(['warrior', 'drone', 'facehugger', 'queenLesser', 'queen']);
+
+function normalizeSpawnEnemyType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'auto';
+    const key = raw.toLowerCase();
+    if (key === 'auto' || key === 'random' || key === 'mixed') return 'auto';
+    if (key === 'warrior') return 'warrior';
+    if (key === 'drone') return 'drone';
+    if (key === 'facehugger') return 'facehugger';
+    if (key === 'queenlesser' || key === 'queen_lesser' || key === 'lesserqueen' || key === 'lesser_queen') return 'queenLesser';
+    if (key === 'queen') return 'queen';
+    return 'auto';
+}
+
+function normalizeSpawnTimeSec(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? Math.max(0, num) : 0;
+}
+
+function normalizeSpawnPoint(point) {
+    if (!point || typeof point !== 'object') return null;
+    const tileX = Math.round(Number(point.tileX));
+    const tileY = Math.round(Number(point.tileY));
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return null;
+    return {
+        tileX,
+        tileY,
+        count: Math.max(1, Math.round(Number(point.count) || 1)),
+        enemyType: normalizeSpawnEnemyType(point.enemyType ?? point.spawnType),
+        spawnTimeSec: normalizeSpawnTimeSec(point.spawnTimeSec ?? point.timer ?? point.spawnTimerSec),
+    };
+}
+
+function getObjectProperty(obj, name) {
+    if (!Array.isArray(obj?.properties)) return undefined;
+    for (let i = obj.properties.length - 1; i >= 0; i--) {
+        const prop = obj.properties[i];
+        if (prop?.name === name) return prop.value;
+    }
+    return undefined;
+}
+
 /**
  * Derive canonical spawnPoints from a tilemap's markers grid and alien_spawn props.
  * Marker value 5 → count defaults to 4 unless an alien_spawn prop at the same tile
@@ -11,17 +54,41 @@ function deriveSpawnPointsFromMap(m) {
     // If the tilemap already carries explicit spawnPoints (e.g. from Tiled import), use them.
     if (Array.isArray(m.spawnPoints) && m.spawnPoints.length > 0) {
         return m.spawnPoints
-            .filter((p) => p && Number.isFinite(Number(p.tileX)) && Number.isFinite(Number(p.tileY)) && Number(p.count) >= 1)
-            .map((p) => ({ tileX: Math.round(Number(p.tileX)), tileY: Math.round(Number(p.tileY)), count: Math.max(1, Math.round(Number(p.count))) }));
+            .map((p) => normalizeSpawnPoint(p))
+            .filter(Boolean);
+    }
+
+    // Tiled/object-layer editor maps store spawn marker properties on the markers layer.
+    const markerLayer = Array.isArray(m.layers)
+        ? m.layers.find((layer) => layer?.name === 'markers' && layer?.type === 'objectgroup')
+        : null;
+    if (Array.isArray(markerLayer?.objects) && markerLayer.objects.length > 0) {
+        const tileSize = Math.max(1, Number(m.tilewidth) || Number(m.tileWidth) || 64);
+        const spawnPoints = [];
+        for (const obj of markerLayer.objects) {
+            const markerValue = Number(getObjectProperty(obj, 'markerValue')) || 0;
+            const markerType = String(obj?.type || obj?.name || '').trim().toLowerCase();
+            if (markerValue !== 5 && markerType !== 'alien_spawn') continue;
+            const normalized = normalizeSpawnPoint({
+                tileX: Math.round(Number(obj?.x) / tileSize),
+                tileY: Math.round(Number(obj?.y) / tileSize),
+                count: getObjectProperty(obj, 'count') ?? 4,
+                enemyType: getObjectProperty(obj, 'enemyType'),
+                spawnTimeSec: getObjectProperty(obj, 'spawnTimeSec') ?? getObjectProperty(obj, 'timer'),
+            });
+            if (normalized) spawnPoints.push(normalized);
+        }
+        if (spawnPoints.length > 0) return spawnPoints;
     }
     const out = [];
     // Build a lookup of alien_spawn props by tile position (explicit counts win over defaults).
-    const propCountByTile = new Map();
+    const propDataByTile = new Map();
     if (Array.isArray(m.props)) {
         for (const p of m.props) {
             if (p && (p.type === 'alien_spawn' || p.type === 'spawn')) {
                 const key = `${Math.round(Number(p.tileX) || 0)},${Math.round(Number(p.tileY) || 0)}`;
-                propCountByTile.set(key, Math.max(1, Math.round(Number(p.count) || 4)));
+                const normalized = normalizeSpawnPoint(p);
+                if (normalized) propDataByTile.set(key, normalized);
             }
         }
     }
@@ -33,9 +100,10 @@ function deriveSpawnPointsFromMap(m) {
             for (let x = 0; x < row.length; x++) {
                 if ((row[x] | 0) === 5) {
                     const key = `${x},${y}`;
-                    const count = propCountByTile.get(key) || 4;
-                    out.push({ tileX: x, tileY: y, count });
-                    propCountByTile.delete(key); // avoid duplicate
+                    const normalized = propDataByTile.get(key)
+                        || normalizeSpawnPoint({ tileX: x, tileY: y, count: 4 });
+                    if (normalized) out.push(normalized);
+                    propDataByTile.delete(key); // avoid duplicate
                 }
             }
         }
@@ -47,9 +115,9 @@ function deriveSpawnPointsFromMap(m) {
                 const tileX = Math.round(Number(p.tileX) || 0);
                 const tileY = Math.round(Number(p.tileY) || 0);
                 const key = `${tileX},${tileY}`;
-                if (propCountByTile.has(key)) {
-                    out.push({ tileX, tileY, count: Math.max(1, Math.round(Number(p.count) || 4)) });
-                    propCountByTile.delete(key);
+                if (propDataByTile.has(key)) {
+                    out.push(propDataByTile.get(key));
+                    propDataByTile.delete(key);
                 }
             }
         }

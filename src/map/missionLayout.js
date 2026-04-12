@@ -14,6 +14,33 @@ const MARKER_WARNING_STROBE = 6;
 const MARKER_VENT_POINT = 7;
 const MARKER_EGG_CLUSTER = 8;
 
+function normalizeSpawnEnemyType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'auto';
+    const key = raw.toLowerCase();
+    if (key === 'auto' || key === 'random' || key === 'mixed') return 'auto';
+    if (key === 'warrior') return 'warrior';
+    if (key === 'drone') return 'drone';
+    if (key === 'facehugger') return 'facehugger';
+    if (key === 'queenlesser' || key === 'queen_lesser' || key === 'lesserqueen' || key === 'lesser_queen') return 'queenLesser';
+    if (key === 'queen') return 'queen';
+    return 'auto';
+}
+
+function normalizeSpawnPoint(point) {
+    if (!point || typeof point !== 'object') return null;
+    const tileX = Math.round(Number(point.tileX));
+    const tileY = Math.round(Number(point.tileY));
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return null;
+    return {
+        tileX,
+        tileY,
+        count: Math.max(1, Math.round(Number(point.count) || 1)),
+        enemyType: normalizeSpawnEnemyType(point.enemyType ?? point.spawnType),
+        spawnTimeSec: Math.max(0, Number(point.spawnTimeSec ?? point.timer ?? point.spawnTimerSec) || 0),
+    };
+}
+
 function isWarriorOnlyTestingEnabled() {
     try {
         const settings = loadRuntimeSettings();
@@ -75,11 +102,14 @@ function collectMarkerTiles(markers, markerValue, props = []) {
     if (markerValue === MARKER_ALIEN_SPAWN && Array.isArray(props)) {
         for (const p of props) {
             if (p && (p.type === 'alien_spawn' || p.type === 'spawn')) {
-                tiles.push({ 
-                    x: Math.round(Number(p.tileX) || 0), 
-                    y: Math.round(Number(p.tileY) || 0), 
-                    count: Math.max(1, Math.round(Number(p.count) || 1)) 
-                });
+                const normalized = normalizeSpawnPoint(p);
+                if (normalized) {
+                    tiles.push({
+                        x: normalized.tileX,
+                        y: normalized.tileY,
+                        count: normalized.count,
+                    });
+                }
             }
         }
     }
@@ -124,33 +154,32 @@ function collectWarningStrobes(markers) {
 
 /**
  * Extract spawn points from the markers grid (value 5) and props array.
- * Returns array of { tileX, tileY, count: 2|4|6|8 }.
+ * Returns array of { tileX, tileY, count, enemyType, spawnTimeSec }.
  */
 function collectSpawnPoints(markers, props = []) {
-    const spawnPoints = [];
-    if (!Array.isArray(markers)) return spawnPoints;
+    const spawnPointByKey = new Map();
+    if (!Array.isArray(markers)) return [];
     for (let y = 0; y < markers.length; y++) {
         const row = markers[y];
         if (!Array.isArray(row)) continue;
         for (let x = 0; x < row.length; x++) {
             if ((row[x] | 0) === MARKER_ALIEN_SPAWN) {
-                spawnPoints.push({ tileX: x, tileY: y, count: 4 });
+                const normalized = normalizeSpawnPoint({ tileX: x, tileY: y, count: 4 });
+                if (!normalized) continue;
+                spawnPointByKey.set(`${x},${y}`, normalized);
             }
         }
     }
     if (Array.isArray(props)) {
         for (const p of props) {
             if (p && (p.type === 'alien_spawn' || p.type === 'spawn')) {
-                const count = Math.max(1, Math.round(Number(p.count) || 4));
-                spawnPoints.push({
-                    tileX: Math.round(Number(p.tileX) || 0),
-                    tileY: Math.round(Number(p.tileY) || 0),
-                    count,
-                });
+                const normalized = normalizeSpawnPoint(p);
+                if (!normalized) continue;
+                spawnPointByKey.set(`${normalized.tileX},${normalized.tileY}`, normalized);
             }
         }
     }
-    return spawnPoints;
+    return Array.from(spawnPointByKey.values());
 }
 
 /**
@@ -619,6 +648,32 @@ function buildWaveTypePlan(missionId, waveIndex, waveCount, count, warriorOnly, 
     return types;
 }
 
+function buildAuthoredSpawnWave(missionId, waveIndex, waveCount, points, warriorOnly, rnd) {
+    const authoredPoints = Array.isArray(points) ? points.filter(Boolean) : [];
+    if (authoredPoints.length <= 0) return [];
+    const autoCount = authoredPoints.reduce((sum, point) => {
+        const explicitType = normalizeSpawnEnemyType(point.enemyType);
+        if (explicitType !== 'auto') return sum;
+        return sum + Math.max(1, Math.round(Number(point.count) || 1));
+    }, 0);
+    const autoTypePlan = autoCount > 0
+        ? buildWaveTypePlan(missionId, waveIndex, waveCount, autoCount, warriorOnly, rnd)
+        : [];
+    let autoIdx = 0;
+    const wave = [];
+    for (const point of authoredPoints) {
+        const count = Math.max(1, Math.round(Number(point.count) || 1));
+        const explicitType = normalizeSpawnEnemyType(point.enemyType);
+        for (let i = 0; i < count; i++) {
+            const type = explicitType !== 'auto'
+                ? explicitType
+                : (autoTypePlan[autoIdx++] || autoTypePlan[autoTypePlan.length - 1] || 'warrior');
+            wave.push({ type, tileX: point.tileX, tileY: point.tileY });
+        }
+    }
+    return wave;
+}
+
 function splitBudget(total, waveCount, rnd) {
     const out = [];
     let remain = Math.max(waveCount, total);
@@ -635,36 +690,15 @@ function splitBudget(total, waveCount, rnd) {
     return out;
 }
 
-function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly, authoredSpawnPoints = []) {
-    const waveCount = mission.difficulty === 'extreme' ? 3 : mission.difficulty === 'hard' ? 3 : 2;
+function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly, authoredSpawnPoints = [], requireAuthoredSpawns = false) {
     const rnd = createSeededRandom(`${mission.id}:${mission.enemyBudget}:${mission.difficulty}`);
-    const counts = splitBudget(mission.enemyBudget, waveCount, rnd);
-
-    // If the map has authored alien_spawn markers, use those as the spawn pool so
-    // designers control where aliens enter from.  Fall back to all walkable tiles.
     const doorGrid = tilemap.doors || [];
-    const alienMarkerTiles = expandCountedSpawnTiles(
-        collectMarkerTiles(tilemap.markers, MARKER_ALIEN_SPAWN, tilemap.props)
-    )
-        .filter((t) => {
-            if (tilemap.terrain[t.y]?.[t.x] !== 0) return false;
-            if (doorGrid[t.y] && (doorGrid[t.y][t.x] | 0) > 0) return false;
-            if (spawnTile) {
-                const dx = t.x - spawnTile.x;
-                const dy = t.y - spawnTile.y;
-                if ((dx * dx + dy * dy) < 64) return false; // too close to marine spawn
-            }
-            return true;
-        });
-    const openTiles = alienMarkerTiles.length > 0
-        ? alienMarkerTiles
-        : walkableTiles(tilemap, spawnTile);
-    const zones = buildSpawnZones(openTiles, tilemap.width, tilemap.height);
-    if (openTiles.length === 0) return [[]];
 
-    // Build the set of valid authored spawn positions for a fast lookup.
+    // Mission enemies now come only from authored spawn points. Immediate points
+    // seed the opening combat state and timed points dispatch later via GameScene.
     const validAuthoredPoints = Array.isArray(authoredSpawnPoints)
-        ? authoredSpawnPoints.filter((p) => {
+        ? authoredSpawnPoints.map((p) => normalizeSpawnPoint(p)).filter((p) => {
+            if (!p) return false;
             if (!p || !Number.isFinite(Number(p.tileX)) || !Number.isFinite(Number(p.tileY))) return false;
             if (tilemap.terrain[p.tileY]?.[p.tileX] !== 0) return false;
             if (doorGrid[p.tileY] && (doorGrid[p.tileY][p.tileX] | 0) > 0) return false;
@@ -676,71 +710,10 @@ function buildMissionWaves(mission, tilemap, spawnTile, warriorOnly, authoredSpa
             return true;
         })
         : [];
+    const immediateAuthoredPoints = validAuthoredPoints.filter((point) => (Number(point.spawnTimeSec) || 0) <= 0);
 
-    const usedPerWave = new Set();
-    const waves = [];
-    for (let waveIndex = 0; waveIndex < waveCount; waveIndex++) {
-        // Wave 0: when valid authored spawn points exist, use their exact positions and
-        // authored counts so the opening encounter respects designer intent.
-        if (waveIndex === 0 && validAuthoredPoints.length > 0) {
-            const wave = [];
-            const totalAuthoredCount = validAuthoredPoints.reduce((s, p) => s + Math.max(1, Math.round(Number(p.count) || 1)), 0);
-            const typePlan = buildWaveTypePlan(mission.id, 0, waveCount, totalAuthoredCount, warriorOnly, rnd);
-            let typeIdx = 0;
-            for (const point of validAuthoredPoints) {
-                const count = Math.max(1, Math.round(Number(point.count) || 1));
-                for (let i = 0; i < count; i++) {
-                    const type = typePlan[typeIdx] || typePlan[typePlan.length - 1] || 'warrior';
-                    typeIdx++;
-                    wave.push({ type, tileX: point.tileX, tileY: point.tileY });
-                }
-            }
-            waves.push(wave);
-            continue;
-        }
-
-        let waveOpenTiles = openTiles;
-        if (waveIndex === 0 && spawnTile) {
-            const firstWaveBandByMission = {
-                m1: { min: 11, max: 18 },
-                m2: { min: 14, max: 24 },
-                m3: { min: 12, max: 22 },
-                m4: { min: 18, max: 30 },
-                m5: { min: 12, max: 20 },
-            };
-            const band = firstWaveBandByMission[mission.id] || { min: 12, max: 20 };
-            const firstWaveTiles = filterTilesByDistanceBand(
-                openTiles,
-                spawnTile,
-                band.min,
-                band.max
-            );
-            if (firstWaveTiles.length >= Math.max(6, Math.floor(counts[waveIndex] * 0.65))) {
-                waveOpenTiles = firstWaveTiles;
-            }
-        }
-        const waveZones = buildSpawnZones(waveOpenTiles, tilemap.width, tilemap.height);
-        const typePlan = buildWaveTypePlan(
-            mission.id,
-            waveIndex,
-            waveCount,
-            counts[waveIndex],
-            warriorOnly,
-            rnd
-        );
-        const wave = [];
-        usedPerWave.clear();
-        const zoneStart = Math.floor(rnd() * Math.max(1, waveZones.length));
-        for (let i = 0; i < typePlan.length; i++) {
-            const preferredZone = (zoneStart + i) % Math.max(1, waveZones.length);
-            const pick = pickSpawnTileFromZones(waveZones, waveOpenTiles, usedPerWave, rnd, preferredZone);
-            if (!pick) continue;
-            const type = typePlan[i] || 'warrior';
-            wave.push({ type, tileX: pick.x, tileY: pick.y });
-        }
-        waves.push(wave);
-    }
-    return waves;
+    if (immediateAuthoredPoints.length <= 0) return [];
+    return [buildAuthoredSpawnWave(mission.id, 0, 1, immediateAuthoredPoints, warriorOnly, rnd)];
 }
 
 function createSeededRandom(seedText) {
@@ -789,8 +762,9 @@ export function resolveMissionLayout(missionId) {
     // Prefer explicit spawnPoints from the tilemap (e.g. from Tiled import or package build),
     // fall back to deriving from markers + props so the grid-only path still works.
     const spawnPoints = (Array.isArray(sourceTilemap.spawnPoints) && sourceTilemap.spawnPoints.length > 0)
-        ? sourceTilemap.spawnPoints.filter((p) => p && Number.isFinite(Number(p.tileX)) && Number.isFinite(Number(p.tileY)) && Number(p.count) >= 1)
+        ? sourceTilemap.spawnPoints.map((p) => normalizeSpawnPoint(p)).filter(Boolean)
         : collectSpawnPoints(sourceTilemap.markers, sourceTilemap.props);
+    const requireAuthoredAlienSpawns = true;
 
     return {
         mission,
@@ -800,8 +774,9 @@ export function resolveMissionLayout(missionId) {
         spawnTile,
         extractionTile,
         doorDefinitions: buildDoorDefinitions(tilemap),
-        missionWaves: buildMissionWaves(mission, tilemap, spawnTile, isWarriorOnlyTestingEnabled(), spawnPoints),
+        missionWaves: buildMissionWaves(mission, tilemap, spawnTile, isWarriorOnlyTestingEnabled(), spawnPoints, requireAuthoredAlienSpawns),
         forceWarriorOnly: isWarriorOnlyTestingEnabled(),
+        requireAuthoredAlienSpawns,
         tilemapSource,
         floorTextureKey: sourceTilemap.floorTextureKey || 'tile_floor_grill_import',
         wallTextureKey: sourceTilemap.wallTextureKey || 'tile_wall_corridor_import',

@@ -1,3 +1,130 @@
+## 2026-04-12
+
+- Ran a coordinated 20-agent mixed audit across gameplay, friendlies, enemies, movement, mechanics, rendering, effects, audio, editor parity, node-graph parity, map fidelity, and general integration risk, then applied only the smallest cross-cutting fixes that showed up consistently across the audit.
+  - `scripts/play_bot.mjs` now hardens follower snapshot collection against stale or partially cleaned-up follower references so the automation path does not fall into repeated eval-failure cascades under follower cleanup churn.
+  - `src/systems/SquadSystem.js` now exports the canonical `ROLE_SCAN_SECTOR`, and `src/systems/FollowerCombatSystem.js` now reuses that role-sector map for idle sweep anchors instead of a contradictory local tech/medic/heavy map.
+  - `src/scenes/GameScene.js` no longer emits the extra direct per-shot `enemyManager.notifyGunfire(...)` call; gunfire pressure and reaction continue through the remaining shared runtime paths.
+  - `src/systems/MissionFlow.js` now replaces the remaining player-facing `wave` phase strings with hostile-contact wording.
+  - `src/ui/MotionTracker.js` now collects cone contacts in one pass instead of chained `filter()` allocations.
+- Validation:
+  - `node --check src/systems/SquadSystem.js`
+  - `node --check src/systems/FollowerCombatSystem.js`
+  - `node --check src/scenes/GameScene.js`
+  - `node --check src/systems/MissionFlow.js`
+  - `node --check src/ui/MotionTracker.js`
+  - `node --check scripts/play_bot.mjs`
+  - `node scripts/test_motion_tracker_classification.mjs`
+  - `node scripts/test_authored_spawn_runtime.mjs`
+  - `node scripts/play_bot.mjs m1`
+- Notable outcome:
+  - the fresh M1 bot run now reports a clean victory with zero issues, but the run is currently zero-contact because stock built-in `m1` still resolves fail-closed with zero authored alien spawn points in the current repo contract.
+  - `node scripts/test-follower-ai.mjs` currently fails to start in plain Node because `src/entities/MarineFollower.js` imports Phaser-dependent runtime code at module load.
+
+## 2026-04-11
+
+- Continued the post-research gameplay refinement with a pre-contact intel pass instead of widening the command UI.
+  - `src/ui/MotionTracker.js` now classifies cone contacts as confirmed, tracked, vent, or uncertain and drives the existing count/tint readout from that state rather than treating all contacts as identical
+  - `src/scenes/GameScene.js` now includes tracker classification in `renderGameToText()` and `getTrackerSignalProfile()` so bot/debug consumers can distinguish reliable contacts from phantom-style noise
+  - added `scripts/test_motion_tracker_classification.mjs` as a focused headless regression for tracker state classification, and revalidated telemetry compatibility with `scripts/test-play-bot-telemetry.mjs`
+- Validation:
+  - `node scripts/test_motion_tracker_classification.mjs`
+  - `node scripts/test-play-bot-telemetry.mjs`
+
+- Applied the first gameplay bundle from the supervised 21-agent strategy-shooter research pass rather than another broad refactor.
+  - `src/systems/CommanderSystem.js` now exposes `getDirectiveTacticalProfile(...)`, turning live commander directives into reusable tactical tuning instead of just text parsing
+  - `src/scenes/GameScene.js` `updateCommandFormationDirective()` now reacts to directive mode while active, so hold/anchor tighten the squad more than split-fire and fallback pulls the squad together fastest
+  - `src/systems/FollowerCombatSystem.js` now uses the live `marines.supportSuppressWindowMs` setting instead of a hardcoded 500ms support-suppress window, and assigned-lane followers react/fire slightly better on-lane than off-lane under active commander directives
+  - added `scripts/test_commander_directive_tactics.mjs` and extended `scripts/test-follower-ai.mjs` to cover directive tactical profiles, runtime suppression window use, and lane-compliance reaction timing
+- Validation:
+  - `node scripts/test-follower-ai.mjs`
+  - `node scripts/test_commander_directive_tactics.mjs`
+
+- Fixed the live node-graph audio contract and the largest remaining Node SVG Actions backend gap.
+  - `src/scenes/GameScene.js` no longer passes raw string keys into `SfxEngine.playSample`; graph-authored `play_sound` actions now route through `src/audio/SfxEngine.js` key lookup so runtime-preloaded sample keys actually play
+  - `server.js` now exposes `/api/svg-actions` list/get/post/delete CRUD to match the live SVG Actions editor tab and the Python backend
+  - `server.js` `/api/tiled-build` now runs `npm run build:tiled` instead of the narrower maps-only command so the Node backend matches Python build parity
+  - added focused runtime/api regression `scripts/test_action_graph_runtime_execution.mjs`, which starts a temporary Node server, verifies `/api/svg-actions` CRUD, injects a package-local node graph, and proves event -> graph -> `play_sound` dispatch works in a live game page
+- Validation:
+  - `node --check src/audio/SfxEngine.js`
+  - `node --check src/scenes/GameScene.js`
+  - `node --check server.js`
+  - `node --check scripts/test_action_graph_runtime_execution.mjs`
+  - `node scripts/test_action_graph_runtime_execution.mjs`
+  - `node scripts/test_actions_visibility_and_sound_picker.mjs`
+
+- Closed the most concrete story-point/runtime and backend parity gaps surfaced by the current-state audit.
+  - `src/scenes/GameScene.js` story-point triggers now emit `storyPointTriggered` and `missionStoryPointTriggered` through the live `EventBus`, so package-authored node graphs can react to map story beats instead of story points stopping at floating text/history only
+  - `editors/tabs/story.js` now exposes both story-point trigger events in the node-graph editor event picker
+  - `server.js` now serves `GET/POST /api/editor-test-map` for the live BootScene/editor round-trip and adds `/api/svg-assets/list` as a compatibility alias for the SVG Actions tab
+  - `dev_server.py` now matches those routes and also restores the legacy `/api/save-hud-config`, `/api/save-sound`, and `/api/audio-upload` endpoints still used by the old HUD/sound surfaces when running the Python dev server
+  - updated `README.md` and `docs/gameplay-reference.md` to remove stale wave-first descriptions and document story-point runtime behavior more accurately
+
+- Repo-wide current-state audit and markdown cleanup completed from code, not older plans.
+  - ran a supervised 20-agent parallel read-only audit across gameplay, editor, map, enemies, friendlies, movement, mechanics, audio, lighting, effects, node-graph logic, asset pipeline, orchestration, settings, backend, tests, docs, prompts, and backlog reality
+  - created `plan/current-state.md` as the new code-grounded planning snapshot under `/plan`
+  - removed clearly stale or historical markdown that was no longer part of the canonical doc surface: `resume.md`, `md/resume-vscode-dev-2026-04-07.md`, `prompts/tasks.md`, and `editors/backend/README.md`
+  - updated `CLAUDE.md` so the summary and backlog stop advertising already-shipped items such as queen mega-death FX and node-graph package publishing parity as still missing
+- Key conclusions from the audit:
+  - mission runtime is now authored-spawn-first rather than fallback-wave-first
+  - the modular editor and node-graph runtime are both live end to end
+  - queen mega-death FX, baseline breach FX, zone-lighting runtime, and story-point runtime triggering already exist
+  - remaining high-value gaps are story-point expansion, node-graph action/event parity, backend API parity, stale settings surface cleanup, and mission-flow/UI wording alignment with the current hostile-contact model
+
+## 2026-04-09
+
+- Missions now use authored alien spawn points as the only runtime enemy source.
+  - `src/map/missionLayout.js` now projects only immediate authored spawn points into the opening combat state instead of synthesizing multi-wave fallback enemy packs from mission budget/open tiles
+  - `src/scenes/GameScene.js` now suppresses ambient/director backfill globally for mission play, so reinforcements, dynamic spawns, vent swarms, mission-director enemy actions, and phantom tracker pressure do not add extra hostiles beyond authored spawn points
+  - zero-spawn missions now fail closed consistently across stock and package runtime paths
+  - `src/ui/ObjectivesPanel.js` and `src/ui/ControlsOverlay.js` now use hostile-contact wording instead of wave wording when presenting default objective guidance
+- Validation:
+  - `node --check src/ui/ObjectivesPanel.js`
+  - `node --check src/ui/ControlsOverlay.js`
+  - `node scripts/test-mission-layout.mjs`
+  - `node scripts/test_authored_spawn_runtime.mjs`
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/test_leader_damage_and_close_fire.mjs`
+  - `node scripts/verify_combat.mjs`
+  - `bash ./scripts/verify.sh`
+
+- Leader damage feedback/state, muzzle-origin leader fire, and stock `m1` zero-spawn fail-closed fix:
+  - `src/data/missionData.js` now marks `m1` with `requireAuthoredAlienSpawns: true`, and `src/map/missionLayout.js` + `src/scenes/GameScene.js` now use that mission-level rule to keep stock/package `m1` fully empty when it has zero authored alien spawn points instead of backfilling fallback waves or ambient/direct spawns
+  - `src/scenes/GameScene.js` now fires leader shots from `resolveMuzzleWorldPos(...)` instead of the leader center, fixing the close-range shot-origin mismatch
+  - `src/systems/EnemyTargeting.js` now routes melee/contact damage through `GameScene.onMarineDamaged()` so alien hits trigger the shared blood/morale/reload-interrupt feedback path
+  - `src/entities/TeamLeader.js` now handles lethal damage coherently by flipping `alive` false, disabling the body, and emitting `leaderDied`
+  - added/updated focused regressions in `scripts/test_leader_damage_and_close_fire.mjs`, `scripts/test_noaliens_spawn_suppression.mjs`, `scripts/test-mission-layout.mjs`, and `scripts/verify_combat.mjs`
+- Validation:
+  - `node --check src/entities/TeamLeader.js`
+  - `node --check src/systems/EnemyTargeting.js`
+  - `node --check src/data/missionData.js`
+  - `node --check src/map/missionLayout.js`
+  - `node --check src/scenes/GameScene.js`
+  - `node --check scripts/test-mission-layout.mjs`
+  - `node --check scripts/test_noaliens_spawn_suppression.mjs`
+  - `node --check scripts/test_leader_damage_and_close_fire.mjs`
+  - `node --check scripts/verify_combat.mjs`
+  - `node scripts/test-mission-layout.mjs`
+  - `node scripts/test_leader_damage_and_close_fire.mjs`
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/verify_combat.mjs`
+  - `bash ./scripts/verify.sh`
+
+- Added a root-level recreation prompt doc at `prompty.md`.
+  - the file is a large reusable build prompt aimed at recreating the project's gameplay engine, AI, lighting, mission/runtime systems, HUD, editors, persistence, and verification flow
+  - it explicitly excludes production art and sound generation, instead instructing use of placeholders, procedural textures, and stubbed audio hooks
+  - it preserves project-specific constraints such as Phaser 3, vanilla ES modules, 64px tiles, door/pathfinding rules, combat-director pacing, runtime package overrides, and editor-backed content authoring
+- Validation:
+  - confirmed `prompty.md` was created and reviewed for content sanity
+
+- Editor local-package game route fix:
+  - root cause for the “aliens from the beginning” editor complaint was routing, not authored spawn markers
+  - the editor shell `Game` nav was opening plain `/game`, which loads stock built-in `m1`; that mission still has `enemyBudget: 24` and built-in fallback opening waves
+  - updated `editors/index.html` so the editor shell opens `Game` as `/game?package=local`, which keeps the authoring workflow on the published package runtime instead of the stock campaign path
+  - extended `scripts/test_editor_publish.mjs` so it now checks the editor `Game` nav href and clicks through to verify the runtime scene reports `tilemapSourceLabel === 'PACKAGE'`
+- Validation:
+  - `node --check scripts/test_editor_publish.mjs`
+  - `node scripts/test_editor_publish.mjs`
+
 ## 2026-04-06
 
 - Markdown/prompt alignment pass completed:
@@ -113,6 +240,110 @@
 # Progress Log
 
 Chronological implementation and validation history. This file is historical, not instructional.
+
+## 2026-04-09
+
+- Closed the runtime alien-spawn leaks for clean-map and package-authored zero-spawn runs.
+  - `src/systems/EnemySpawner.js` now fail-closes all enemy creation when `?noaliens` is active, so any direct `spawnEnemyAtWorld()` caller returns `null`.
+  - `src/scenes/GameScene.js` now tracks ambient spawn suppression separately from full `?noaliens` suppression.
+  - package-authored maps with zero authored spawn points now suppress ambient/non-authored alien entry paths without breaking explicit authored spawn points.
+  - `src/systems/ReinforcementSystem.js` now respects that ambient suppression for gunfire, idle-pressure, and inactivity ambush spawns.
+- Added focused runtime regression coverage in `scripts/test_noaliens_spawn_suppression.mjs`.
+  - verifies `?noaliens` blocks direct enemy creation and keeps vent/gunfire/director probes at zero alive enemies
+  - verifies package-local maps with zero spawn points keep zero opening waves and suppress ambient vent/gunfire/director backfill spawns
+- Validation:
+  - `node --check src/scenes/GameScene.js src/systems/EnemySpawner.js src/systems/ReinforcementSystem.js scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/test_authored_spawn_runtime.mjs`
+
+- Hardened follower combat acquisition around close local threats.
+  - `src/systems/FollowerCombatSystem.js` now enters the reactive all-enemy scan path when an alive hostile is already inside the follower's local danger radius, even if the squad has not yet taken recent damage.
+  - this specifically targets the opening-wave idle-follower failure mode surfaced by broader automation.
+- Added follower coverage:
+  - `scripts/test-follower-ai.mjs` now asserts close undetected threats can still be acquired and fired on
+  - added `scripts/test_follower_engagement_runtime.mjs`, a focused Playwright runtime bot that freezes follow-on spawning in stock `m1` and verifies followers stay engaged under multiple local threats
+- Hardened broad playtest telemetry:
+  - `scripts/play_bot.mjs` now counts only reachable nearby threats for idle-follower findings and treats tracker/heal/door-busy followers as engaged
+- Validation:
+  - `node --check src/systems/FollowerCombatSystem.js scripts/test-follower-ai.mjs scripts/test_follower_engagement_runtime.mjs scripts/play_bot.mjs`
+  - `node scripts/test-follower-ai.mjs`
+  - `node scripts/test_follower_engagement_runtime.mjs`
+
+- Expanded modular editor regression coverage around the live Actions path.
+  - `editors/tabs/missions.js` now routes authors directly into the modular Actions tab instead of pointing them at the legacy workspace as the primary graph-editing path.
+  - `editors/tabs/story.js` now renders `play_sound` params as a runtime-sound picker derived from `/api/sounds` entries under `/src/audio`, while preserving any custom pre-existing value.
+  - `src/events/actionDefs.js` now marks `play_sound.key` for the sound-picker editor treatment.
+- Added a focused editor bot: `scripts/test_actions_visibility_and_sound_picker.mjs`.
+  - Verifies the Missions tab exposes the live Actions route.
+  - Verifies the Actions tab `play_sound` node exposes runtime-loaded sound keys and that selection updates the node value.
+- Validation:
+  - `node --check editors/tabs/missions.js editors/tabs/story.js src/events/actionDefs.js scripts/test_actions_visibility_and_sound_picker.mjs`
+  - `node scripts/test_actions_visibility_and_sound_picker.mjs`
+  - `node scripts/test_editors_hidden_panels.mjs`
+  - `node scripts/test_actions_tab_phase6.mjs`
+  - `node scripts/test_node_graph_package.mjs`
+
+- Fixed modular tilemap collision preview fidelity and aligned zone-prop blocking with runtime intent.
+  - Added `shared/tilemapCollision.js` as the shared source for editor collision classification and authored prop blocking rules.
+  - `editors/tabs/tilemaps.js` now previews collision from runtime-faithful terrain, door, and physical-prop blocker data instead of the previous ad hoc terrain/door overlay.
+  - `src/map/MapBuilder.js` now treats `zone_colony`, `zone_damaged`, and `zone_hive` as non-blocking/non-light-blocking authored props while keeping physical props blocking.
+  - `src/scenes/GameScene.js`, `src/systems/EnemyMovement.js`, `src/systems/EnemyManager.js`, `src/systems/EnemySpawner.js`, and `src/systems/SquadSystem.js` now respect `roomProps.blocksPath` so enemy movement, spawning, and squad walkability stay aligned with the authored prop rule.
+- Regression coverage added:
+  - `scripts/test_tilemap_collision_preview.mjs` covers shared editor collision classification and prop blocking rules.
+  - `scripts/test_zone_prop_walkability.mjs` verifies package-backed runtime behavior for non-blocking zone props vs blocking physical props.
+- Validation:
+  - `node --check shared/tilemapCollision.js editors/tabs/tilemaps.js src/map/MapBuilder.js src/scenes/GameScene.js src/systems/EnemyMovement.js src/systems/EnemyManager.js src/systems/EnemySpawner.js src/systems/SquadSystem.js scripts/test_tilemap_collision_preview.mjs scripts/test_zone_prop_walkability.mjs`
+  - `node scripts/test_tilemap_collision_preview.mjs`
+  - `node scripts/test_zone_prop_walkability.mjs`
+  - `node scripts/test_tilemaps_inspector_panel.mjs`
+
+## 2026-04-08
+
+- Restored global lighting control parity for torch core alpha.
+  - Added `lighting.coreAlpha` back to the `/settings` Game -> Lighting & Visibility section in `settings/index.html` so the global settings page matches the runtime/editor lighting model.
+  - Extended `scripts/test_editors_hidden_panels.mjs` so the settings smoke verifies the core-alpha controls render and that the number/range pair stays synchronized.
+- Validation:
+  - `node scripts/test-runtime-settings.mjs`
+  - `node scripts/test_editors_hidden_panels.mjs`
+
+- Hardened the M1 play bot and fallback objective validation.
+  - `scripts/play_bot.mjs` now derives wander targets from live walkability, follows runtime mission targets, opens closed doors along blocked routes, filters spawn-inside suspicion by enemy spawn travel, and suppresses false close-combat pathfinding findings without disabling stuck recovery.
+  - `src/systems/MissionFlow.js` now keeps fallback card/terminal/extraction placement inside the spawn-connected reachable region when possible.
+  - `scripts/test-mission-layout.mjs` now asserts that default M1 fallback objective targets stay reachable from spawn when doors are allowed.
+- Validation:
+  - `node --check scripts/play_bot.mjs`
+  - `node --check src/systems/MissionFlow.js`
+  - `node --check scripts/test-mission-layout.mjs`
+  - `node scripts/test-mission-layout.mjs`
+  - repeated `node scripts/play_bot.mjs m1`
+- Latest M1 automation result after hardening:
+  - removed the earlier wall-target, spawn-inside, suspicious-death, and stuck/pathfinding false positives
+  - latest pass still times out in extended combat with follower idle/not-firing findings, so the remaining failure mode is gameplay pressure / bot progression rather than a clear runtime environment regression
+
+- Fixed the leader pulse-rifle overheat visual regression in `src/scenes/GameScene.js`.
+  - `emitContinuousLeaderPulseFlash()` now stops emitting while the pulse rifle is overheated or empty.
+  - the leader lighting/muzzle-flash hold pulse now also checks overheat state and pulse ammo before sustaining the glow.
+- Fixed the close-range alien melee regression and improved point-blank readability.
+  - `src/systems/EnemyManager.js` no longer blocks melee hits when aliens collapse inside the old minimum contact radius.
+  - `src/systems/EnemyMovement.js` now bounces/lunges from a slightly larger stand-off distance.
+  - `src/systems/EnemyManager.js` hard-push spacing increased so melee enemies are less likely to sit inside the leader’s center mass.
+- Expanded authored spawn points to support `count`, `enemyType`, and `spawnTimeSec` end-to-end.
+  - `editors/tabs/tilemaps.js` now exposes spawn count, alien type, and spawn-time fields for `alien_spawn` markers.
+  - `editors/backend/js/buildPackageFromEditorState.js`, `editors/backend/js/normalizeMissionPackage.js`, and `src/settings/missionPackageRuntime.js` now preserve canonical spawn-point metadata through package build/normalize/runtime projection.
+  - `src/map/missionLayout.js` now preserves explicit spawn type/timer data, schedules delayed authored spawns separately from the opening wave, and only disables fallback alien waves for `PACKAGE` tilemap overrides with zero authored spawns.
+  - `src/systems/EnemySpawner.js` now honors explicit authored `enemyType` when spawning from canonical spawn points.
+- Tiled round-trip and generated data updates:
+  - `scripts/tiledImport.mjs` and `scripts/tiledExport.mjs` now preserve `enemyType` and `spawnTimeSec` on alien spawn markers.
+  - regenerated `src/data/tiledMaps.generated.js` with `npm run build:tiled-maps` so the generated module matches the updated Tiled source pipeline.
+- Regression coverage added/updated:
+  - `scripts/test_node_graph_package.mjs` now checks Tiled-style marker-layer spawn properties become canonical `spawnPoints`
+  - `scripts/test-mission-layout.mjs` now covers zero-authored-spawn package maps and timed/typed authored spawn-point projection
+- Validation:
+  - `node --check` on all modified runtime/editor/tooling files
+  - `node scripts/test_node_graph_package.mjs`
+  - `node scripts/test-mission-layout.mjs`
+  - `node scripts/test-pulse-rifle-timing.mjs`
+  - `bash ./scripts/verify.sh`
 
 ## 2026-03-20
 

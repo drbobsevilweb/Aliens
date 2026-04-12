@@ -4,63 +4,33 @@
 ══════════════════════════════════════════════════════════════════════
 
 ──────────────────────────────────────────────────────────────────────
-  MISSION: m1  |  OUTCOME: state_lost  |  49.0s
+  MISSION: m1  |  OUTCOME: victory  |  61.9s
 ──────────────────────────────────────────────────────────────────────
-  HP: 0/0  Squad: 0/0  Kills: 0  MaxHostiles: 11
-  Modes: combat
+  HP: 100/100  Squad: 4/4  Kills: 0  MaxHostiles: 0
+  Modes: combat → extract → victory
 
-  ISSUES (53):
-    [CRITICAL] (1):
-      [error] 20 consecutive eval failures
-    [MEDIUM] (52):
-      [error] Console error: [bot-debug] findPath returned null from (11,34) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (10,34) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (9,34) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (8,34) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (7,34) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (6,34) to (32,34)
-      [pathfinding] Stuck at (432,2208)
-      [error] Console error: [bot-debug] findPath returned null from (7,32) to (32,34)
-      [error] Console error: [bot-debug] findPath returned null from (8,32) to (31,34)
-      [error] Console error: [bot-debug] findPath returned null from (9,32) to (30,34)
-      [error] Console error: [bot-debug] findPath returned null from (10,32) to (30,33)
-      [error] Console error: [bot-debug] findPath returned null from (11,31) to (30,32)
-      [error] Console error: [bot-debug] findPath returned null from (12,31) to (28,35)
-      [error] Console error: [bot-debug] findPath returned null from (13,31) to (30,31)
-      [error] Console error: [bot-debug] findPath returned null from (13,31) to (72,34)
-      [error] Console error: [bot-debug] findPath returned null from (12,31) to (72,34)
-      [error] Console error: [bot-debug] findPath returned null from (12,30) to (72,34)
-      [error] Console error: [bot-debug] findPath returned null from (11,30) to (71,34)
-      [error] Console error: [bot-debug] findPath returned null from (10,29) to (70,34)
-      [error] Console error: [bot-debug] findPath returned null from (10,29) to (69,34)
-      [error] Console error: [bot-debug] findPath returned null from (9,28) to (67,34)
-      [error] Console error: [bot-debug] findPath returned null from (9,28) to (70,34)
-      [error] Console error: [bot-debug] no walkable tile found near target (12,10)
-      [pathfinding] Stuck at (620,1834)
+  ISSUES (0):
 
   CHECKS:
     ✓ boot: PASS (1/1)
         Game booted and initialized
-    ✓ tracker: PASS (108/108)
+    ✓ tracker: PASS (72/72)
         Tracker activation command accepted
-        Tracker reported 11 contact(s)
-        Tracker reported 10 contact(s)
+        Tracker reported 1 contact(s)
+        Tracker cooldown observed (29s)
+    ✓ mode: PASS (3/3)
+        combat→extract
+        extract→victory
+        Victory
     ✓ spawn: PASS (1/1)
         Clean
-    ✗ completion: FAIL (0/1)
-        Outcome: state_lost
-
-  CONSOLE ERRORS (46):
-    - [bot-debug] findPath returned null from (11,34) to (32,34)
-    - [bot-debug] findPath returned null from (10,34) to (32,34)
-    - [bot-debug] findPath returned null from (9,34) to (32,34)
-    - [bot-debug] findPath returned null from (8,34) to (32,34)
-    - [bot-debug] findPath returned null from (7,34) to (32,34)
+    ✓ completion: PASS (1/1)
+        Outcome: victory
 
 ══════════════════════════════════════════════════════════════════════
   OVERALL
 ──────────────────────────────────────────────────────────────────────
-  1 missions | 0 victory | 0 defeat
-  53 issues (1 critical, 0 high)
-  CRITICAL
+  1 missions | 1 victory | 0 defeat
+  0 issues (0 critical, 0 high)
+  ALL CLEAR
 ══════════════════════════════════════════════════════════════════════

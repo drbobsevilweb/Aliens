@@ -5,6 +5,7 @@
  */
 
 import { ACTION_DEFS, ACTION_TYPE_LIST, getActionParamDefs, getActionDefaults } from '../../src/events/actionDefs.js';
+import { TILED_MAP_TEMPLATES } from '../../src/data/tiledMaps.generated.js';
 
 const API = window.editorAPI;
 
@@ -29,6 +30,7 @@ let needRedraw = true;
 
 // Sound list for audio pickers
 let soundList = [];
+let doorIdOptions = [];
 
 // Right-side props panel
 let propsEl = null;
@@ -58,7 +60,7 @@ const EVENT_NAMES = [
     // Doors
     'doorOpened', 'doorClosed', 'doorWelded', 'doorBreached',
     // Mission & objectives
-    'objectiveCompleted', 'missionComplete',
+    'objectiveCompleted', 'missionComplete', 'storyPointTriggered', 'missionStoryPointTriggered',
     // Atmosphere
     'atmosphereIncident',
 ];
@@ -720,10 +722,162 @@ function buildActionParamFields(n) {
     const defs = ACTION_PARAM_DEFS[n.data.actionType] || [];
     return defs.map(d => {
         const val = n.data[d.key] ?? d.default;
+        if (d.editor === 'sound-select') {
+            const options = buildRuntimeSoundKeyOptions(String(val ?? ''));
+            return buildSelectField(d.label, d.key, String(val ?? ''), [
+                { value: '', label: options.length ? 'Select runtime sound...' : 'No runtime sounds loaded' },
+                ...options,
+            ]);
+        }
+        if (d.optionsSource === 'doorIds') {
+            const options = buildRuntimeDoorIdOptions(String(val ?? ''));
+            return buildSelectField(d.label, d.key, String(val ?? ''), [
+                { value: '', label: options.length ? 'Select runtime door...' : 'No runtime doors found' },
+                ...options,
+            ]);
+        }
+        if (Array.isArray(d.options) && d.options.length > 0) {
+            const options = buildStaticSelectOptions(d.options, val);
+            return buildSelectField(d.label, d.key, String(val ?? ''), options);
+        }
         const inputType = d.type === 'number' ? 'number' : 'text';
         return `<div class="pf"><label>${esc(d.label)}</label>
             <input type="${inputType}" data-field="${d.key}" value="${esc(String(val))}"></div>`;
     }).join('');
+}
+
+function buildStaticSelectOptions(options, selectedValue) {
+    const selected = String(selectedValue ?? '');
+    const normalized = [];
+    const seen = new Set();
+    for (const option of options) {
+        const value = String(option?.value ?? option ?? '');
+        if (seen.has(value)) continue;
+        seen.add(value);
+        normalized.push({
+            value,
+            label: String(option?.label ?? value),
+        });
+    }
+    if (selected && !seen.has(selected)) {
+        normalized.push({ value: selected, label: `${selected} (custom)` });
+    }
+    return normalized;
+}
+
+function buildSelectField(label, key, value, options) {
+    return `<div class="pf"><label>${esc(label)}</label>
+        <select data-field="${esc(key)}">${options.map((option) => {
+            const optionValue = String(option.value ?? '');
+            const optionLabel = String(option.label ?? optionValue);
+            return `<option value="${esc(optionValue)}" ${String(value) === optionValue ? 'selected' : ''}>${esc(optionLabel)}</option>`;
+        }).join('')}</select></div>`;
+}
+
+function buildRuntimeSoundKeyOptions(selectedValue = '') {
+    const optionMap = new Map();
+    for (const sound of soundList) {
+        const key = getRuntimeSoundKey(sound);
+        if (!key || optionMap.has(key)) continue;
+        optionMap.set(key, { value: key, label: key });
+    }
+    if (selectedValue && !optionMap.has(selectedValue)) {
+        optionMap.set(selectedValue, { value: selectedValue, label: `${selectedValue} (custom)` });
+    }
+    return [...optionMap.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function buildRuntimeDoorIdOptions(selectedValue = '') {
+    const optionMap = new Map();
+    for (const option of doorIdOptions) {
+        const value = String(option?.value || '');
+        if (!value || optionMap.has(value)) continue;
+        optionMap.set(value, { value, label: String(option?.label || value) });
+    }
+    if (selectedValue && !optionMap.has(selectedValue)) {
+        optionMap.set(selectedValue, { value: selectedValue, label: `${selectedValue} (custom)` });
+    }
+    return [...optionMap.values()].sort(compareRuntimeDoorIds);
+}
+
+function compareRuntimeDoorIds(a, b) {
+    const aValue = String(a?.value || '');
+    const bValue = String(b?.value || '');
+    const aMatch = aValue.match(/^auto_door_(\d+)$/);
+    const bMatch = bValue.match(/^auto_door_(\d+)$/);
+    if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+    if (aMatch) return -1;
+    if (bMatch) return 1;
+    return aValue.localeCompare(bValue);
+}
+
+function collectRuntimeDoorIdsFromState(state) {
+    const tilemaps = Array.isArray(state?.tilemaps) && state.tilemaps.length
+        ? state.tilemaps
+        : (Array.isArray(TILED_MAP_TEMPLATES) ? TILED_MAP_TEMPLATES : []);
+    const ids = new Map();
+    for (const tilemap of tilemaps) {
+        const components = collectDoorComponents(tilemap?.doors);
+        let index = 0;
+        for (const component of components) {
+            if (!getDoorOrientation(component.tiles)) continue;
+            const value = `auto_door_${index + 1}`;
+            if (!ids.has(value)) ids.set(value, { value, label: value });
+            index += 1;
+        }
+    }
+    return [...ids.values()].sort(compareRuntimeDoorIds);
+}
+
+function collectDoorComponents(doorGrid) {
+    if (!Array.isArray(doorGrid) || !doorGrid.length || !Array.isArray(doorGrid[0])) return [];
+    const h = doorGrid.length;
+    const w = doorGrid[0].length;
+    const visited = Array.from({ length: h }, () => Array(w).fill(false));
+    const groups = [];
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const value = Number(doorGrid[y]?.[x]) || 0;
+            if (value <= 0 || visited[y][x]) continue;
+            const queue = [{ x, y }];
+            const tiles = [];
+            visited[y][x] = true;
+            while (queue.length) {
+                const current = queue.shift();
+                tiles.push(current);
+                const neighbors = [
+                    { x: current.x + 1, y: current.y },
+                    { x: current.x - 1, y: current.y },
+                    { x: current.x, y: current.y + 1 },
+                    { x: current.x, y: current.y - 1 },
+                ];
+                for (const neighbor of neighbors) {
+                    if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= w || neighbor.y >= h) continue;
+                    if (visited[neighbor.y][neighbor.x]) continue;
+                    if ((Number(doorGrid[neighbor.y]?.[neighbor.x]) || 0) !== value) continue;
+                    visited[neighbor.y][neighbor.x] = true;
+                    queue.push(neighbor);
+                }
+            }
+            tiles.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+            groups.push({ value, tiles });
+        }
+    }
+    return groups;
+}
+
+function getDoorOrientation(tiles) {
+    if (!Array.isArray(tiles) || tiles.length !== 2) return '';
+    const [a, b] = tiles;
+    if (a.x === b.x && Math.abs(a.y - b.y) === 1) return 'vertical';
+    if (a.y === b.y && Math.abs(a.x - b.x) === 1) return 'horizontal';
+    return '';
+}
+
+function getRuntimeSoundKey(sound) {
+    const path = String(sound?.path || '');
+    if (!path.startsWith('/src/audio/')) return '';
+    return String(sound?.name || '').replace(/\.(wav|ogg|mp3|flac|webm)$/i, '');
 }
 
 function applyField(n, el) {
@@ -872,7 +1026,30 @@ async function loadSoundList() {
         const r = await API.apiFetch('/api/sounds');
         const d = await r.json();
         soundList = d.ok ? d.sounds : [];
+        const nodeId = [...selectedNodeIds][0];
+        const selectedNode = currentGraph?.nodes?.find((node) => node.id === nodeId);
+        if (selectedNode?.type === 'action' && selectedNode.data?.actionType === 'play_sound') {
+            renderProps();
+        }
     } catch { soundList = []; }
+}
+
+async function loadDoorIdList() {
+    try {
+        const r = await API.apiFetch('/api/editor-state');
+        const d = await r.json();
+        doorIdOptions = collectRuntimeDoorIdsFromState(d?.state || d);
+        const nodeId = [...selectedNodeIds][0];
+        const selectedNode = currentGraph?.nodes?.find((node) => node.id === nodeId);
+        if (selectedNode?.type === 'action') {
+            const defs = ACTION_PARAM_DEFS[selectedNode.data?.actionType] || [];
+            if (defs.some((def) => def.optionsSource === 'doorIds')) renderProps();
+        }
+    } catch { doorIdOptions = []; }
+}
+
+async function refreshReferenceData() {
+    await Promise.all([loadGraphList(), loadSoundList(), loadDoorIdList()]);
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
@@ -946,7 +1123,7 @@ function buildUI(root) {
     document.addEventListener('keydown', onKeyDown);
 
     document.getElementById('story-new-btn').addEventListener('click', showNewGraphDialog);
-    document.getElementById('story-refresh-btn').addEventListener('click', loadGraphList);
+    document.getElementById('story-refresh-btn').addEventListener('click', refreshReferenceData);
     document.getElementById('story-save-btn').addEventListener('click', saveGraphs);
     document.getElementById('story-validate-btn').addEventListener('click', validateGraph);
     document.getElementById('story-fit-btn').addEventListener('click', () => {
@@ -967,7 +1144,7 @@ function buildUI(root) {
 
 // ── Module exports ────────────────────────────────────────────────────────────
 async function init() {
-    await Promise.all([loadGraphList(), loadSoundList()]);
+    await refreshReferenceData();
     renderProps();
     if (rafId) cancelAnimationFrame(rafId);
     rafLoop();

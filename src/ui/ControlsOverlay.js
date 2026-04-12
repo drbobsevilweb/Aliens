@@ -47,7 +47,7 @@ export class ControlsOverlay {
             'F6        - Cycle Squad Style',
             '',
             'Objective:',
-            'Clear all waves, then reach extraction.',
+            'Clear hostile contacts, then reach extraction.',
         ].join('\n'), {
             fontSize: '14px',
             fontFamily: '"Share Tech Mono", monospace',

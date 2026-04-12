@@ -69,6 +69,29 @@ async function run() {
                 details: {}
             };
 
+            const withProbeSpawnsEnabled = (fn) => {
+                const prevBlockAll = scene.blockAllEnemySpawns;
+                const prevAmbient = scene.suppressAmbientEnemySpawns;
+                scene.blockAllEnemySpawns = false;
+                scene.suppressAmbientEnemySpawns = false;
+                try {
+                    return fn();
+                } finally {
+                    scene.blockAllEnemySpawns = prevBlockAll;
+                    scene.suppressAmbientEnemySpawns = prevAmbient;
+                }
+            };
+
+            const ensureProbeEnemy = () => {
+                let activeEnemy = scene.enemyManager.enemies.find((e) => e.active);
+                if (activeEnemy) return activeEnemy;
+                const probeWorld = scene.findNearestWalkableWorld(scene.leader.x + (6 * 64), scene.leader.y, 8)
+                    || scene.findNearestWalkableWorld(scene.leader.x, scene.leader.y + (6 * 64), 8);
+                if (!probeWorld) return null;
+                activeEnemy = withProbeSpawnsEnabled(() => scene.enemyManager.spawnEnemyAtWorld('warrior', probeWorld.x, probeWorld.y, 1));
+                return activeEnemy || null;
+            };
+
             // --- 1. Door Bullet Damage ---
             const doorGroup = scene.doorManager.doorGroups.find(g => g.state === 'closed' && g.doors.length > 0);
             if (doorGroup) {
@@ -78,11 +101,11 @@ async function run() {
                 // Position leader to face door
                 setPos(scene.leader, door.tileX - 1, door.tileY);
                 const angle = 0; // East
-                scene.leader.facingAngle = angle;
+                const muzzle = scene.resolveMuzzleWorldPos(scene.leader, angle, 'pulseRifle');
                 
                 // Fire pulse rifle
                 scene.weaponManager.currentWeaponKey = 'pulseRifle';
-                scene.weaponManager.fire(scene.leader.x, scene.leader.y, angle, scene.time.now, {
+                scene.weaponManager.fire(muzzle.x, muzzle.y, angle, scene.time.now, {
                     ownerRoleKey: 'leader', fireRateMul: 1, jamChance: 0, angleJitter: 0, stability: 2
                 });
 
@@ -102,7 +125,7 @@ async function run() {
 
             // --- 3. Alien Door Damage ---
             const door2 = scene.doorManager.doorGroups.find(g => g.state === 'closed' && g.doors.length > 0);
-            const enemy = scene.enemyManager.enemies.find(e => e.active);
+            const enemy = ensureProbeEnemy();
             if (door2 && enemy) {
                 door2.integrity = 100;
                 setPos(enemy, door2.doors[0].tileX, door2.doors[0].tileY); // Put alien ON door
@@ -138,11 +161,11 @@ async function run() {
                 const startHealth = enemy.health;
                 
                 const angle = 0; // East, through wall
-                scene.leader.facingAngle = angle;
+                const muzzle = scene.resolveMuzzleWorldPos(scene.leader, angle, 'pulseRifle');
                 
                 // Fire multiple shots
                 for(let i=0; i<5; i++) {
-                    scene.weaponManager.fire(scene.leader.x, scene.leader.y, angle, scene.time.now + i*100, {
+                    scene.weaponManager.fire(muzzle.x, muzzle.y, angle, scene.time.now + i*100, {
                         ownerRoleKey: 'leader', fireRateMul: 1, jamChance: 0, angleJitter: 0, stability: 10
                     });
                 }
@@ -154,7 +177,11 @@ async function run() {
             }
 
             // --- 5. Enemy Count vs Budget Match ---
-            const expectedTotal = scene.activeMission?.enemyBudget || 0;
+            const expectedTotal = Array.isArray(scene.missionLayout?.spawnPoints)
+                ? scene.missionLayout.spawnPoints
+                    .filter((point) => (Number(point?.spawnTimeSec) || 0) <= 0)
+                    .reduce((sum, point) => sum + Math.max(1, Math.round(Number(point?.count) || 1)), 0)
+                : 0;
             let actualTotal = 0;
             if (Array.isArray(scene.activeMissionWaves)) {
                 for (const wave of scene.activeMissionWaves) {

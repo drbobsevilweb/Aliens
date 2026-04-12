@@ -73,8 +73,59 @@ export class CommanderSystem {
         return null;
     }
 
+    getDirectiveTacticalProfile(text = '') {
+        const laneDirective = this.parseCommanderLaneDirective(text);
+        const mode = laneDirective.mode || 'none';
+        if (mode === 'hold' || mode === 'anchor') {
+            return {
+                mode,
+                spacingMul: 0.78,
+                catchupMul: 1.18,
+                laneReactionMul: 0.8,
+                offLaneReactionMul: 1.1,
+                laneHitMul: 1.06,
+                offLaneHitMul: 0.96,
+                suppressWindowMul: 1.18,
+            };
+        }
+        if (mode === 'split') {
+            return {
+                mode,
+                spacingMul: 0.92,
+                catchupMul: 1.08,
+                laneReactionMul: 0.88,
+                offLaneReactionMul: 1.04,
+                laneHitMul: 1.04,
+                offLaneHitMul: 0.98,
+                suppressWindowMul: 1.08,
+            };
+        }
+        if (mode === 'fallback') {
+            return {
+                mode,
+                spacingMul: 0.74,
+                catchupMul: 1.24,
+                laneReactionMul: 0.9,
+                offLaneReactionMul: 1.08,
+                laneHitMul: 1.03,
+                offLaneHitMul: 0.97,
+                suppressWindowMul: 1.12,
+            };
+        }
+        return {
+            mode: 'none',
+            spacingMul: 0.82,
+            catchupMul: 1.2,
+            laneReactionMul: 1,
+            offLaneReactionMul: 1,
+            laneHitMul: 1,
+            offLaneHitMul: 1,
+            suppressWindowMul: 1,
+        };
+    }
+
     updateOverlay(time = this.scene.time.now, marines = null) {
-        if (!this.commanderStatusText || (this.scene.stageFlow && this.scene.stageFlow.isEnded())) return;
+        if (this.scene.stageFlow && this.scene.stageFlow.isEnded()) return;
         if (time < (this.nextCommanderOverlayAt || 0)) return;
         this.nextCommanderOverlayAt = time + 180;
 
@@ -97,6 +148,8 @@ export class CommanderSystem {
         }
         
         this.currentCommanderDirective = directive;
+
+        if (!this.commanderStatusText) return;
         
         const trackerRole = this.scene.trackerOperator?.roleKey ? String(this.scene.trackerOperator.roleKey).toUpperCase() : '';
         const trackerLine = trackerRole && this.scene.isTrackerOperatorLocked(time)

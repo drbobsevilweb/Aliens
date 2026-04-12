@@ -61,6 +61,24 @@ function getProperty(obj, name) {
     return undefined;
 }
 
+function resolveMarkerType(obj) {
+    const type = String(obj?.type || '').trim().toLowerCase();
+    const name = String(obj?.name || '').trim().toLowerCase();
+    const markerType = String(getProperty(obj, 'marker_type') || getProperty(obj, 'markerType') || '').trim().toLowerCase();
+    const hasSpawnMetadata = getProperty(obj, 'count') != null
+        || getProperty(obj, 'enemyType') != null
+        || getProperty(obj, 'spawnTimeSec') != null
+        || getProperty(obj, 'timer') != null;
+
+    if (markerType === 'alien_spawn' || type === 'alien_spawn' || name === 'alien_spawn') {
+        return 'alien_spawn';
+    }
+    if (type === 'spawn' && hasSpawnMetadata) {
+        return 'alien_spawn';
+    }
+    return type || name || markerType;
+}
+
 function makeGrid(width, height, fill) {
     return Array.from({ length: height }, () => Array(width).fill(fill));
 }
@@ -139,12 +157,13 @@ export function tiledToTemplate(tiledMap, overrideId) {
     const markerLayer = tiledMap.layers.find(l => l.name === 'markers' && l.type === 'objectgroup');
     if (markerLayer && Array.isArray(markerLayer.objects)) {
         for (const obj of markerLayer.objects) {
-            // First try stored markerValue (exact round-trip)
-            let markerValue = getProperty(obj, 'markerValue');
+            const markerType = resolveMarkerType(obj);
+            // First try stored markerValue (exact round-trip), but let inferred alien_spawn
+            // metadata correct legacy generic spawn markers from current map files.
+            let markerValue = markerType === 'alien_spawn' ? 5 : getProperty(obj, 'markerValue');
 
             if (markerValue == null) {
-                // Reconstruct from type name
-                const markerType = (obj.type || obj.name || '').toLowerCase();
+                // Reconstruct from type/name/property metadata.
                 markerValue = MARKER_REVERSE[markerType] || 0;
             }
 
@@ -157,7 +176,15 @@ export function tiledToTemplate(tiledMap, overrideId) {
                 // Preserve authored spawn count from alien_spawn marker objects.
                 if (markerValue === 5) {
                     const count = Math.max(1, Math.round(Number(getProperty(obj, 'count')) || 4));
-                    spawnPoints.push({ tileX, tileY, count });
+                    const enemyType = String(getProperty(obj, 'enemyType') || '').trim();
+                    const spawnTimeSec = Math.max(0, Number(getProperty(obj, 'spawnTimeSec') ?? getProperty(obj, 'timer')) || 0);
+                    spawnPoints.push({
+                        tileX,
+                        tileY,
+                        count,
+                        enemyType: enemyType || 'auto',
+                        spawnTimeSec,
+                    });
                 }
             }
         }

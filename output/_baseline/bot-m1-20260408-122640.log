@@ -1,0 +1,314 @@
+[m1][INFO] === BOT START m1 (headless) ===
+[m1][INFO] Map 6656x4480, Extract(6048,2208), Waves=2
+[m1][INFO] Leader(800,1696) HP=100/100
+[m1][INFO] Squad=4 Hostiles=11 Mode=combat
+[m1][INFO] Bot loop started
+[m1][STATUS] 0s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.12 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 5s | HP:100/100 | Sq:4/4 | H:11 | K:0 | combat P=0.08 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned empty from (11,30) to (11,30)
+[m1][STATUS] 10s | HP:100/100 | Sq:4/4 | H:8 | K:3 | combat P=0.16 W=1
+[m1][WARN] STUCK (748,1957) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][STATUS] 15s | HP:100/100 | Sq:4/4 | H:6 | K:5 | combat P=0.25 W=1
+[m1][WARN] STUCK (748,1957) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (748,1957) 6.6s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 21s | HP:100/100 | Sq:4/4 | H:6 | K:6 | combat P=0.29 W=1
+[m1][WARN] STUCK (883,1891) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][WARN] STUCK (883,1891) 5.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][STATUS] 26s | HP:98/100 | Sq:4/4 | H:6 | K:7 | combat P=0.31 W=1
+[m1][WARN] STUCK (898,1926) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][WARN] STUCK (898,1926) 5.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (898,1926) 6.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 31s | HP:98/100 | Sq:4/4 | H:6 | K:7 | combat P=0.31 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned empty from (13,31) to (13,31)
+[m1][ERROR] Console: [bot-debug] findPath returned empty from (13,31) to (13,31)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][STATUS] 37s | HP:98/100 | Sq:4/4 | H:6 | K:7 | combat P=0.26 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][WARN] STUCK (885,2037) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,31) to (24,33)
+[m1][WARN] STUCK (885,2037) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (885,2037) 6.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (12,32) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,33) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,33) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,34) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,34) to (24,33)
+[m1][STATUS] 42s | HP:98/100 | Sq:4/4 | H:7 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (24,33)
+[m1][WARN] STUCK (982,2261) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][STATUS] 47s | HP:98/100 | Sq:4/4 | H:7 | K:7 | combat P=0.2 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,33)
+[m1][STATUS] 52s | HP:92/100 | Sq:4/4 | H:7 | K:7 | combat P=0.22 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][WARN] STUCK (1297,2204) 4.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,34) to (25,34)
+[m1][WARN] STUCK (1297,2204) 5.3s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (1297,2204) 6.0s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 57s | HP:92/100 | Sq:4/4 | H:7 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,33) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,33) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,31) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,30) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,29) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,29) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,28) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,27) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (27,34)
+[m1][STATUS] 62s | HP:92/100 | Sq:4/4 | H:8 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (26,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (26,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][WARN] STUCK (1248,1710) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,26) to (25,34)
+[m1][WARN] STUCK (1248,1710) 5.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (1248,1710) 6.2s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 68s | HP:92/100 | Sq:4/4 | H:8 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (17,27) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,28) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,28) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,29) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,30) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (12,30) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (12,31) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,35)
+[m1][STATUS] 73s | HP:92/100 | Sq:4/4 | H:8 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,36)
+[m1][WARN] STUCK (748,2009) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,31) to (25,36)
+[m1][WARN] STUCK (748,2009) 5.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (748,2009) 6.2s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 79s | HP:92/100 | Sq:4/4 | H:8 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (17,31) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,31) to (26,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (26,33)
+[m1][STATUS] 84s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (27,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][WARN] STUCK (1297,2018) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][WARN] STUCK (1297,2018) 5.6s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][STATUS] 90s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][WARN] STUCK (1297,2018) 6.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,30) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,31) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,32) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,33) to (29,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,34) to (29,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,34) to (28,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,35) to (28,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (29,33)
+[m1][STATUS] 95s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (28,33)
+[m1][WARN] STUCK (1374,2321) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,36) to (27,33)
+[m1][WARN] STUCK (1374,2321) 5.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][STATUS] 100s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][WARN] STUCK (1374,2321) 6.3s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,36) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,36) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,35) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,34) to (26,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,33) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,33) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,34)
+[m1][STATUS] 105s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (22,32) to (25,33)
+[m1][WARN] STUCK (1434,2095) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][WARN] STUCK (1434,2095) 5.6s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (1434,2095) 6.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][STATUS] 111s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,32) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,31) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,31) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (17,30) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,30) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,30) to (25,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,29) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (26,33)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,34)
+[m1][STATUS] 116s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,34)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,29) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,30) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,30) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,31) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,35)
+[m1][STATUS] 121s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][WARN] STUCK (1048,2067) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,32) to (25,36)
+[m1][WARN] STUCK (1048,2067) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][STATUS] 126s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][WARN] STUCK (1048,2067) 6.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,33) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,34) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,34) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,34) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (13,34) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (12,35) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (11,35) to (25,36)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 132s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][WARN] STUCK (558,2332) 4.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][STATUS] 137s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][WARN] STUCK (558,2332) 5.6s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (558,2332) 6.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 143s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 148s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][WARN] STUCK (855,2706) 4.6s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][WARN] STUCK (855,2706) 5.3s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (855,2706) 6.0s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 153s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][WARN] STUCK (804,2351) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][STATUS] 158s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][WARN] STUCK (804,2351) 5.7s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][WARN] STUCK (804,2351) 6.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (14,35) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (15,35) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,36) to (24,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (16,36) to (24,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (17,36) to (24,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (24,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][STATUS] 164s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (26,36)
+[m1][WARN] STUCK (1169,2334) 4.8s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-1.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,36) to (26,36)
+[m1][WARN] STUCK (1169,2334) 5.5s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-2.png
+[m1][STATUS] 168s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][WARN] STUCK (1169,2334) 6.4s - screenshot: /home/drevilbob/Aliens/output/bot-m1-stuck-3.png
+[m1][ERROR] Console: [bot-debug] findPath returned null from (18,35) to (26,37)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (19,36) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,36) to (26,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (20,37) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (26,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (26,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (27,37)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (27,36)
+[m1][STATUS] 174s | HP:92/100 | Sq:4/4 | H:10 | K:7 | combat P=0.21 W=1
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (26,35)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (25,36)
+[m1][ERROR] Console: [bot-debug] findPath returned null from (21,37) to (24,36)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][ERROR] Console: [bot-debug] no walkable tile found near target (12,10)
+[m1][STATUS] 179s | HP:89/100 | Sq:4/4 | H:10 | K:8 | combat P=0.24 W=1
+[m1][WARN] Timeout after 180s
+[m1][INFO] ════════════════════════════════════
+[m1][INFO] m1 DONE: timeout | 180.2s
+[m1][INFO] HP:87/100 Sq:4/4 K:8
+[m1][INFO] Issues: 278 | Modes: combat

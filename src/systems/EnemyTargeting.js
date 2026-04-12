@@ -53,8 +53,8 @@ export class EnemyTargeting {
             const pressurePenalty = pressureLocal * pressureLocal * Phaser.Math.Linear(42, 30, pressureN);
             const committedPenalty = committed * Phaser.Math.Linear(18, 14, pressureN);
             const woundedBonus = (1 - healthPct) * 12;
-            const isolationBonus = isolation * Phaser.Math.Linear(34, 48, pressureN);
-            const roleBias = m.roleKey === 'leader' ? 0 : 4; // Prioritize leader; followers have a slight avoidance bias.
+            const isolationBonus = isolation * Phaser.Math.Linear(18, 28, pressureN);
+            const roleBias = m.roleKey === 'leader' ? 0 : 16; // Keep some peel pressure on exposed followers without stripping the squad before the leader draws heat.
             const score = d + pressurePenalty + committedPenalty + doorPenalty - woundedBonus - isolationBonus + roleBias;
             const isolationCapBonus = isolation >= 0.7 ? 1.5 : (isolation >= 0.5 ? 0.75 : 0);
             
@@ -174,15 +174,19 @@ export class EnemyTargeting {
     }
 
     applyMarineDamage(target, amount, attacker = null) {
-        if (!target || amount <= 0) return;
+        const dmg = Math.max(0, Number(amount) || 0);
+        if (!target || dmg <= 0) return;
         if (typeof target.takeDamage === 'function') {
-            target.takeDamage(amount, attacker);
+            target.takeDamage(dmg, attacker);
+        }
+        if (typeof this.scene?.onMarineDamaged === 'function') {
+            this.scene.onMarineDamaged(target, dmg, this.scene?.time?.now);
         }
         const isLeader = target === this.scene?.leader;
         if (isLeader) {
-            this.scene?.eventBus?.emit('alienHitLeader', { alien: attacker, leader: target, damage: amount });
+            this.scene?.eventBus?.emit('alienHitLeader', { alien: attacker, leader: target, damage: dmg });
         } else {
-            this.scene?.eventBus?.emit('alienHitFollower', { alien: attacker, follower: target, damage: amount });
+            this.scene?.eventBus?.emit('alienHitFollower', { alien: attacker, follower: target, damage: dmg });
         }
     }
 

@@ -4,6 +4,8 @@
  * Reads/writes Tiled JSON via /api/maps/*.
  */
 
+import { buildEditorCollisionPreviewGrid, isZonePropType } from '../../shared/tilemapCollision.js';
+
 const API = window.editorAPI;
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -222,10 +224,6 @@ function bindAtmosphereControls(root) {
             markDirty();
         });
     }
-}
-
-function isZonePropType(type = '') {
-    return Object.prototype.hasOwnProperty.call(ZONE_PROP_META, String(type || ''));
 }
 
 function getZonePropMeta(type = '') {
@@ -1300,12 +1298,22 @@ function renderInspector() {
                 <label style="display:flex;flex-direction:column;gap:4px;"><span>Trigger ID / marker_type</span><input id="tm-obj-marker-type" class="input" value="${esc(getObjectProperty(obj, 'marker_type', ''))}" placeholder="mission_intro"></label>
             ` : ''}
             ${activeLayer === 'markers' && (obj.type === 'alien_spawn' || getObjectProperty(obj, 'markerValue', 0) === 5) ? `
-                <label style="display:flex;flex-direction:column;gap:4px;"><span>Spawn Count (2/4/6/8)</span>
-                    <select id="tm-obj-spawn-count" class="input" style="width:100%;">
-                        <option value="2" ${getObjectProperty(obj, 'count', 4) === 2 ? 'selected' : ''}>2</option>
-                        <option value="4" ${getObjectProperty(obj, 'count', 4) === 4 ? 'selected' : ''}>4</option>
-                        <option value="6" ${getObjectProperty(obj, 'count', 4) === 6 ? 'selected' : ''}>6</option>
-                        <option value="8" ${getObjectProperty(obj, 'count', 4) === 8 ? 'selected' : ''}>8</option>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>Spawn Count</span>
+                        <input id="tm-obj-spawn-count" type="number" min="1" max="64" class="input" value="${Math.max(1, Number(getObjectProperty(obj, 'count', 4)) || 4)}">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:4px;"><span>Spawn Time (sec)</span>
+                        <input id="tm-obj-spawn-time" type="number" min="0" step="0.5" class="input" value="${Math.max(0, Number(getObjectProperty(obj, 'spawnTimeSec', 0)) || 0)}">
+                    </label>
+                </div>
+                <label style="display:flex;flex-direction:column;gap:4px;"><span>Alien Type</span>
+                    <select id="tm-obj-spawn-enemy-type" class="input" style="width:100%;">
+                        <option value="auto" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'auto' ? 'selected' : ''}>Auto</option>
+                        <option value="warrior" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'warrior' ? 'selected' : ''}>Warrior</option>
+                        <option value="drone" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'drone' ? 'selected' : ''}>Drone</option>
+                        <option value="facehugger" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'facehugger' ? 'selected' : ''}>Facehugger</option>
+                        <option value="queenLesser" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'queenLesser' ? 'selected' : ''}>Lesser Queen</option>
+                        <option value="queen" ${String(getObjectProperty(obj, 'enemyType', 'auto')) === 'queen' ? 'selected' : ''}>Queen</option>
                     </select>
                 </label>
             ` : ''}
@@ -1390,6 +1398,8 @@ function renderInspector() {
         }
         if (el.querySelector('#tm-obj-spawn-count')) {
             setObjectProperty(obj, 'count', 'int', Number(el.querySelector('#tm-obj-spawn-count')?.value) || 4);
+            setObjectProperty(obj, 'enemyType', 'string', el.querySelector('#tm-obj-spawn-enemy-type')?.value || 'auto');
+            setObjectProperty(obj, 'spawnTimeSec', 'float', Math.max(0, Number(el.querySelector('#tm-obj-spawn-time')?.value) || 0));
         }
         markDirtyAndRefresh();
     });
@@ -1524,28 +1534,23 @@ function draw() {
 
     // Collision/walkability overlay
     if (showCollision) {
-        const terrainLayer = currentMap.layers.find(l => l.name === 'terrain');
-        const doorsLayer = currentMap.layers.find(l => l.name === 'doors');
-        if (terrainLayer?.data) {
-            for (let y = 0; y < mh; y++) {
-                for (let x = 0; x < mw; x++) {
-                    const val = terrainLayer.data[y * mw + x];
-                    if (val === 1) {
-                        ctx.fillStyle = 'rgba(79, 219, 142, 0.15)';
-                    } else {
-                        ctx.fillStyle = 'rgba(255, 80, 80, 0.15)';
-                    }
-                    ctx.fillRect(x * tw, y * th, tw, th);
+        const collisionGrid = buildEditorCollisionPreviewGrid(currentMap);
+        for (let y = 0; y < mh; y++) {
+            for (let x = 0; x < mw; x++) {
+                const cell = collisionGrid.cells[y]?.[x];
+                if (!cell) continue;
+                ctx.fillStyle = cell.walkable
+                    ? 'rgba(79, 219, 142, 0.15)'
+                    : 'rgba(255, 80, 80, 0.15)';
+                ctx.fillRect(x * tw, y * th, tw, th);
+
+                if (cell.blockedByDoor || cell.blockedByProp) {
+                    ctx.lineWidth = 2 / zoom;
+                    ctx.strokeStyle = cell.blockedByDoor
+                        ? 'rgba(255, 170, 0, 0.65)'
+                        : 'rgba(110, 184, 255, 0.65)';
+                    ctx.strokeRect(x * tw, y * th, tw, th);
                 }
-            }
-        }
-        if (doorsLayer?.objects) {
-            ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)';
-            ctx.lineWidth = 2 / zoom;
-            for (const obj of doorsLayer.objects) {
-                ctx.fillStyle = 'rgba(255, 170, 0, 0.2)';
-                ctx.fillRect(obj.x, obj.y, obj.width || tw, obj.height || th);
-                ctx.strokeRect(obj.x, obj.y, obj.width || tw, obj.height || th);
             }
         }
     }
@@ -1830,7 +1835,13 @@ function placeObjectAtTile(tx, ty, layer) {
             properties: [
                 { name: 'markerValue', type: 'int', value: activeBrush },
                 { name: 'marker_type', type: 'string', value: '' },
-                ...(mtype === 'alien_spawn' ? [{ name: 'count', type: 'int', value: 4 }] : []),
+                ...(mtype === 'alien_spawn'
+                    ? [
+                        { name: 'count', type: 'int', value: 4 },
+                        { name: 'enemyType', type: 'string', value: 'auto' },
+                        { name: 'spawnTimeSec', type: 'float', value: 0 },
+                    ]
+                    : []),
             ],
         };
     } else if (activeLayer === 'story') {

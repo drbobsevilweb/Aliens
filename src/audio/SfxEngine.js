@@ -234,6 +234,15 @@ export class SfxEngine {
         }
     }
 
+    playKey(key, gain = 0.1) {
+        const sampleKey = String(key || '').trim();
+        if (!sampleKey) return false;
+        const buffer = this.scene?.cache?.audio?.get(sampleKey);
+        if (!buffer) return false;
+        this.playSample(buffer, gain);
+        return true;
+    }
+
     // ---------------------------------------------------------------
     //  Motion tracker
     // ---------------------------------------------------------------

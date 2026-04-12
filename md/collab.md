@@ -4,6 +4,186 @@ Shared findings and cross-model coordination notes. Keep this focused on actiona
 
 ## Current Notes
 
+### 2026-04-12 — 20-agent mixed audit runtime triage
+
+- A 20-subagent read-only audit converged on a small set of high-confidence fixes instead of a broad refactor.
+  - `scripts/play_bot.mjs` follower snapshot generation is now guarded against stale or partially cleaned-up follower references so automation does not collapse into repeated eval failures when follower state is unstable.
+  - `src/systems/FollowerCombatSystem.js` now reuses `ROLE_SCAN_SECTOR` from `src/systems/SquadSystem.js` for idle sweep anchors, removing the contradictory tech/medic/heavy scan directions that had drifted between squad idle coverage and follower combat idle sweep.
+  - `src/scenes/GameScene.js` no longer sends the extra direct `enemyManager.notifyGunfire(...)` alert on every player shot; the remaining per-frame gunfire handling path is preserved.
+  - `src/systems/MissionFlow.js` now uses hostile-contact wording in the remaining player-facing phase strings that still said `waves`.
+  - `src/ui/MotionTracker.js` now builds cone contacts with one pass instead of per-frame chained `filter()` allocations.
+- Fresh validation after the pass:
+  - `node --check` passed on all modified files.
+  - `node scripts/test_motion_tracker_classification.mjs` passed.
+  - `node scripts/test_authored_spawn_runtime.mjs` passed, confirming package-authored delayed hostile contacts still schedule and spawn.
+  - `node scripts/play_bot.mjs m1` now ends in a clean victory with zero issues, but this is because stock `m1` still intentionally resolves as a zero-contact authored-spawn fail-closed mission in the current repo state, not because M1 combat was rebalanced.
+- Follow-up risk from this pass:
+  - stock `m1` currently remains a no-contact route by design contract, as still asserted by `scripts/test-mission-layout.mjs`; if gameplay coverage for stock M1 combat is desired again, that is now a content/runtime-contract decision rather than a hidden regression from this patch.
+  - `node scripts/test-follower-ai.mjs` is not currently runnable in plain Node in this environment because `src/entities/MarineFollower.js` expects a Phaser runtime during import.
+
+### 2026-04-09 — Missions now use authored alien spawn points only
+
+- Mission combat no longer relies on synthesized fallback waves.
+  - `src/map/missionLayout.js` now projects only the immediate authored spawn-point set into the opening combat state
+  - timed authored spawn points still dispatch later via `GameScene.spawnScheduledAuthoredPointsDue(...)`
+  - if a mission has zero authored alien spawn points, it now stays empty instead of backfilling enemies from walkable tiles
+- Ambient/director backfill is now suppressed globally for mission play.
+  - `src/scenes/GameScene.js` now keeps CombatDirector dynamic spawns, reinforcements, vent swarms, corridor setpieces, mission director enemy actions, and phantom tracker pressure contacts disabled for authored-spawn-only mission runs
+  - direct spawn sinks still stay fail-closed when a mission has zero spawn points or `?noaliens` is active
+- UI wording now matches the authored-objective model.
+  - `src/ui/ObjectivesPanel.js` now shows `CLEAR HOSTILE CONTACTS` instead of `CLEAR WAVES` when the mission is running in authored-spawn-only mode
+  - `src/ui/ControlsOverlay.js` now tells players to clear hostile contacts, not waves
+- Validation for this pass:
+  - `node scripts/test-mission-layout.mjs`
+  - `node scripts/test_authored_spawn_runtime.mjs`
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/test_leader_damage_and_close_fire.mjs`
+  - `node scripts/verify_combat.mjs`
+  - `bash ./scripts/verify.sh`
+
+### 2026-04-09 — Leader damage feedback/state, muzzle-origin fire, and stock m1 zero-spawn fail-closed
+
+- Mission 1 now opts into the zero-spawn fail-closed rule directly at mission-data level instead of relying on source-type heuristics alone.
+  - `src/data/missionData.js` marks stock `m1` with `requireAuthoredAlienSpawns: true`
+  - `src/map/missionLayout.js` now uses that mission flag when deciding whether a zero-spawn map should synthesize fallback waves
+  - `src/scenes/GameScene.js` now treats that case as full enemy suppression, not only ambient suppression, so stock/package `m1` with zero authored alien spawn points stays empty end-to-end
+- The leader damage path now matches the rest of the marine feedback flow more closely.
+  - melee/contact damage routed through `src/systems/EnemyTargeting.js` now also calls `GameScene.onMarineDamaged()` so leader hits trigger the same morale/blood/reload-interrupt feedback path that acid and hazard damage already used
+  - `src/entities/TeamLeader.js` now marks lethal state coherently (`alive = false`, body disabled, `leaderDied` event) instead of leaving the leader at `0 HP` but still logically alive
+- Close-range leader fire no longer spawns from the marine center.
+  - `src/scenes/GameScene.js` now resolves the actual muzzle world position before calling `WeaponManager.fire()`, so point-blank shots originate from the rifle instead of the sprite center
+- Combat harness note:
+  - `scripts/verify_combat.mjs` now self-seeds a temporary probe alien when a map intentionally has zero live waves, so door/occlusion regression checks keep working on fail-closed missions
+- Validation for this pass:
+  - `node scripts/test-mission-layout.mjs`
+  - `node scripts/test_leader_damage_and_close_fire.mjs`
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/verify_combat.mjs`
+  - `bash ./scripts/verify.sh`
+
+### 2026-04-09 — Editor shell stock-vs-package game route
+
+- The recent startup-aliens complaint on a visually empty editor-authored map was not an authored spawn-marker leak.
+  - multi-agent code audit showed the live enemy source was stock built-in `m1` fallback opening waves
+  - the editor shell was linking to plain `/game`, while local mission packages only activate behind `?package=local`
+- `editors/index.html` now points the editor nav `Game` link at `/game?package=local`.
+  - this keeps the editor authoring workflow on the published package runtime without changing the global default `/game` behavior
+- Added focused regression coverage in `scripts/test_editor_publish.mjs`.
+  - asserts the editor `Game` nav href is `/game?package=local`
+  - clicks through from the editor and verifies `window.__ALIENS_DEBUG_SCENE__.tilemapSourceLabel === 'PACKAGE'`
+- Stock `/game` without query params still intentionally loads the built-in campaign mission path, but campaign enemy presence now comes only from authored spawn points rather than fallback wave generation.
+
+### 2026-04-09 — No-aliens fail-closed + package zero-spawn ambient suppression
+
+- `?noaliens` now blocks all enemy creation at the shared runtime sink in `src/systems/EnemySpawner.js`.
+  - any direct `spawnEnemyAtWorld()` caller now returns `null` instead of leaking an alien in clean-map runs
+- `src/scenes/GameScene.js` now distinguishes between:
+  - full enemy suppression for `?noaliens` or any mission with zero authored alien spawn points
+  - ambient/background suppression for authored-spawn-only mission runs
+- Authored-spawn-only mission runs now suppress the non-authored backfill systems that could previously inject aliens onto an intentionally empty map or create extra pressure beyond authored spawn points:
+  - CombatDirector dynamic spawns
+  - vent-swarm ambush
+  - gunfire reinforcement
+  - idle/inactivity reinforcement
+  - corridor setpieces
+  - mission director events
+- Stock built-in `TILED` and `TEMPLATE` campaign missions no longer synthesize fallback enemy waves; they now follow the same authored-spawn-only rule as package-authored runs.
+- Focused validation for this pass:
+  - `node scripts/test_noaliens_spawn_suppression.mjs`
+  - `node scripts/test_authored_spawn_runtime.mjs`
+
+### 2026-04-09 — Follower close-threat acquisition + focused runtime bot
+
+- `src/systems/FollowerCombatSystem.js` now treats close local threats as a reactive trigger even before recent-damage flags are set.
+  - followers switch to the full alive-enemy scan pool when an alien is already inside their local danger radius, not only after a marine has already been hit
+- Added focused coverage for that behavior at two levels:
+  - `scripts/test-follower-ai.mjs` now covers close undetected threat acquisition
+  - `scripts/test_follower_engagement_runtime.mjs` is a live runtime bot that isolates the opening wave in stock `m1` and asserts followers stay engaged when multiple local threats are active
+- `scripts/play_bot.mjs` follower-idle telemetry is now less noisy:
+  - only counts reachable nearby threats, not any enemy inside a raw radius through doors/walls
+  - treats tracker/heal/door-busy followers as engaged for bot-report purposes
+- Current status note:
+  - focused follower-engagement regression now passes cleanly
+  - the broader `m1` play bot still needs a fresh trusted rerun after the last telemetry tweak; the most recent artifact before that tweak showed an early `tech idle with 2 reachable enemies < 350px` finding and later `state_lost`, so broad `m1` combat-pressure triage remains the next runtime review target
+
+### 2026-04-09 — Actions tab discoverability + sound-picker contract
+
+- The modular Missions surface no longer points authors at the legacy workspace as the primary graph-editing path.
+  - `editors/tabs/missions.js` now exposes a direct `Open Actions Tab` route into the live modular Actions editor.
+  - The legacy workspace remains available only as a fallback for older flows.
+- `play_sound` node params in `editors/tabs/story.js` now use the loaded runtime sound inventory instead of a blind text field.
+  - The picker derives playable keys from `/src/audio/*` entries returned by `/api/sounds`, because that is what `BootScene` preloads for `SfxEngine.playSample()` today.
+  - This intentionally does not treat arbitrary `assets/audio` uploads as runtime-playable action-node samples yet; that requires a wider audio-pipeline change.
+- Audio-policy conclusion from the audit:
+  - do not switch the whole game to silent-without-uploaded-samples right now
+  - keep core gameplay, tracker, door, HUD, and atmosphere cues on the current built-in plus procedural path for readability
+  - if sample-optional silence is desired, narrow it first to authored mission/action/dialogue/stinger playback once there is a unified cue registry
+- Focused validation for this pass:
+  - `node scripts/test_actions_visibility_and_sound_picker.mjs`
+  - `node scripts/test_editors_hidden_panels.mjs`
+  - `node scripts/test_actions_tab_phase6.mjs`
+  - `node scripts/test_node_graph_package.mjs`
+
+### 2026-04-09 — Collision preview fidelity + zone prop blocking
+
+- The modular tilemap collision overlay was using ad hoc terrain/door paint rules and did not reflect authored prop blockers.
+- `shared/tilemapCollision.js` is now the shared source for:
+  - editor collision-preview terrain/door/prop classification
+  - authored prop blocking rules used by runtime prop registration
+- `zone_colony`, `zone_damaged`, and `zone_hive` now intentionally do **not** block pathing or light.
+  - physical props such as `barrel`, `container`, and `lamp` still block pathing
+  - `lamp` remains non-light-blocking
+- Runtime blocker consumers now respect `roomProps[].blocksPath` instead of assuming every authored prop is solid.
+- Focused validation for this pass:
+  - `node scripts/test_tilemap_collision_preview.mjs`
+  - `node scripts/test_zone_prop_walkability.mjs`
+  - `node scripts/test_tilemaps_inspector_panel.mjs`
+
+### 2026-04-08 — Lighting control parity
+
+- The lighting stack already supported `coreAlpha` in runtime defaults, mission/map atmosphere overrides, and the tilemap editor, but the global `/settings` Game tab had dropped the matching control.
+- `settings/index.html` now exposes `lighting.coreAlpha`, and `scripts/test_editors_hidden_panels.mjs` now checks that the range and number inputs both render and stay synchronized.
+
+### 2026-04-08 — M1 play bot hardening and interpretation
+
+- The original M1 automation timeout was mostly harness noise rather than a fresh map/runtime regression.
+  - `scripts/play_bot.mjs` could pick non-walkable wander targets.
+  - the runtime card route for M1 resolves to `(30,8)` and depends on opening closed doors along the route rather than straight-line movement.
+  - pristine-HP proximity by itself over-reported spawn-inside and suspicious-death cases.
+- `scripts/play_bot.mjs` is now materially safer for M1 runtime sweeps.
+  - wander targets come from live scene walkability instead of raw map extents.
+  - objective pursuit reads runtime mission target world positions.
+  - blocked routes can open the first closed door on an all-doors-open route.
+  - spawn-inside suspicion now also considers enemy travel from `spawnX` / `spawnY`.
+  - stuck recovery still runs, but close-combat anchoring no longer emits false pathfinding findings.
+- `src/systems/MissionFlow.js` now prefers spawn-connected reachable tiles when injecting fallback card/terminal/extraction targets, and `scripts/test-mission-layout.mjs` now guards that M1 fallback objective reachability.
+- Latest M1 automated result after hardening:
+  - no console errors or page errors
+  - spawn check clean
+  - no pathfinding/stuck findings in the latest run output
+  - remaining failure mode is timeout in prolonged combat with follower idle/not-firing findings and no transition out of `combat`
+- Current interpretation:
+  - the M1 bot is no longer surfacing a clear new game-environment/runtime regression
+  - remaining signal is combat pressure / follower behavior / bot progression quality, not the earlier wall-target or spawn false positives
+
+### 2026-04-08 — Combat regression fix + authored spawn-point contract expansion
+
+- Pulse-rifle overheat visual fix is split across two paths in `src/scenes/GameScene.js`:
+  - the explicit continuous muzzle-ellipse FX path (`emitContinuousLeaderPulseFlash()`)
+  - the leader torch/muzzle-flash lighting pulse path used by the lighting overlay
+  - fixing only one of those leaves a visible “still firing while overheated” regression behind
+- Close-range leader damage regression root cause was the melee lower-bound gate in `src/systems/EnemyManager.js`:
+  - enemies could collapse inside the previous minimum contact distance and then stop landing melee entirely
+  - the safer fix was to remove the lower-bound attack gate and separately increase melee stand-off in `src/systems/EnemyMovement.js` plus hard-push spacing in `src/systems/EnemyManager.js`
+- Spawn fallback rule is now intentionally source-sensitive:
+  - `PACKAGE` tilemap overrides with zero authored alien spawns now produce zero alien waves
+  - built-in `TILED` / `TEMPLATE` campaign maps still keep canonical fallback wave generation so mission verification and stock missions continue to work
+- Canonical authored spawn-point shape is now `tileX`, `tileY`, `count`, `enemyType`, `spawnTimeSec` across:
+  - package build/normalize/runtime projection
+  - map-editor inspector fields
+  - Tiled import/export scripts
+  - generated `src/data/tiledMaps.generated.js` after `npm run build:tiled-maps`
+
 ### 2026-04-06 — Markdown/prompt alignment cleanup
 
 - Canonical doc split was tightened again:

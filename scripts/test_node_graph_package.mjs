@@ -106,4 +106,45 @@ assert.ok(
     `expected bad-connection validation error, got:\n${semanticErrors.join('\n')}`
 );
 
+const tiledSpawnPackage = buildPackageFromEditorState(makeBaseState({
+    tilemaps: [{
+        id: 'map_spawn_layer',
+        name: 'Map Spawn Layer',
+        width: 40,
+        height: 26,
+        terrain: [],
+        doors: [],
+        markers: [],
+        tilewidth: 64,
+        layers: [{
+            name: 'markers',
+            type: 'objectgroup',
+            objects: [{
+                id: 1,
+                name: 'alien_spawn',
+                type: 'alien_spawn',
+                x: 12 * 64,
+                y: 8 * 64,
+                width: 64,
+                height: 64,
+                properties: [
+                    { name: 'markerValue', type: 'int', value: 5 },
+                    { name: 'count', type: 'int', value: 3 },
+                    { name: 'enemyType', type: 'string', value: 'drone' },
+                    { name: 'spawnTimeSec', type: 'float', value: 9.5 },
+                ],
+            }],
+        }],
+    }],
+}));
+
+assert.deepEqual(tiledSpawnPackage.maps[0].spawnPoints, [{
+    tileX: 12,
+    tileY: 8,
+    count: 3,
+    enemyType: 'drone',
+    spawnTimeSec: 9.5,
+}], 'spawn marker layer properties should become canonical spawnPoints');
+assertSchemaClean(tiledSpawnPackage, 'tiledSpawnPackage');
+
 console.log('Node graph package checks passed.');

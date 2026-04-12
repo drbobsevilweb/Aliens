@@ -542,9 +542,8 @@ export class EnemyManager {
             this.movement.updateEnemyNavigationHealth(enemy, navTargetX, navTargetY, desired, time, pressure);
 
             const contactDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
-            const meleeMin = CONFIG.TILE_SIZE * 0.7;
-            const meleeMax = CONFIG.TILE_SIZE * 1.15;
-            if (contactDist >= meleeMin && contactDist <= meleeMax && time >= enemy.nextAttackAt) {
+            const meleeMax = CONFIG.TILE_SIZE * 1.28;
+            if (contactDist <= meleeMax && time >= enemy.nextAttackAt) {
                 const targetHpPct = Phaser.Math.Clamp((Number(target?.health) || 0) / Math.max(1, Number(target?.maxHealth) || 100), 0, 1);
                 if (this.targeting.rollMeleeHit(enemy, target, contactDist)) {
                     // Reveal alien when it attacks — acid blood sprays everywhere, can't hide.
@@ -864,6 +863,7 @@ export class EnemyManager {
     isBlockedByRoomProp(x, y, padding = 18) {
         const roomProps = Array.isArray(this.scene?.roomProps) ? this.scene.roomProps : [];
         for (const p of roomProps) {
+            if (p?.blocksPath === false) continue;
             const s = p?.sprite;
             if (!s || s.active === false) continue;
             const r = Math.max(10, Number(p.radius) || 18) + padding;
@@ -1215,7 +1215,7 @@ export class EnemyManager {
         if (activeEnemies.length === 0) return;
 
         // Configuration
-        const minSpacing = 48; // Increased from 32 to 48
+        const minSpacing = 56; // Keep melee enemies out of the leader center so point-blank fire still lands.
         const pushForce = 320; // Increased velocity units per second for hard push
 
         for (const enemy of activeEnemies) {

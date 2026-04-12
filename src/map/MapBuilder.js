@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { FLOOR_DATA, WALL_DATA } from './mapData.js';
 import { buildAutoTiledWallData, WALL_AUTO_BASE, WALL_AUTO_COUNT } from './AutoTile.js';
+import { authoredPropBlocksLight, authoredPropBlocksPath } from '../../shared/tilemapCollision.js';
 
 export class MapBuilder {
     constructor(scene, layout = null) {
@@ -107,20 +108,23 @@ export class MapBuilder {
         if (Array.isArray(this.layout?.props)) {
             for (const prop of this.layout.props) {
                 const key = String(prop.imageKey || '');
+                const propType = String(prop.type || key || 'prop');
+                const blocksPath = authoredPropBlocksPath(propType);
+                const blocksLight = authoredPropBlocksLight(propType);
                 const px = (prop.tileX + 0.5) * CONFIG.TILE_SIZE;
                 const py = (prop.tileY + 0.5) * CONFIG.TILE_SIZE;
                 
                 let sprite;
-                if (key && this.scene.textures.exists(key) && physicsGroup) {
+                if (key && this.scene.textures.exists(key) && physicsGroup && blocksPath) {
                     sprite = physicsGroup.create(px, py, key);
                 } else if (key && this.scene.textures.exists(key)) {
                     sprite = this.scene.add.image(px, py, key);
                 } else {
                     sprite = this.createMissingAssetPlaceholder(px, py, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, 2);
-                    if (this.scene.physics?.add?.existing) {
+                    if (blocksPath && this.scene.physics?.add?.existing) {
                         this.scene.physics.add.existing(sprite, true);
                     }
-                    if (physicsGroup?.add) {
+                    if (blocksPath && physicsGroup?.add) {
                         physicsGroup.add(sprite);
                     }
                 }
@@ -150,8 +154,9 @@ export class MapBuilder {
                 }
                 sprite._tileX = Number(prop.tileX);
                 sprite._tileY = Number(prop.tileY);
-                sprite._propType = String(prop.type || key || 'prop');
-                sprite._blocksLight = sprite._propType !== 'lamp';
+                sprite._propType = propType;
+                sprite._blocksPath = blocksPath;
+                sprite._blocksLight = blocksLight;
 
                 propSprites.push(sprite);
             }

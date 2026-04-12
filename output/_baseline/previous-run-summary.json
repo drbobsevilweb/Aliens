@@ -1,0 +1,19 @@
+{
+  "mission": "m1",
+  "outcome": "timeout",
+  "durationS": "180.3",
+  "kills": 8,
+  "finalHP": 87,
+  "issueCount": 278,
+  "severity": {
+    "medium": 278
+  },
+  "category": {
+    "error": 224,
+    "follower": 9,
+    "pathfinding": 45
+  },
+  "noWalkableTarget": 26,
+  "findPathNullOrEmpty": 198,
+  "stuckPathfinding": 45
+}

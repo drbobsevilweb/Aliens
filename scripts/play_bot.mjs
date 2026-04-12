@@ -150,6 +150,53 @@ async function runMission(mission) {
     const init = await safeEval(page, () => {
         const s = window.__ALIENS_DEBUG_SCENE__;
         if (!s) return { err: 'no scene' };
+        const mapW = s.mapWidthPx || (s.pathGrid?.width*64) || 0;
+        const mapH = s.mapHeightPx || (s.pathGrid?.height*64) || 0;
+        const missionState = s.lastMissionState || s.missionFlow?.getState?.() || null;
+        const buildSceneWanderTargets = () => {
+            if (!s.pathGrid) return [];
+            const targets = [];
+            const seen = new Set();
+            const margin = 128;
+            const cols = 5;
+            const rows = 4;
+            const sx = Math.max(200, (mapW - margin * 2) / cols);
+            const sy = Math.max(200, (mapH - margin * 2) / rows);
+            const pushTarget = (worldX, worldY) => {
+                const tile = s.pathGrid.worldToTile(worldX, worldY);
+                let best = null;
+                if (s.pathGrid.isWalkable(tile.x, tile.y)) {
+                    best = tile;
+                } else {
+                    for (let r = 1; r <= 8 && !best; r++) {
+                        for (let oy = -r; oy <= r && !best; oy++) {
+                            for (let ox = -r; ox <= r && !best; ox++) {
+                                if (Math.abs(ox) !== r && Math.abs(oy) !== r) continue;
+                                const tx = tile.x + ox;
+                                const ty = tile.y + oy;
+                                if (s.pathGrid.isWalkable(tx, ty)) best = { x: tx, y: ty };
+                            }
+                        }
+                    }
+                }
+                if (!best) return;
+                const key = `${best.x},${best.y}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                const snappedWorld = s.pathGrid.tileToWorld(best.x, best.y);
+                targets.push({ x: snappedWorld.x, y: snappedWorld.y, tx: best.x, ty: best.y });
+            };
+            for (let r = 0; r < rows; r++) {
+                const y = margin + r * sy + sy / 2;
+                const fwd = r % 2 === 0;
+                for (let c = 0; c < cols; c++) {
+                    const col = fwd ? c : (cols - 1 - c);
+                    pushTarget(margin + col * sx + sx / 2, y);
+                }
+            }
+            pushTarget(mapW / 2, mapH / 2);
+            return targets;
+        };
         // Dismiss overlays
         if (s.initOverlayContainer) {
             if (typeof s.clearInitializationOverlay === 'function') {
@@ -168,12 +215,20 @@ async function runMission(mission) {
         const st = typeof window.render_game_to_text==='function' ? window.render_game_to_text() : null;
         return {
             state: st,
-            mapW: s.mapWidthPx || (s.pathGrid?.width*64) || 0,
-            mapH: s.mapHeightPx || (s.pathGrid?.height*64) || 0,
+            mapW,
+            mapH,
             extractX: s.extractionWorldPos?.x || 0,
             extractY: s.extractionWorldPos?.y || 0,
             tileSize: s.pathGrid?.tileSize || 64,
             totalWaves: s.stageFlow?.totalWaves || 0,
+            wanderTargets: buildSceneWanderTargets(),
+            missionTarget: missionState?.targetWorld
+                ? {
+                    x: Math.round(Number(missionState.targetWorld.x) || 0),
+                    y: Math.round(Number(missionState.targetWorld.y) || 0),
+                }
+                : null,
+            missionPhase: String(missionState?.phaseLabel || ''),
         };
     }, 5000);
 
@@ -188,6 +243,13 @@ async function runMission(mission) {
         exX: init.extractX, exY: init.extractY,
         tile: init.tileSize, waves: init.totalWaves,
     };
+    const wanderTargets = Array.isArray(init.wanderTargets) && init.wanderTargets.length > 0
+        ? init.wanderTargets
+        : buildWanderGrid(map);
+    let missionTarget = init.missionTarget && Number.isFinite(init.missionTarget.x) && Number.isFinite(init.missionTarget.y)
+        ? init.missionTarget
+        : null;
+    let missionPhase = String(init.missionPhase || '');
     let state = JSON.parse(init.state);
     L('INFO', `Map ${map.w}x${map.h}, Extract(${map.exX},${map.exY}), Waves=${map.waves}`);
     L('INFO', `Leader(${state.leader.x},${state.leader.y}) HP=${state.leader.health}/${state.leader.maxHealth}`);
@@ -206,6 +268,7 @@ async function runMission(mission) {
     let lastStatusLog  = 0;
     let prevHostileN   = state.hostiles?.length || 0;
     let prevSquadAlive = state.squad?.filter(m=>m.alive).length || 0;
+    let prevAliveSquadRoles = new Set((state.squad || []).filter(m => m.alive).map(m => m.role));
     let prevLeaderHP   = state.leader.health;
     let wanderIdx      = 0;
     let lastMoveCmdAt  = 0;
@@ -226,9 +289,6 @@ async function runMission(mission) {
     let trackerEverActive = false;
     let trackerSawContacts = false;
     let trackerCooldownObserved = false;
-
-    // Wander grid
-    const wanderTargets = buildWanderGrid(map);
 
     L('INFO', 'Bot loop started');
 
@@ -286,6 +346,38 @@ async function runMission(mission) {
                 leaderX: state.leader.x,
                 leaderY: state.leader.y,
             };
+        }
+        // HUNT — if enemies remain on the map, chase the closest known hostile before resuming objectives
+        else if (hostiles.length > 0 && hostiles.length <= 2) {
+            const best = hostiles
+                .slice()
+                .sort((a, b) => dist(state.leader.x, state.leader.y, a.x, a.y) - dist(state.leader.x, state.leader.y, b.x, b.y))[0];
+            if (best && Date.now() - lastMoveCmdAt > MOVE_INTERVAL) {
+                action = {
+                    type: 'move',
+                    tx: best.x,
+                    ty: best.y,
+                    goal: 'hunt',
+                };
+                lastMoveCmdAt = Date.now();
+            } else {
+                action = { type: 'idle' };
+            }
+        }
+        // OBJECTIVE — pursue mission flow target when combat pressure is not visible
+        else if (missionTarget) {
+            if (Date.now() - lastMoveCmdAt > MOVE_INTERVAL) {
+                action = {
+                    type: 'move',
+                    tx: missionTarget.x,
+                    ty: missionTarget.y,
+                    goal: 'objective',
+                    phase: missionPhase,
+                };
+                lastMoveCmdAt = Date.now();
+            } else {
+                action = { type: 'idle' };
+            }
         }
         // TRACKER — actively scout before wandering blind
         else if (trackerReady && (Date.now() - lastTrackerCmdAt) > TRACKER_RETRY_MS) {
@@ -366,27 +458,252 @@ async function runMission(mission) {
             const leader = scene.leader;
             if (!leader) return { err: 'no leader' };
 
+            const tryQueueDoorOpenToward = (worldX, worldY, targetTile = null) => {
+                if (!scene.doorActionSystem || !scene.doorManager || !Array.isArray(scene.doorManager.doorGroups)) return false;
+                if (scene.doorActionSystem.pendingAction || scene.doorActionSystem.pendingSquadSync || scene.doorActionSystem.getActiveTimer?.()) {
+                    return true;
+                }
+                const tileKey = (x, y) => `${x},${y}`;
+                const closedDoorByTile = new Map();
+                for (const group of scene.doorManager.doorGroups) {
+                    if (!group || group.state !== 'closed' || !Array.isArray(group.doors)) continue;
+                    if (typeof group.getAvailableActions === 'function') {
+                        const canOpen = group.getAvailableActions().some((entry) => entry?.action === 'open');
+                        if (!canOpen) continue;
+                    }
+                    for (const door of group.doors) {
+                        if (!door) continue;
+                        closedDoorByTile.set(tileKey(door.tileX, door.tileY), group);
+                    }
+                }
+
+                const destinationTile = targetTile || scene.pathGrid?.worldToTile?.(worldX, worldY);
+                const startTile = scene.pathGrid?.worldToTile?.(leader.x, leader.y);
+                if (scene.pathGrid && destinationTile && startTile && closedDoorByTile.size > 0) {
+                    const queue = [[startTile.x, startTile.y]];
+                    const prev = new Map([[tileKey(startTile.x, startTile.y), null]]);
+                    let head = 0;
+                    const canStep = (tx, ty) => {
+                        if (tx < 0 || ty < 0 || tx >= scene.pathGrid.width || ty >= scene.pathGrid.height) return false;
+                        if (scene.pathGrid.isWalkable(tx, ty)) return true;
+                        return closedDoorByTile.has(tileKey(tx, ty));
+                    };
+                    while (head < queue.length) {
+                        const [cx, cy] = queue[head++];
+                        if (cx === destinationTile.x && cy === destinationTile.y) {
+                            const route = [];
+                            let cur = tileKey(cx, cy);
+                            while (cur) {
+                                route.push(cur);
+                                cur = prev.get(cur);
+                            }
+                            route.reverse();
+                            for (const stepKey of route) {
+                                const group = closedDoorByTile.get(stepKey);
+                                if (!group) continue;
+                                try {
+                                    if (scene.doorActionSystem.queueAction(leader, group, 'open')) return true;
+                                } catch {}
+                            }
+                            break;
+                        }
+                        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            if (!canStep(nx, ny)) continue;
+                            const nextKey = tileKey(nx, ny);
+                            if (prev.has(nextKey)) continue;
+                            prev.set(nextKey, tileKey(cx, cy));
+                            queue.push([nx, ny]);
+                        }
+                    }
+                }
+
+                const segDx = worldX - leader.x;
+                const segDy = worldY - leader.y;
+                const segLenSq = segDx * segDx + segDy * segDy;
+                const candidates = [];
+                for (const group of scene.doorManager.doorGroups) {
+                    if (!group || group.state !== 'closed' || typeof group.getCenter !== 'function') continue;
+                    if (typeof group.getAvailableActions === 'function') {
+                        const canOpen = group.getAvailableActions().some((entry) => entry?.action === 'open');
+                        if (!canOpen) continue;
+                    }
+                    const center = group.getCenter();
+                    const distLeader = Math.hypot(center.x - leader.x, center.y - leader.y);
+                    const distTarget = Math.hypot(center.x - worldX, center.y - worldY);
+                    if (distLeader > 768) continue;
+                    let lineDist = 0;
+                    if (segLenSq > 0) {
+                        const proj = Math.max(0, Math.min(1, (((center.x - leader.x) * segDx) + ((center.y - leader.y) * segDy)) / segLenSq));
+                        const px = leader.x + segDx * proj;
+                        const py = leader.y + segDy * proj;
+                        lineDist = Math.hypot(center.x - px, center.y - py);
+                    }
+                    if (lineDist > 224 && distTarget > 640) continue;
+                    candidates.push({
+                        group,
+                        score: distLeader * 0.45 + distTarget * 0.2 + lineDist,
+                    });
+                }
+                candidates.sort((a, b) => a.score - b.score);
+                for (const candidate of candidates) {
+                    try {
+                        if (scene.doorActionSystem.queueAction(leader, candidate.group, 'open')) return true;
+                    } catch {}
+                }
+                return false;
+            };
+
+            const resolveMoveGoalWorld = (worldX, worldY, radiusTiles = 2, snapToTileCenter = false) => {
+                const resolved = typeof scene.findNearestWalkableWorld === 'function'
+                    ? scene.findNearestWalkableWorld(worldX, worldY, radiusTiles)
+                    : { x: worldX, y: worldY };
+                if (!resolved) return { x: worldX, y: worldY };
+                if (!snapToTileCenter || !scene.pathGrid?.worldToTile || !scene.pathGrid?.tileToWorld) {
+                    return resolved;
+                }
+                const tile = scene.pathGrid.worldToTile(resolved.x, resolved.y);
+                if (scene.pathGrid.isWalkable(tile.x, tile.y)) {
+                    return scene.pathGrid.tileToWorld(tile.x, tile.y);
+                }
+                return resolved;
+            };
+
+            const hasActiveGoalNear = (goalWorld, slack = 48) => {
+                const path = leader.currentPath;
+                if (!Array.isArray(path) || path.length <= 0 || leader.pathIndex >= path.length) return false;
+                const lastNode = path[path.length - 1];
+                if (!lastNode) return false;
+                return Math.hypot((lastNode.x || 0) - goalWorld.x, (lastNode.y || 0) - goalWorld.y) <= slack;
+            };
+
+            const assignDirectMoveToward = (worldX, worldY, radiusTiles = 2, force = false) => {
+                if (!scene.movementSystem) return false;
+                const goalWorld = resolveMoveGoalWorld(worldX, worldY, radiusTiles, false);
+                if (!goalWorld) return false;
+                if (Math.hypot(goalWorld.x - leader.x, goalWorld.y - leader.y) < 16) {
+                    scene.movementSystem.clearPath?.(leader);
+                    return true;
+                }
+                if (!force && hasActiveGoalNear(goalWorld, 52)) {
+                    return true;
+                }
+                scene.movementSystem.assignPath(leader, [goalWorld]);
+                scene.setMoveTarget?.(goalWorld.x, goalWorld.y);
+                return true;
+            };
+
+            const assignStrategicPathToward = (worldX, worldY, radiusTiles = 4, force = false) => {
+                if (!scene.pathGrid || !scene.pathPlanner || !scene.movementSystem) return false;
+                const goalWorld = resolveMoveGoalWorld(worldX, worldY, radiusTiles, true);
+                const startTile = scene.pathGrid.worldToTile(leader.x, leader.y);
+                const endTile = scene.pathGrid.worldToTile(goalWorld.x, goalWorld.y);
+                const goalKey = `${endTile.x},${endTile.y}`;
+                const canReuse = !force
+                    && goalKey === scene._botStrategicGoalKey
+                    && hasActiveGoalNear(goalWorld, 56)
+                    && (!scene._botLastStrategicRepathAt || (now - scene._botLastStrategicRepathAt) < 2200);
+                if (canReuse) {
+                    return true;
+                }
+                if (startTile.x === endTile.x && startTile.y === endTile.y) {
+                    scene._botStrategicGoalKey = goalKey;
+                    scene._botLastStrategicRepathAt = now;
+                    scene.movementSystem.clearPath?.(leader);
+                    return true;
+                }
+                if (scene.pathGrid.isWalkable(endTile.x, endTile.y)) {
+                    try {
+                        const path = scene.pathPlanner.findPath(startTile.x, startTile.y, endTile.x, endTile.y, scene.pathGrid);
+                        if (path && path.length > 0) {
+                            scene.movementSystem.assignPath(leader, path.map(pt => scene.pathGrid.tileToWorld(pt.x, pt.y)));
+                            scene._botStrategicGoalKey = goalKey;
+                            scene._botLastStrategicRepathAt = now;
+                            scene.setMoveTarget?.(goalWorld.x, goalWorld.y);
+                            return true;
+                        }
+                        const queuedDoor = tryQueueDoorOpenToward(worldX, worldY, endTile);
+                        if (!queuedDoor && typeof window.render_game_to_text === 'function') {
+                            console.error(`[bot-debug] findPath returned ${path ? 'empty' : 'null'} from (${startTile.x},${startTile.y}) to (${endTile.x},${endTile.y})`);
+                        }
+                        return queuedDoor;
+                    } catch (err) {
+                        console.error(`[bot-debug] findPath error: ${err.message}`);
+                        return false;
+                    }
+                }
+                const queuedDoor = tryQueueDoorOpenToward(worldX, worldY, endTile);
+                if (!queuedDoor) {
+                    console.error(`[bot-debug] no walkable tile found near target (${endTile.x},${endTile.y})`);
+                }
+                return queuedDoor;
+            };
+
             // ─── DEEP STATE SNAPSHOT ───────────────────────
             const enemies = scene.enemyManager?.getActiveEnemies?.() || [];
+            const now = scene.time?.now || 0;
             const followers = (scene.squadSystem?.followers || [])
                 .map(f => {
-                    const s = f.sprite || f;
-                    const combatState = scene.followerCombatSystem?.followerCombatState?.get(s.roleKey);
-                    const hasTarget = !!(combatState?.targetRef?.active);
-                    return {
-                        role: s.roleKey || 'unknown',
-                        x: Math.round(s.x||0), y: Math.round(s.y||0),
-                        hp: Math.round(s.health||0), maxHp: Math.round(s.maxHealth||0),
-                        alive: s.active !== false && (s.health||0) > 0,
-                        distToLeader: Math.round(Math.sqrt((s.x-leader.x)**2+(s.y-leader.y)**2)),
-                        isFiring: hasTarget,
-                        target: combatState?.targetRef?.active ? {
-                            x: Math.round(combatState.targetRef.x||0),
-                            y: Math.round(combatState.targetRef.y||0),
-                        } : null,
-                        stuckMs: f.nav?.stuckMs || f.nav?.warpAccumMs || 0,
-                    };
-                });
+                    try {
+                        const s = f?.sprite || f;
+                        if (!s || !Number.isFinite(s.x) || !Number.isFinite(s.y)) return null;
+                        const combatState = scene.followerCombatSystem?.followerCombatState?.get(s.roleKey);
+                        const ammoState = scene.marineAmmo?.get?.(s.roleKey);
+                        const hasTarget = !!(combatState?.targetRef?.active);
+                        const nearThreats = enemies.filter((enemy) => {
+                            if (!enemy?.active || enemy.isDying) return false;
+                            return Math.hypot((enemy.x || 0) - s.x, (enemy.y || 0) - s.y) < 350;
+                        });
+                        const nearReachableThreats = nearThreats.filter((enemy) => {
+                            if (scene.enemyManager?.isClosedDoorBetweenWorldPoints?.(s.x, s.y, enemy.x, enemy.y)) return false;
+                            return scene.enemyManager?.hasLineOfSight?.(s.x, s.y, enemy.x, enemy.y, 420) === true;
+                        });
+                        const trackerBusy = scene.isMarineTrackerBusy?.(s, now) === true;
+                        const healBusy = scene.isMarineHealBusy?.(s, now) === true;
+                        const actionBusy = scene.doorActionSystem?.isActorBusy?.(s) === true;
+                        const lastFiredAt = Number(ammoState?.lastFiredAt) || -100000;
+                        const recentlyFired = (now - lastFiredAt) <= 650;
+                        const waitingToShoot = !!combatState && (
+                            now < (Number(combatState.readyAt) || 0)
+                            || now < (Number(combatState.nextFireAt) || 0)
+                            || now < (Number(combatState.jamUntil) || 0)
+                            || now < (Number(combatState.burstRecoverUntil) || 0)
+                        );
+                        const isReloading = ammoState?.isReloading === true;
+                        const isOverheated = ammoState?.isOverheated === true;
+                        const isEngaged = hasTarget || recentlyFired || waitingToShoot || isReloading || isOverheated || trackerBusy || healBusy || actionBusy;
+                        return {
+                            role: s.roleKey || 'unknown',
+                            x: Math.round(s.x||0), y: Math.round(s.y||0),
+                            hp: Math.round(s.health||0), maxHp: Math.round(s.maxHealth||0),
+                            alive: s.active !== false && (s.health||0) > 0,
+                            distToLeader: Math.round(Math.sqrt((s.x-leader.x)**2+(s.y-leader.y)**2)),
+                            hasTarget,
+                            isFiring: hasTarget,
+                            isEngaged,
+                            recentlyFired,
+                            waitingToShoot,
+                            isReloading,
+                            isOverheated,
+                            trackerBusy,
+                            healBusy,
+                            actionBusy,
+                            nearEnemyCount: nearThreats.length,
+                            nearReachableThreatCount: nearReachableThreats.length,
+                            blockedThreatCount: Math.max(0, nearThreats.length - nearReachableThreats.length),
+                            lastFiredAgoMs: Math.max(0, Math.round(now - lastFiredAt)),
+                            target: combatState?.targetRef?.active ? {
+                                x: Math.round(combatState.targetRef.x||0),
+                                y: Math.round(combatState.targetRef.y||0),
+                            } : null,
+                            stuckMs: f?.nav?.stuckMs || f?.nav?.warpAccumMs || 0,
+                        };
+                    } catch {
+                        return null;
+                    }
+                })
+                .filter(Boolean);
 
             const enemySnap = enemies.slice(0, 30).map(e => ({
                 type: e.enemyType || 'unknown',
@@ -394,6 +711,7 @@ async function runMission(mission) {
                 hp: Math.round(e.health||0),
                 maxHp: Math.round(e.maxHealth||0),
                 distToLeader: Math.round(Math.sqrt((e.x-leader.x)**2+(e.y-leader.y)**2)),
+                spawnTravel: Math.round(Math.sqrt(((e.x||0) - (e.spawnX||e.x||0))**2 + ((e.y||0) - (e.spawnY||e.y||0))**2)),
                 intent: e.intent || 'none',
                 speed: Math.round(e.stats?.speed||0),
                 dmg: Math.round(e.stats?.contactDamage||0),
@@ -406,6 +724,8 @@ async function runMission(mission) {
             const spawnProximityAlerts = [];
             for (const e of enemies) {
                 if (e.health < e.maxHealth * 0.99) continue; // only pristine HP
+                const spawnTravel = Math.sqrt(((e.x||0) - (e.spawnX||e.x||0))**2 + ((e.y||0) - (e.spawnY||e.y||0))**2);
+                if (spawnTravel > 96) continue; // ignore fast-closing enemies that already moved well away from spawn
                 for (const m of marines) {
                     if (!m.active) continue;
                     const d = Math.sqrt((e.x-m.x)**2 + (e.y-m.y)**2);
@@ -413,6 +733,7 @@ async function runMission(mission) {
                         spawnProximityAlerts.push({
                             enemyType: e.enemyType, dist: Math.round(d),
                             marineRole: m.roleKey || 'leader',
+                            spawnTravel: Math.round(spawnTravel),
                             eHP: Math.round(e.health), eMaxHP: Math.round(e.maxHealth),
                         });
                     }
@@ -452,8 +773,6 @@ async function runMission(mission) {
                 })),
             };
 
-            const now = scene.time?.now || 0;
-
             // Weapon state
             let weapon = { key: scene?.weaponManager?.currentWeaponKey || 'unknown' };
             const ammoState = scene?.marineAmmo?.get?.('leader');
@@ -492,19 +811,21 @@ async function runMission(mission) {
             // ─── EXECUTE BOT ACTION ────────────────────────
             if (act.type === 'combat') {
                 const cands = act.candidates || [];
-                let best = null, bestDist = Infinity;
+                let best = null;
+                let bestDist = Infinity;
+                let bestScore = Infinity;
                 for (const c of cands) {
-                    const sd = Math.sqrt((leader.x-c.x)**2+(leader.y-c.y)**2);
-                    if (scene.pathGrid && scene.pathPlanner) {
-                        const s = scene.pathGrid.worldToTile(leader.x, leader.y);
-                        const e = scene.pathGrid.worldToTile(c.x, c.y);
-                        try {
-                            const p = scene.pathPlanner.findPath(s.x,s.y,e.x,e.y,scene.pathGrid);
-                            if (!p || p.length === 0) continue;
-                            if (p.length > 30 && sd < 500 && p.length*64 > sd*3) continue;
-                        } catch { continue; }
+                    const sd = Math.sqrt((leader.x - c.x) ** 2 + (leader.y - c.y) ** 2);
+                    let score = sd;
+                    if (c.type === 'facehugger') score -= 180;
+                    else if (c.type === 'queen' || c.type === 'queenLesser') score -= 120;
+                    else if (c.type === 'drone') score -= 24;
+                    if (sd < 180) score -= 40;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestDist = sd;
+                        best = c;
                     }
-                    if (sd < bestDist) { bestDist = sd; best = c; }
                 }
                 if (!best && cands.length > 0) {
                     best = cands.reduce((a,b) =>
@@ -517,21 +838,14 @@ async function runMission(mission) {
                     if (scene.inputHandler) scene.inputHandler._botFiring = true;
                     const ptr = scene.input?.activePointer;
                     if (ptr) { ptr.worldX = best.x; ptr.worldY = best.y; }
-                    // Kite if enemy within 250px
-                    if (bestDist < 250 && scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
+                    // Combat movement stays local: use a direct one-node move instead of a full path solve.
+                    const canRepathCombat = !scene._botLastCombatRepathAt || (now - scene._botLastCombatRepathAt) >= 900;
+                    if (bestDist < 250 && canRepathCombat) {
                         const dx = leader.x-best.x, dy = leader.y-best.y;
                         const len = Math.sqrt(dx*dx+dy*dy)||1;
                         const mx = leader.x+(dx/len)*200, my = leader.y+(dy/len)*200;
-                        const s = scene.pathGrid.worldToTile(leader.x,leader.y);
-                        const e = scene.pathGrid.worldToTile(mx,my);
-                        if (scene.pathGrid.isWalkable(e.x,e.y)) {
-                            try {
-                                const kp = scene.pathPlanner.findPath(s.x,s.y,e.x,e.y,scene.pathGrid);
-                                if (kp && kp.length > 0) {
-                                    scene.movementSystem.assignPath(leader,
-                                        kp.map(p => scene.pathGrid.tileToWorld(p.x,p.y)));
-                                }
-                            } catch {}
+                        if (assignDirectMoveToward(mx, my, 3, true)) {
+                            scene._botLastCombatRepathAt = now;
                         }
                     }
                 }
@@ -555,17 +869,9 @@ async function runMission(mission) {
                 const tx = leader.x + (awayDx / awayLen) * 220 + (squadCenter.x - leader.x) * 0.35;
                 const ty = leader.y + (awayDy / awayLen) * 220 + (squadCenter.y - leader.y) * 0.35;
                 if (cands[0] && typeof leader.facePosition === 'function') leader.facePosition(cands[0].x, cands[0].y);
-                if (scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
-                    const s = scene.pathGrid.worldToTile(leader.x, leader.y);
-                    const e = scene.pathGrid.worldToTile(tx, ty);
-                    if (scene.pathGrid.isWalkable(e.x, e.y)) {
-                        try {
-                            const p = scene.pathPlanner.findPath(s.x, s.y, e.x, e.y, scene.pathGrid);
-                            if (p && p.length > 0) {
-                                scene.movementSystem.assignPath(leader, p.map(pt => scene.pathGrid.tileToWorld(pt.x, pt.y)));
-                            }
-                        } catch {}
-                    }
+                if (!assignDirectMoveToward(tx, ty, 4, true) && leader.body) {
+                    const len = Math.hypot(tx - leader.x, ty - leader.y) || 1;
+                    leader.body.setVelocity(((tx - leader.x) / len) * 180, ((ty - leader.y) / len) * 180);
                 }
             } else if (act.type === 'tracker') {
                 const ok = scene.startMotionTrackerScan?.(scene.time.now, 'tech');
@@ -578,42 +884,11 @@ async function runMission(mission) {
             } else if (act.type === 'move' || act.type === 'regroup') {
                 if (scene.inputHandler) scene.inputHandler._botFiring = false;
                 if (scene.pathGrid && scene.pathPlanner && scene.movementSystem) {
-                    let s = scene.pathGrid.worldToTile(leader.x, leader.y);
-                    let e = scene.pathGrid.worldToTile(act.tx, act.ty);
-                    
-                    // If target not walkable, spiral search for nearest walkable
-                    if (!scene.pathGrid.isWalkable(e.x, e.y)) {
-                        let found = false;
-                        for (let r = 1; r < 5 && !found; r++) {
-                            for (let dy = -r; dy <= r && !found; dy++) {
-                                for (let dx = -r; dx <= r && !found; dx++) {
-                                    if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-                                    if (scene.pathGrid.isWalkable(e.x + dx, e.y + dy)) {
-                                        e.x += dx;
-                                        e.y += dy;
-                                        found = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (scene.pathGrid.isWalkable(e.x, e.y)) {
-                        try {
-                            const p = scene.pathPlanner.findPath(s.x,s.y,e.x,e.y,scene.pathGrid);
-                            if (p && p.length > 0) {
-                                scene.movementSystem.assignPath(leader,
-                                    p.map(pt => scene.pathGrid.tileToWorld(pt.x,pt.y)));
-                            } else {
-                                if (typeof window.render_game_to_text === 'function') {
-                                    console.error(`[bot-debug] findPath returned ${p ? 'empty' : 'null'} from (${s.x},${s.y}) to (${e.x},${e.y})`);
-                                }
-                            }
-                        } catch (err) {
-                            console.error(`[bot-debug] findPath error: ${err.message}`);
-                        }
-                    } else {
-                        console.error(`[bot-debug] no walkable tile found near target (${e.x},${e.y})`);
+                    const routed = assignStrategicPathToward(act.tx, act.ty);
+                    if (!routed && leader.body) {
+                        const dx = act.tx-leader.x, dy = act.ty-leader.y;
+                        const l = Math.sqrt(dx*dx+dy*dy)||1;
+                        leader.body.setVelocity((dx/l)*180,(dy/l)*180);
                     }
                 } else if (leader.body) {
                     const dx = act.tx-leader.x, dy = act.ty-leader.y;
@@ -653,15 +928,23 @@ async function runMission(mission) {
             // ─── READ FINAL STATE ──────────────────────────
             let stateJson = null;
             try { stateJson = window.render_game_to_text(); } catch {}
+            const missionState = scene.lastMissionState || scene.missionFlow?.getState?.() || null;
 
             return {
                 state: stateJson,
                 followers, enemySnap,
                 spawnProximityAlerts,
                 doors, combat, weapon, knockback, tracker,
+                missionTarget: missionState?.targetWorld
+                    ? {
+                        x: Math.round(Number(missionState.targetWorld.x) || 0),
+                        y: Math.round(Number(missionState.targetWorld.y) || 0),
+                    }
+                    : null,
+                missionPhase: String(missionState?.phaseLabel || ''),
                 trackerActionStarted: act.type === 'tracker' ? act._trackerStarted === true : false,
             };
-        }, 6000, action);
+        }, 9000, action);
 
         /* ── Handle eval failure ────────────────────────── */
         if (!tickResult || tickResult.err || !tickResult.state) {
@@ -677,10 +960,19 @@ async function runMission(mission) {
 
         /* ── Parse new state ────────────────────────────── */
         state = JSON.parse(tickResult.state);
+        missionTarget = tickResult.missionTarget && Number.isFinite(tickResult.missionTarget.x) && Number.isFinite(tickResult.missionTarget.y)
+            ? tickResult.missionTarget
+            : null;
+        missionPhase = String(tickResult.missionPhase || '');
         const leader   = state.leader;
         const hostiles2 = state.hostiles || [];
         const squad    = state.squad || [];
         const aliveSquad = squad.filter(m => m.alive).length;
+        const aliveSquadRoles = new Set(squad.filter(m => m.alive).map(m => m.role));
+        const activeFollowerSnapshots = (tickResult.followers || []).filter(f => aliveSquadRoles.has(f.role));
+        const aliveFollowerCount = squad.filter(m => m.alive && m.role !== 'leader').length;
+        const firingFollowerCount = activeFollowerSnapshots.filter(f => f.recentlyFired).length || 0;
+        const engagedFollowerCount = activeFollowerSnapshots.filter(f => f.isEngaged).length || 0;
 
         // ── TRACKER VALIDATION ──────────────────────────
         if (tickResult.trackerActionStarted) {
@@ -715,8 +1007,8 @@ async function runMission(mission) {
         }
 
         // ── 2. FOLLOWER BEHAVIOR ─────────────────────────
-        if (tickResult.followers) {
-            for (const f of tickResult.followers) {
+        if (activeFollowerSnapshots.length > 0) {
+            for (const f of activeFollowerSnapshots) {
                 if (!f.alive) continue;
                 if (f.distToLeader > 600) {
                     tracker.add('medium','follower',
@@ -728,13 +1020,26 @@ async function runMission(mission) {
                         `${f.role} stuck ${(f.stuckMs/1000).toFixed(1)}s`,
                         { role: f.role, stuckMs: f.stuckMs });
                 }
-                // Not firing when enemies close
-                const nearE = (tickResult.enemySnap||[]).filter(
-                    e => Math.sqrt((e.x-f.x)**2+(e.y-f.y)**2) < 350);
-                if (nearE.length >= 2 && !f.isFiring) {
+                // Not firing when multiple reachable enemies are close.
+                const reachableThreats = Number(f.nearReachableThreatCount ?? 0);
+                if (reachableThreats >= 2 && !f.isEngaged) {
                     tracker.add('medium','follower',
-                        `${f.role} idle with ${nearE.length} enemies < 350px`,
-                        { role: f.role, nearEnemies: nearE.length });
+                        `${f.role} idle with ${reachableThreats} reachable enemies < 350px`,
+                        {
+                            role: f.role,
+                            nearEnemies: reachableThreats,
+                            nearbyThreats: f.nearEnemyCount,
+                            blockedNearbyThreats: f.blockedThreatCount,
+                            hasTarget: f.hasTarget,
+                            recentlyFired: f.recentlyFired,
+                            waitingToShoot: f.waitingToShoot,
+                            isReloading: f.isReloading,
+                            isOverheated: f.isOverheated,
+                            trackerBusy: f.trackerBusy,
+                            healBusy: f.healBusy,
+                            actionBusy: f.actionBusy,
+                            lastFiredAgoMs: f.lastFiredAgoMs,
+                        });
                 }
             }
         }
@@ -742,7 +1047,7 @@ async function runMission(mission) {
         // ── 3. SQUAD DEATH ───────────────────────────────
         if (aliveSquad < prevSquadAlive) {
             const lost = prevSquadAlive - aliveSquad;
-            const deadRoles = squad.filter(m => !m.alive).map(m => m.role);
+            const deadRoles = [...prevAliveSquadRoles].filter(role => !aliveSquadRoles.has(role));
             const nearE = (tickResult.enemySnap||[]).filter(
                 e => e.distToLeader < 500);
             const entry = {
@@ -759,6 +1064,7 @@ async function runMission(mission) {
             }
         }
         prevSquadAlive = aliveSquad;
+            prevAliveSquadRoles = aliveSquadRoles;
 
         // ── 4. LEADER DAMAGE ─────────────────────────────
         if (leader.health < prevLeaderHP) {
@@ -769,17 +1075,18 @@ async function runMission(mission) {
                 nearbyEnemies: nearE.length,
                 closestEnemy: nearE[0] ? { type: nearE[0].type, dist: nearE[0].distToLeader, dmg: nearE[0].dmg } : null,
                 knockback: tickResult.knockback,
-                followersAlive: aliveSquad,
-                followersFiring: tickResult.followers?.filter(f=>f.isFiring).length || 0,
+                followersAlive: aliveFollowerCount,
+                followersFiring: firingFollowerCount,
+                followersEngaged: engagedFollowerCount,
             };
             leaderDamageEvents.push(entry);
             if (dmg > 25) {
-                L('EVENT', `BURST DMG -${dmg}HP → ${leader.health} | ${nearE.length} close | firing: ${entry.followersFiring}/${aliveSquad}`);
+                L('EVENT', `BURST DMG -${dmg}HP → ${leader.health} | ${nearE.length} close | engaging: ${entry.followersEngaged}/${aliveFollowerCount}`);
                 tracker.add('high','combat', `Leader burst damage ${dmg}HP`, entry);
             }
-            if (aliveSquad > 0 && entry.followersFiring === 0 && nearE.length > 0) {
+            if (aliveFollowerCount > 0 && entry.followersEngaged === 0 && nearE.length > 0) {
                 tracker.add('high','follower',
-                    `Leader took ${dmg}HP, ${aliveSquad} followers not firing (${nearE.length} enemies)`, entry);
+                    `Leader took ${dmg}HP, ${aliveFollowerCount} followers not engaging (${nearE.length} enemies)`, entry);
             }
         }
         prevLeaderHP = leader.health;
@@ -833,8 +1140,9 @@ async function runMission(mission) {
                 time: (elapsed/1000).toFixed(1),
                 nearEnemies: nearE.length,
                 enemyTypes: nearE.map(e => `${e.type}(${e.distToLeader}px,${e.hp}hp)`),
-                followersAlive: aliveSquad,
-                followersFiring: tickResult.followers?.filter(f=>f.isFiring).length || 0,
+                followersAlive: aliveFollowerCount,
+                followersFiring: firingFollowerCount,
+                followersEngaged: engagedFollowerCount,
                 totalKills: killCount, pressure: tickResult.combat?.pressure,
                 wave: tickResult.combat?.wave,
                 last5damage: leaderDamageEvents.slice(-5),
@@ -842,15 +1150,15 @@ async function runMission(mission) {
             deathAnalysis.push(d);
 
             let fairness = 'fair';
-            if (nearE.some(e => e.distToLeader < 100 && e.hp > e.maxHp * 0.9))
+            if (nearE.some(e => e.distToLeader < 100 && e.hp > e.maxHp * 0.9 && (e.spawnTravel || 0) <= 96))
                 fairness = 'suspicious — full-HP enemy inside melee range (spawn inside?)';
-            if (aliveSquad > 0 && d.followersFiring === 0)
-                fairness = 'unfair — followers alive but not firing';
+            if (aliveFollowerCount > 0 && d.followersEngaged === 0)
+                fairness = 'unfair — followers alive but not engaging';
             d.fairness = fairness;
 
             L('DEATH', `DEFEAT ${(elapsed/1000).toFixed(1)}s | ${fairness}`);
             L('DEATH', `Enemies: ${d.enemyTypes.join(', ')}`);
-            L('DEATH', `Followers alive=${aliveSquad} firing=${d.followersFiring}`);
+            L('DEATH', `Followers alive=${aliveFollowerCount} engaging=${d.followersEngaged} firing=${d.followersFiring}`);
             tracker.add(fairness === 'fair' ? 'low' : 'high', 'combat', `Death: ${fairness}`, d);
             outcome = 'defeat'; break;
         }
@@ -866,13 +1174,18 @@ async function runMission(mission) {
 
         // ── 11. STUCK ────────────────────────────────────
         const md = dist(leader.x, leader.y, prevLeaderPos.x, prevLeaderPos.y);
+        const closeThreat = (tickResult.enemySnap || []).some(e => e.distToLeader < 220);
+        const combatAnchored = action?.type === 'combat'
+            || action?.type === 'retreat'
+            || action?.goal === 'hunt'
+            || (tickResult.weapon?.ammo?.overheated === true && closeThreat);
         if (md > 5) {
             prevLeaderPos = { x: leader.x, y: leader.y };
             lastMoveTime = Date.now();
             stuckCount = 0;
         } else if (Date.now() - lastMoveTime > STUCK_MS) {
             stuckCount++;
-            if (stuckCount <= 3) {
+            if (!combatAnchored && stuckCount <= 3) {
                 const screenshotPath = path.join(OUT, `bot-${mission}-stuck-${stuckCount}.png`);
                 await page.screenshot({ path: screenshotPath });
                 L('WARN', `STUCK (${leader.x},${leader.y}) ${((Date.now()-lastMoveTime)/1000).toFixed(1)}s - screenshot: ${screenshotPath}`);
@@ -1041,7 +1354,7 @@ function printReport(results) {
             for (const d of r.deathAnalysis) {
                 p(`    ${d.time}s | Fairness: ${d.fairness}`);
                 p(`    Enemies: ${d.enemyTypes?.join(', ') || 'none'}`);
-                p(`    Followers: alive=${d.followersAlive} firing=${d.followersFiring}`);
+                p(`    Followers: alive=${d.followersAlive} engaging=${d.followersEngaged ?? d.followersFiring} firing=${d.followersFiring}`);
                 p(`    P=${d.pressure} W=${d.wave} K=${d.totalKills}`);
             }
         }
@@ -1056,7 +1369,7 @@ function printReport(results) {
         if (bursts.length > 0) {
             p('\n  BURST DAMAGE:');
             for (const d of bursts.slice(0,5))
-                p(`    ${d.time}s: -${d.dmg}HP→${d.hpAfter} | ${d.closestEnemy?.type||'?'}@${d.closestEnemy?.dist||'?'}px | firing:${d.followersFiring}/${d.followersAlive}`);
+                p(`    ${d.time}s: -${d.dmg}HP→${d.hpAfter} | ${d.closestEnemy?.type||'?'}@${d.closestEnemy?.dist||'?'}px | engaging:${d.followersEngaged ?? d.followersFiring}/${d.followersAlive}`);
         }
 
         if (r.consoleErrors?.length > 0) {

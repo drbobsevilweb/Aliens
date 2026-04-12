@@ -171,6 +171,10 @@ export class SetpieceSystem {
         if (s.isStagingSafeActive(time)) return;
         if (!s.enemyManager || s.stageFlow.isEnded()) return;
         if (s.stageFlow.state === 'intermission') return;
+        if (s.shouldApplySurvivalRelief(marines)) {
+            this.nextCorridorSetpieceAt = time + Phaser.Math.Between(6000, 9000);
+            return;
+        }
         if (time < this.nextCorridorSetpieceAt) return;
         
         // Use reinforcementSystem's spawn throttle

@@ -51,6 +51,29 @@ async function readJson(page, url, key) {
         pass = false;
     }
 
+    const editorGameHref = await page.getAttribute('nav.dev-nav a[href^="/game"]', 'href');
+    if (editorGameHref !== '/game?package=local') {
+        console.error(`[test] FAIL: editor Game nav should point at /game?package=local, got ${editorGameHref || 'missing'}`);
+        pass = false;
+    }
+
+    await page.click('nav.dev-nav a[href^="/game"]');
+    await page.waitForURL(/\/game\/?.*package=local/, { timeout: 20000 });
+    await page.waitForTimeout(5000);
+    const navRuntime = await page.evaluate(() => {
+        const scene = window.__ALIENS_DEBUG_SCENE__;
+        if (!scene) return { sceneFound: false };
+        return {
+            sceneFound: true,
+            tilemapSource: scene.tilemapSourceLabel,
+        };
+    });
+
+    if (!navRuntime.sceneFound || navRuntime.tilemapSource !== 'PACKAGE') {
+        console.error(`[test] FAIL: editor Game nav did not load PACKAGE (${JSON.stringify(navRuntime)})`);
+        pass = false;
+    }
+
     await page.goto(GAME_URL, { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(5000);
     const runtime = await page.evaluate(() => {

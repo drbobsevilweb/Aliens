@@ -1,0 +1,45 @@
+nohup: ignoring input
+
+══════════════════════════════════════════════════════════════════════
+  ALIENS PLAYTEST BOT — COMPREHENSIVE REPORT
+══════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────
+  MISSION: m1  |  OUTCOME: state_lost  |  125.3s
+──────────────────────────────────────────────────────────────────────
+  HP: 0/0  Squad: 0/0  Kills: 8  MaxHostiles: 11
+  Modes: combat
+
+  ISSUES (3):
+    [CRITICAL] (1):
+      [error] 20 consecutive eval failures
+    [MEDIUM] (2):
+      [follower] tech idle with 2 reachable enemies < 350px
+      [combat] Combat stall: 61 ticks (24s) near enemies without kills
+
+  CHECKS:
+    ✓ boot: PASS (1/1)
+        Game booted and initialized
+    ✓ tracker: PASS (315/315)
+        Tracker activation command accepted
+        Tracker reported 1 contact(s)
+        Tracker cooldown observed (29s)
+    ✓ spawn: PASS (1/1)
+        Clean
+    ✗ completion: FAIL (0/1)
+        Outcome: state_lost
+
+  FOLLOWER DEATHS:
+    14.9s: 2 (tech,medic) | 6 enemies | P=0.24
+    15.3s: 1 (heavy) | 6 enemies | P=0.24
+
+══════════════════════════════════════════════════════════════════════
+  OVERALL
+──────────────────────────────────────────────────────────────────────
+  1 missions | 0 victory | 0 defeat
+  3 issues (1 critical, 0 high)
+  CRITICAL
+══════════════════════════════════════════════════════════════════════
+
+Results: /home/drevilbob/Aliens/output/bot-playtest-results.json
+Report:  /home/drevilbob/Aliens/output/bot-report.txt

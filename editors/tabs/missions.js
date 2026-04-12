@@ -58,6 +58,33 @@ const EVENT_TRIGGER_TYPES = [
 
 const STAGE_VALUES = ['combat', 'intermission', 'extract', 'victory', 'defeat'];
 
+const DIRECTION_OPTIONS = [
+    { value: '', label: 'Auto / Random' },
+    { value: 'N', label: 'North' },
+    { value: 'S', label: 'South' },
+    { value: 'E', label: 'East' },
+    { value: 'W', label: 'West' },
+];
+
+const DOOR_ACTION_OPTIONS = [
+    { value: 'open', label: 'Open' },
+    { value: 'close', label: 'Close' },
+    { value: 'lock', label: 'Lock' },
+    { value: 'weld', label: 'Weld' },
+];
+
+const DOOR_STATE_OPTIONS = [
+    { value: 'open', label: 'Open' },
+    { value: 'close', label: 'Close' },
+    { value: 'lock', label: 'Lock' },
+    { value: 'weld', label: 'Weld' },
+];
+
+const BOSS_TYPE_OPTIONS = [
+    { value: 'queen', label: 'Queen' },
+    { value: 'queenLesser', label: 'Lesser Queen' },
+];
+
 const KNOWN_SOUND_KEYS = [
     'pulse_rifle_short', 'pulse_rifle_long', 'motion_tracker_beep',
     'alien_screech', 'alien_hiss', 'door_open', 'door_close',
@@ -109,7 +136,7 @@ const ACTION_PARAM_DEFS = {
     spawn_pack: [
         { key: 'count', label: 'Count', type: 'number', default: 3 },
         { key: 'types', label: 'Enemy types (comma-sep)', type: 'text', default: 'warrior' },
-        { key: 'sector', label: 'Sector (N/S/E/W)', type: 'text', default: '' },
+        { key: 'sector', label: 'Sector (N/S/E/W)', type: 'text', default: '', options: DIRECTION_OPTIONS },
     ],
     text_cue: [
         { key: 'text', label: 'Text', type: 'text', default: '' },
@@ -162,25 +189,25 @@ const ACTION_PARAM_DEFS = {
         { key: 'intensity', label: 'Intensity (0-1)', type: 'number', default: 0.5 },
     ],
     door_action: [
-        { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
-        { key: 'action', label: 'Action', type: 'text', default: 'open' },
+        { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
+        { key: 'action', label: 'Action', type: 'text', default: 'open', options: DOOR_ACTION_OPTIONS },
     ],
     door_state: [
-        { key: 'doorId', label: 'Door ID', type: 'text', default: '' },
-        { key: 'state', label: 'State', type: 'text', default: 'open' },
+        { key: 'doorId', label: 'Door ID', type: 'text', default: '', optionsSource: 'doorIds' },
+        { key: 'state', label: 'State', type: 'text', default: 'open', options: DOOR_STATE_OPTIONS },
     ],
     edge_cue: [
-        { key: 'dir', label: 'Direction', type: 'text', default: 'N' },
+        { key: 'dir', label: 'Direction', type: 'text', default: 'N', options: DIRECTION_OPTIONS },
         { key: 'text', label: 'Text', type: 'text', default: '' },
     ],
     trigger_tracker: [],
     start_tracker: [],
     spawn_queen: [
-        { key: 'sector', label: 'Sector', type: 'text', default: '' },
+        { key: 'sector', label: 'Sector', type: 'text', default: '', options: DIRECTION_OPTIONS },
     ],
     spawn_boss: [
-        { key: 'type', label: 'Boss type', type: 'text', default: 'queen' },
-        { key: 'sector', label: 'Sector', type: 'text', default: '' },
+        { key: 'type', label: 'Boss type', type: 'text', default: 'queen', options: BOSS_TYPE_OPTIONS },
+        { key: 'sector', label: 'Sector', type: 'text', default: '', options: DIRECTION_OPTIONS },
     ],
 };
 
@@ -525,12 +552,126 @@ function renderParamsSection(action, params) {
     }
     return defs.map((def) => {
         const val = params?.[def.key] ?? def.default ?? '';
-        const inputType = def.type === 'number' ? 'number' : 'text';
         return `<div class="field-row gap-4" style="margin-bottom:4px;">
             <label style="width:130px;flex-shrink:0;">${escapeHtml(def.label)}</label>
-            <input type="${inputType}" data-param="${escapeHtml(def.key)}" value="${escapeHtml(String(val))}" style="flex:1;min-width:60px;">
+            ${renderParamInput(def, val)}
         </div>`;
     }).join('');
+}
+
+function renderParamInput(def, value) {
+    if (def.optionsSource === 'doorIds') {
+        const options = buildDoorIdOptions(value);
+        return renderSelectInput(def.key, value, [
+            { value: '', label: options.length ? 'Select runtime door...' : 'No runtime doors found' },
+            ...options,
+        ]);
+    }
+    if (Array.isArray(def.options) && def.options.length) {
+        return renderSelectInput(def.key, value, normalizeSelectOptions(def.options, value));
+    }
+    const inputType = def.type === 'number' ? 'number' : 'text';
+    return `<input type="${inputType}" data-param="${escapeHtml(def.key)}" value="${escapeHtml(String(value))}" style="flex:1;min-width:60px;">`;
+}
+
+function renderSelectInput(key, value, options) {
+    return `<select data-param="${escapeHtml(key)}" style="flex:1;min-width:60px;">${options.map((option) => {
+        const optionValue = String(option?.value ?? '');
+        const optionLabel = String(option?.label ?? optionValue);
+        return `<option value="${escapeHtml(optionValue)}" ${String(value ?? '') === optionValue ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
+    }).join('')}</select>`;
+}
+
+function normalizeSelectOptions(options, selectedValue) {
+    const normalized = [];
+    const seen = new Set();
+    for (const option of options) {
+        const value = String(option?.value ?? option ?? '');
+        if (seen.has(value)) continue;
+        seen.add(value);
+        normalized.push({ value, label: String(option?.label ?? value) });
+    }
+    const selected = String(selectedValue ?? '');
+    if (selected && !seen.has(selected)) {
+        normalized.push({ value: selected, label: `${selected} (custom)` });
+    }
+    return normalized;
+}
+
+function buildDoorIdOptions(selectedValue = '') {
+    return normalizeSelectOptions(collectRuntimeDoorIdOptions(editorState), selectedValue).sort(compareRuntimeDoorIds);
+}
+
+function collectRuntimeDoorIdOptions(state) {
+    const tilemaps = Array.isArray(state?.tilemaps) ? state.tilemaps : [];
+    const ids = new Map();
+    for (const tilemap of tilemaps) {
+        const components = collectDoorComponents(tilemap?.doors);
+        let index = 0;
+        for (const component of components) {
+            if (!getDoorOrientation(component.tiles)) continue;
+            const value = `auto_door_${index + 1}`;
+            if (!ids.has(value)) ids.set(value, { value, label: value });
+            index += 1;
+        }
+    }
+    return [...ids.values()];
+}
+
+function compareRuntimeDoorIds(a, b) {
+    const aValue = String(a?.value ?? a ?? '');
+    const bValue = String(b?.value ?? b ?? '');
+    const aMatch = aValue.match(/^auto_door_(\d+)$/);
+    const bMatch = bValue.match(/^auto_door_(\d+)$/);
+    if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+    if (aMatch) return -1;
+    if (bMatch) return 1;
+    return aValue.localeCompare(bValue);
+}
+
+function collectDoorComponents(doorGrid) {
+    if (!Array.isArray(doorGrid) || !doorGrid.length || !Array.isArray(doorGrid[0])) return [];
+    const h = doorGrid.length;
+    const w = doorGrid[0].length;
+    const visited = Array.from({ length: h }, () => Array(w).fill(false));
+    const groups = [];
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const value = Number(doorGrid[y]?.[x]) || 0;
+            if (value <= 0 || visited[y][x]) continue;
+            const queue = [{ x, y }];
+            const tiles = [];
+            visited[y][x] = true;
+            while (queue.length) {
+                const current = queue.shift();
+                tiles.push(current);
+                const neighbors = [
+                    { x: current.x + 1, y: current.y },
+                    { x: current.x - 1, y: current.y },
+                    { x: current.x, y: current.y + 1 },
+                    { x: current.x, y: current.y - 1 },
+                ];
+                for (const neighbor of neighbors) {
+                    if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= w || neighbor.y >= h) continue;
+                    if (visited[neighbor.y][neighbor.x]) continue;
+                    if ((Number(doorGrid[neighbor.y]?.[neighbor.x]) || 0) !== value) continue;
+                    visited[neighbor.y][neighbor.x] = true;
+                    queue.push(neighbor);
+                }
+            }
+            tiles.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+            groups.push({ value, tiles });
+        }
+    }
+    return groups;
+}
+
+function getDoorOrientation(tiles) {
+    if (!Array.isArray(tiles) || tiles.length !== 2) return '';
+    const [a, b] = tiles;
+    if (a.x === b.x && Math.abs(a.y - b.y) === 1) return 'vertical';
+    if (a.y === b.y && Math.abs(a.x - b.x) === 1) return 'horizontal';
+    return '';
 }
 
 function renderEventCard(evt, index) {
@@ -736,8 +877,9 @@ function render() {
                         <button class="btn btn-secondary" id="missions-publish">Publish Package</button>
                         <button class="btn btn-ghost" id="missions-reload">Reload From Disk</button>
                         <hr class="divider">
+                        <button class="btn btn-secondary" id="missions-open-actions">Open Actions Tab</button>
                         <button class="btn btn-ghost" id="missions-open-legacy">Open Legacy Graph Editor</button>
-                        <div class="small">Advanced graph/node authoring from Claude's current pass still lives in the legacy workspace until it is ported here.</div>
+                        <div class="small">Use the live Actions tab for node graph editing in the modular editor. The legacy workspace remains available only for older flows that still need it.</div>
                     </div>
                 </div>
             </aside>
@@ -878,6 +1020,14 @@ function bindEvents() {
         });
     });
 
+    rootEl.querySelector('#missions-open-actions')?.addEventListener('click', () => {
+        if (typeof window.switchTab === 'function') {
+            window.switchTab('story');
+        } else {
+            API.toast('Actions tab switch is unavailable in this shell', 'error');
+        }
+    });
+
     rootEl.querySelector('#missions-open-legacy')?.addEventListener('click', () => {
         window.open('/editors/index.html.old', 'aliens_legacy_editor');
     });
@@ -955,7 +1105,7 @@ function bindCardEvents() {
                     if (paramsContainer) {
                         paramsContainer.innerHTML = renderParamsSection(actionSelect.value, {});
                         // Bind dirty on new inputs
-                        paramsContainer.querySelectorAll('input').forEach((el) => {
+                        paramsContainer.querySelectorAll('input, select').forEach((el) => {
                             el.addEventListener('input', () => markDirty());
                         });
                     }

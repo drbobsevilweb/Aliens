@@ -297,17 +297,62 @@ export class GameScene extends Phaser.Scene {
 
     normalizeMissionWavesForFullStart(missionWaves) {
         const waves = Array.isArray(missionWaves) ? missionWaves : [];
-        const normalized = [];
-        for (const wave of waves) {
-            if (!Array.isArray(wave) || wave.length <= 0) continue;
+        return waves.map((wave) => {
+            if (!Array.isArray(wave)) return [];
             const nextWave = [];
             for (const spawn of wave) {
                 if (!spawn || typeof spawn !== 'object') continue;
                 nextWave.push({ ...spawn });
             }
-            if (nextWave.length > 0) normalized.push(nextWave);
+            return nextWave;
+        });
+    }
+
+    buildAuthoredSpawnSchedule(spawnPoints = []) {
+        if (!Array.isArray(spawnPoints)) return [];
+        return spawnPoints
+            .filter((point) => point && typeof point === 'object'
+                && Number.isFinite(Number(point.tileX))
+                && Number.isFinite(Number(point.tileY))
+                && Number(point.count) >= 1
+                && (Number(point.spawnTimeSec) || 0) > 0)
+            .map((point, index) => ({
+                ...point,
+                spawnTimeSec: Math.max(0, Number(point.spawnTimeSec) || 0),
+                dispatched: false,
+                scheduleId: `${point.tileX},${point.tileY}:${index}`,
+            }))
+            .sort((a, b) => a.spawnTimeSec - b.spawnTimeSec);
+    }
+
+    areAllEnemySpawnsSuppressed() {
+        return this.blockAllEnemySpawns === true;
+    }
+
+    areAmbientEnemySpawnsSuppressed() {
+        return this.suppressAmbientEnemySpawns === true;
+    }
+
+    getPendingAuthoredSpawnScheduleCount() {
+        return (this.authoredSpawnSchedule || []).filter((point) => point?.dispatched !== true).length;
+    }
+
+    spawnScheduledAuthoredPointsDue(time) {
+        if (this.areAllEnemySpawnsSuppressed() || !Array.isArray(this.authoredSpawnSchedule) || this.authoredSpawnSchedule.length <= 0) return 0;
+        const sessionStartTime = Number.isFinite(this.sessionStartTime) ? this.sessionStartTime : time;
+        const elapsedSec = Math.max(0, (time - sessionStartTime) / 1000);
+        let totalSpawned = 0;
+        for (const point of this.authoredSpawnSchedule) {
+            if (!point || point.dispatched === true) continue;
+            if (elapsedSec + 0.0001 < (Number(point.spawnTimeSec) || 0)) break;
+            point.dispatched = true;
+            totalSpawned += this.enemyManager?.spawner?.spawnFromAuthoredPoints?.(
+                [point],
+                Math.max(1, this.stageFlow?.currentWave || 1),
+                1
+            ) || 0;
         }
-        return normalized.length > 0 ? normalized : [[]];
+        return totalSpawned;
     }
 
     getMarineAmmoState(role = 'leader') {
@@ -414,7 +459,13 @@ export class GameScene extends Phaser.Scene {
         this.activeMission = missionLayout.mission;
         // ?noaliens flag: zero out waves + disable all spawning for clean map testing
         this.noAliens = new URLSearchParams(window.location.search).has('noaliens');
-        this.activeMissionWaves = this.noAliens ? [] : this.normalizeMissionWavesForFullStart(missionLayout.missionWaves);
+        this.requireAuthoredAlienSpawns = missionLayout.requireAuthoredAlienSpawns === true;
+        this.hasAuthoredAlienSpawnPoints = Array.isArray(missionLayout.spawnPoints) && missionLayout.spawnPoints.length > 0;
+        this.blockAllEnemySpawns = this.noAliens
+            || (this.requireAuthoredAlienSpawns && !this.hasAuthoredAlienSpawnPoints);
+        this.suppressAmbientEnemySpawns = this.noAliens || this.requireAuthoredAlienSpawns;
+        this.activeMissionWaves = this.blockAllEnemySpawns ? [] : this.normalizeMissionWavesForFullStart(missionLayout.missionWaves);
+        this.authoredSpawnSchedule = this.blockAllEnemySpawns ? [] : this.buildAuthoredSpawnSchedule(missionLayout.spawnPoints);
         this.forceWarriorOnly = missionLayout.forceWarriorOnly === true;
         this.missionFlow = new MissionFlow(this.activeMission, missionLayout.tilemap, {
             warriorOnly: this.forceWarriorOnly,
@@ -567,7 +618,7 @@ export class GameScene extends Phaser.Scene {
         );
         this.stageFlow = new StageFlow(this.activeMissionWaves.length);
         this.stageFlow.eventBus = this.eventBus;
-        if (!this.noAliens && this.activeMissionWaves.length > 0) {
+        if (!this.areAllEnemySpawnsSuppressed() && this.activeMissionWaves.length > 0) {
             // Unified opening: missionWaves[0] already incorporates authored spawn points
             // (positions and counts) when they exist — see buildMissionWaves() in missionLayout.js.
             this.enemyManager.spawnWave(this.activeMissionWaves[0], 1);
@@ -2146,12 +2197,15 @@ export class GameScene extends Phaser.Scene {
             })),
             tracker: {
                 active: this.isMotionTrackerActive?.(time) === true,
+                classification: String(this.motionTracker?._signalProfile?.classification || 'none'),
                 contacts: contacts.slice(0, 12).map((c) => ({
                     x: Math.round(Number(c?.x) || 0),
                     y: Math.round(Number(c?.y) || 0),
                     confidence: Number((Number(c?.confidence) || 0).toFixed(2)),
                     speed: Math.round(Number(c?.speed) || 0),
                     echo: c?.isEcho === true,
+                    phantom: c?.isPhantom === true,
+                    vent: c?.vent === true,
                 })),
             },
             combat: {
@@ -2458,7 +2512,13 @@ export class GameScene extends Phaser.Scene {
         this.combatMods = this.updateCombatDirector(time, delta, marines);
 
         // Dynamic alien spawning based on CombatDirector idle tension
-        if (this.combatDirector && this.enemyManager && !this.noAliens && this.stageFlow?.state !== 'extract') {
+        if (
+            this.combatDirector
+            && this.enemyManager
+            && !this.areAmbientEnemySpawnsSuppressed()
+            && this.stageFlow?.state !== 'extract'
+            && !this.shouldApplySurvivalRelief(marines)
+        ) {
             const dynamicCount = this.combatDirector.getDynamicSpawnCount(time);
             if (dynamicCount > 0) {
                 const spawned = this.enemyManager.spawner.spawnDynamic(dynamicCount, marines, 1);
@@ -2529,9 +2589,9 @@ export class GameScene extends Phaser.Scene {
         }
         const aliveHostilesBeforeStageFlow = this.enemyManager.getAliveCount();
         const allowBackgroundSpawnsThisFrame = aliveHostilesBeforeStageFlow > 0;
-        if (!this.noAliens && allowBackgroundSpawnsThisFrame) this.reinforcementSystem.update(time, marines);
-        if (!this.noAliens && allowBackgroundSpawnsThisFrame) this.setpieceSystem.updateCorridorSetpieces(time, marines);
-        if (allowBackgroundSpawnsThisFrame) this.updateMissionDirectorEvents(time, marines);
+        if (!this.areAmbientEnemySpawnsSuppressed() && allowBackgroundSpawnsThisFrame) this.reinforcementSystem.update(time, marines);
+        if (!this.areAmbientEnemySpawnsSuppressed() && allowBackgroundSpawnsThisFrame) this.setpieceSystem.updateCorridorSetpieces(time, marines);
+        if (!this.areAmbientEnemySpawnsSuppressed() && allowBackgroundSpawnsThisFrame) this.updateMissionDirectorEvents(time, marines);
         this.commanderSystem.updateOverlay(time, marines);
 
         const shadowCasters = this.buildMarineShadowCasters(marines).concat(this.enemyManager.getShadowCasters());
@@ -2660,7 +2720,8 @@ export class GameScene extends Phaser.Scene {
                 && (!usesPulseMagazine || this.weaponManager.pulseAmmo > 0);
 
             if (canFireLeader) {
-                const fired = this.weaponManager.fire(this.leader.x, this.leader.y, fireAngle, time, {
+                const muzzleWorld = this.resolveMuzzleWorldPos(this.leader, fireAngle, weaponKey);
+                const fired = this.weaponManager.fire(muzzleWorld.x, muzzleWorld.y, fireAngle, time, {
                     ownerRoleKey: 'leader',
                     fireRateMul,
                     angleJitter: angleJitterBase * spreadMul,
@@ -2681,7 +2742,6 @@ export class GameScene extends Phaser.Scene {
                     } else {
                         ammoState.isFiring = false;
                     }
-                    this.enemyManager.notifyGunfire(this.leader.x, this.leader.y, time, 1.2);
                     this.eventBus?.emit('playerFired', { x: this.leader.x, y: this.leader.y, weaponKey, time });
                     if (weaponKey === 'pulseRifle') this.lastLeaderPulseShotAt = time;
                     this.applyLeaderShotKick(weaponKey, time, {
@@ -2689,9 +2749,9 @@ export class GameScene extends Phaser.Scene {
                         pressure: leaderDynamics.pressure,
                         momentum,
                     });
-                    this.reinforcementSystem.noteGunfireEvent(time);
+                    this.noteGunfireEvent(time);
                     this.reinforcementSystem.reinforcementAt = time; 
-                    this.reinforcementSystem.markCombatAction(time);
+                    this.markCombatAction(time);
                     this.reinforcementSystem.tryGunfireReinforcement(time, this.leader.x, this.leader.y, marines);
                     this.emitWeaponFlashAndStimulus(
                         this.leader.x,
@@ -2715,7 +2775,14 @@ export class GameScene extends Phaser.Scene {
         this.emitContinuousLeaderPulseFlash(time);
         this.updateLeaderWeaponAudioState(time, trackerLeaderBusy, healLeaderBusy);
 
-        let stage = this.stageFlow.update(time, this.leader.health, this.enemyManager.getAliveCount());
+        if (!this.stageFlow?.isEnded?.() && this.stageFlow?.state !== 'extract') {
+            this.spawnScheduledAuthoredPointsDue(time);
+        }
+
+        const pendingAuthoredSpawnCount = this.getPendingAuthoredSpawnScheduleCount();
+        const aliveEnemyCount = this.enemyManager.getAliveCount();
+        const stageEnemyCount = aliveEnemyCount + (pendingAuthoredSpawnCount > 0 ? 1 : 0);
+        let stage = this.stageFlow.update(time, this.leader.health, stageEnemyCount);
         if (this.stageFlow.consumeWaveAdvance()) {
             const waveIndex = this.stageFlow.currentWave - 1;
             this.enemyManager.spawnWave(this.activeMissionWaves[waveIndex], this.stageFlow.currentWave);
@@ -3320,7 +3387,20 @@ export class GameScene extends Phaser.Scene {
 
     getTrackerSignalProfile(contacts) {
         if (!Array.isArray(contacts) || contacts.length <= 0) {
-            return { confidence: 0, proximity: 0 };
+            return { confidence: 0, proximity: 0, classification: 'none' };
+        }
+        if (this.motionTracker && typeof this.motionTracker._summarizeConeContacts === 'function') {
+            const summary = this.motionTracker._summarizeConeContacts(
+                this.leader.x,
+                this.leader.y,
+                contacts,
+                this.motionTracker.range || 1472
+            );
+            return {
+                confidence: summary.confidence,
+                proximity: summary.proximity,
+                classification: summary.classification,
+            };
         }
         let topConfidence = 0;
         let bestProximity = 0;
@@ -3332,7 +3412,7 @@ export class GameScene extends Phaser.Scene {
             const prox = Phaser.Math.Clamp(1 - (dist / Math.max(1, this.motionTracker?.range || 420)), 0, 1);
             bestProximity = Math.max(bestProximity, prox);
         }
-        return { confidence: topConfidence, proximity: bestProximity };
+        return { confidence: topConfidence, proximity: bestProximity, classification: topConfidence >= 0.72 ? 'confirmed' : 'tracked' };
     }
 
     /**
@@ -3350,7 +3430,7 @@ export class GameScene extends Phaser.Scene {
         }
         // Only inject phantoms during 'build' state with few real contacts
         if (!this._nextPhantomBlipAt) this._nextPhantomBlipAt = 0;
-        if (this.combatMods?.state === 'build' && realContacts.length < 3 && !this.noAliens) {
+        if (this.combatMods?.state === 'build' && realContacts.length < 3 && !this.areAmbientEnemySpawnsSuppressed()) {
             if (time >= this._nextPhantomBlipAt) {
                 // Spawn 1-2 phantom blips at random walkable positions 6-14 tiles away
                 const count = Math.random() < 0.3 ? 2 : 1;
@@ -5086,14 +5166,16 @@ updateAtmosphereOverlay(_time = this.time.now) {
             if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) continue;
             const radius = Math.max(8, Number(sprite?._roomPropRadius) || 18);
             const kind = String(sprite?._propType || sprite?.texture?.key || 'prop');
+            const blocksPath = sprite?._blocksPath !== false;
             const blocksLight = sprite?._blocksLight !== false;
-            if (this.pathGrid) this.pathGrid.setWalkable(tileX, tileY, false);
+            if (blocksPath && this.pathGrid) this.pathGrid.setWalkable(tileX, tileY, false);
             if (blocksLight && this.lightBlockerGrid) this.lightBlockerGrid.setTileBlocking(tileX, tileY, true);
             this.roomProps.push({
                 kind,
                 tileX,
                 tileY,
                 sprite,
+                blocksPath,
                 blocksLight,
                 radius,
             });
@@ -5385,10 +5467,13 @@ updateAtmosphereOverlay(_time = this.time.now) {
             const shotPulse = Phaser.Math.Clamp(1 - (shotAge / 125), 0, 1);
             const pointer = this.input?.mousePointer || this.input?.activePointer;
             const pointerDown = !!(pointer && pointer.isDown && pointer.rightButtonDown && pointer.rightButtonDown());
+            const pulseAmmo = Number(this.weaponManager?.pulseAmmo) || 0;
             const leaderPulseActive = isLeader
                 && pointerDown
                 && this.inputHandler?.isFiring
-                && (this.weaponManager?.currentWeaponKey || 'pulseRifle') === 'pulseRifle';
+                && (this.weaponManager?.currentWeaponKey || 'pulseRifle') === 'pulseRifle'
+                && this.weaponManager?.isOverheated !== true
+                && pulseAmmo > 0;
             // Keep sustained pulse-rifle glow tied to actual recent shots instead of a constant hold flare.
             const holdPulse = leaderPulseActive
                 ? Phaser.Math.Clamp(1 - (shotAge / 175), 0, 1) * (0.3 + 0.22 * Math.sin(now * 0.08 + marine.lightBobSeed))
@@ -5428,7 +5513,6 @@ updateAtmosphereOverlay(_time = this.time.now) {
             entry.x = shoulderAnchor.x + bobX;
             entry.y = shoulderAnchor.y + bobY;
             entry.angle = torchAngle;
-            entry.halfAngle = (lighting.torchConeHalfAngle ?? CONFIG.TORCH_CONE_HALF_ANGLE) * beamWidthMul * (1 + lightFirePulse * 1.35);
             entry.range = (lighting.torchRange ?? CONFIG.TORCH_RANGE) * beamRangeMul * (1 + lightFirePulse * 0.34);
             entry.kind = 'torch';
             entry.flareAngleBias = flareAngleBias;
@@ -5703,6 +5787,8 @@ updateAtmosphereOverlay(_time = this.time.now) {
         if (!this.leader || !this.inputHandler?.isFiring) return;
         if ((this.weaponManager?.currentWeaponKey || 'pulseRifle') !== 'pulseRifle') return;
         if (time < (Number(this.weaponManager?.jamUntil) || 0)) return;
+        if (this.weaponManager?.isOverheated === true) return;
+        if ((Number(this.weaponManager?.pulseAmmo) || 0) <= 0) return;
         const angle = this.leader.facingAngle ?? this.leader.rotation;
         const muzzle = this.resolveMuzzleWorldPos(this.leader, angle, 'pulseRifle');
         this.spawnPulseMuzzleEllipseFlash(muzzle.x, muzzle.y, angle, time, this.leader);
@@ -6526,12 +6612,16 @@ updateAtmosphereOverlay(_time = this.time.now) {
         state.fired = true;
         state.firedAt = time;
         const world = this.tileToWorldCenter(point.tileX, point.tileY);
-        const color = String(point.kind || '').toLowerCase() === 'objective' ? '#ffde8a' : '#9be8ff';
+        const kind = String(point.kind || 'story').trim().toLowerCase() || 'story';
+        const title = String(point.title || '').trim();
+        const note = String(point.note || '').trim();
+        const missionId = String(point.missionId || this.activeMission?.id || 'all').trim() || 'all';
+        const color = kind === 'objective' ? '#ffde8a' : '#9be8ff';
         const message = this.getMissionStoryPointMessage(point);
         this.storyPointTriggerHistory = Array.isArray(this.storyPointTriggerHistory) ? this.storyPointTriggerHistory : [];
         this.storyPointTriggerHistory.push({
             id: String(point.id),
-            kind: String(point.kind || 'story'),
+            kind,
             message,
             firedAt: time,
             tileX: point.tileX,
@@ -6539,12 +6629,36 @@ updateAtmosphereOverlay(_time = this.time.now) {
         });
         this.lastTriggeredStoryPoint = {
             id: String(point.id),
-            kind: String(point.kind || 'story'),
+            kind,
             message,
             firedAt: time,
             tileX: point.tileX,
             tileY: point.tileY,
         };
+        const payload = {
+            id: String(point.id),
+            kind,
+            title,
+            note,
+            message,
+            missionId,
+            firedAt: time,
+            tileX: point.tileX,
+            tileY: point.tileY,
+            worldX: world.x,
+            worldY: world.y,
+            point: {
+                id: String(point.id),
+                kind,
+                title,
+                note,
+                missionId,
+                tileX: point.tileX,
+                tileY: point.tileY,
+            },
+        };
+        this.eventBus?.emit('storyPointTriggered', payload);
+        this.eventBus?.emit('missionStoryPointTriggered', payload);
         this.showFloatingText(world.x, world.y - 28, message.toUpperCase(), color);
         return true;
     }
@@ -6650,6 +6764,7 @@ updateAtmosphereOverlay(_time = this.time.now) {
         const action = String(event?.action || '').trim().toLowerCase();
         const params = (event?.params && typeof event.params === 'object') ? event.params : {};
         if (action === 'spawn_pack') {
+            if (this.areAmbientEnemySpawnsSuppressed()) return false;
             const spawned = this.setpieceSystem.spawnDirectorPack(params, time, marines);
             if (spawned > 0 && params.textCue) {
                 this.showFloatingText(this.leader.x, this.leader.y - 42, String(params.textCue), '#a9d8ff');
@@ -6809,6 +6924,7 @@ updateAtmosphereOverlay(_time = this.time.now) {
             return true;
         }
         if (action === 'spawn_queen' || action === 'spawn_boss') {
+            if (this.areAmbientEnemySpawnsSuppressed()) return false;
             if (this.isStagingSafeActive(time)) return false;
             const queenType = String(params.type || '').toLowerCase().trim();
             if (queenType === 'queenlesser' || queenType === 'lesser' || queenType === 'queen_lesser') {
@@ -6898,9 +7014,14 @@ updateAtmosphereOverlay(_time = this.time.now) {
     }
 
     updateVentSwarmAmbush(time, marines) {
+        if (this.areAmbientEnemySpawnsSuppressed()) return;
         if (!this.enemyManager || this.stageFlow?.isEnded?.()) return;
         if (this.stageFlow?.state === 'extract') return;
         if (this.isStagingSafeActive(time)) return;
+        if (this.shouldApplySurvivalRelief(marines)) {
+            this.nextVentSwarmAt = time + Phaser.Math.Between(9800, 14800);
+            return;
+        }
         if (time < (this.nextVentSwarmAt || 0)) return;
         const pressure = Phaser.Math.Clamp(Number(this.combatMods?.pressure) || this.getCombatPressure(), 0, 1);
         const missionId = String(this.activeMission?.id || 'm1');
@@ -7072,18 +7193,25 @@ updateAtmosphereOverlay(_time = this.time.now) {
         return this.commanderSystem.getRoleAssignedLane(roleKey, laneDirective);
     }
 
+    getCommanderTacticalProfile(text = '') {
+        return this.commanderSystem.getDirectiveTacticalProfile(text);
+    }
+
     updateCommanderOverlay(time = this.time.now, marines = null) {
         this.commanderSystem.updateOverlay(time, marines);
     }
 
     updateCommandFormationDirective(time = this.time.now) {
         const active = time <= (this.commandFormationUntil || 0);
-        if (active === this.commandFormationActive) return;
         if (!this.squadSystem || !this.commandFormationBase) return;
+        const tacticProfile = this.getCommanderTacticalProfile(this.currentCommanderDirective || '');
+        const tacticMode = active ? (tacticProfile.mode || 'none') : 'none';
+        if (active === this.commandFormationActive && tacticMode === (this.commandFormationMode || 'none')) return;
         this.commandFormationActive = active;
+        this.commandFormationMode = tacticMode;
         if (active) {
-            this.squadSystem.minSpacing = Math.max(24, this.commandFormationBase.minSpacing * 0.82);
-            this.squadSystem.snakeCatchupGain = this.commandFormationBase.snakeCatchupGain * 1.2;
+            this.squadSystem.minSpacing = Math.max(24, this.commandFormationBase.minSpacing * (tacticProfile.spacingMul || 0.82));
+            this.squadSystem.snakeCatchupGain = this.commandFormationBase.snakeCatchupGain * (tacticProfile.catchupMul || 1.2);
             this.squadSystem.snakeStaggerMinMs = 250;
             this.squadSystem.snakeStaggerMaxMs = 250;
             this.squadSystem.rebuildSnakeStaggerProfile();
@@ -10514,10 +10642,16 @@ updateAtmosphereOverlay(_time = this.time.now) {
 
         for (let i = 0; i < candidates.length; i++) {
             const { sprite } = candidates[i];
+            const profile = this.getFollowerCombatProfile ? this.getFollowerCombatProfile(sprite.roleKey) : null;
+            const reactionDelayMs = Phaser.Math.Clamp(
+                Math.round(Number(profile?.reactionMs) || 240),
+                140,
+                320
+            );
             // Set reaction state if not already set for this attacker.
             if (sprite._reactionTarget !== attackerAlien) {
                 sprite._reactionTarget = attackerAlien;
-                sprite._reactionDelay = time + 1000;
+                sprite._reactionDelay = time + reactionDelayMs;
             }
 
             // If delay has elapsed and target is still active, inject into combat state.
@@ -10530,6 +10664,10 @@ updateAtmosphereOverlay(_time = this.time.now) {
                         state.lastKnownX = attackerAlien.x;
                         state.lastKnownY = attackerAlien.y;
                         state.lastKnownAt = time;
+                        state.readyAt = Math.min(
+                            Number.isFinite(state.readyAt) ? state.readyAt : (time + reactionDelayMs),
+                            time + Math.max(80, Math.round(reactionDelayMs * 0.4))
+                        );
                     } else {
                         // Guard role: face the threat direction but don't override target.
                         const guardAngle = Phaser.Math.Angle.Between(sprite.x, sprite.y, attackerAlien.x, attackerAlien.y);
@@ -11257,7 +11395,8 @@ updateAtmosphereOverlay(_time = this.time.now) {
 
         d.register('play_sound', (params) => {
             const key = String(params.key || params.sound || '');
-            if (key && this.sfx) this.sfx.playSample(key);
+            const gain = Phaser.Math.Clamp(Number(params.volume) || 0.1, 0, 2);
+            if (key && this.sfx) this.sfx.playKey(key, gain);
         });
 
         d.register('show_text', (params, payload) => {

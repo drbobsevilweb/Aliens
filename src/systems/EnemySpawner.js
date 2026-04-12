@@ -10,6 +10,19 @@ import {
 import { AlienEnemy } from '../entities/AlienEnemy.js';
 import { AlienEgg } from '../entities/AlienEgg.js';
 
+function normalizeAuthoredSpawnEnemyType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const key = raw.toLowerCase();
+    if (key === 'auto' || key === 'random' || key === 'mixed') return null;
+    if (key === 'warrior') return 'warrior';
+    if (key === 'drone') return 'drone';
+    if (key === 'facehugger') return 'facehugger';
+    if (key === 'queenlesser' || key === 'queen_lesser' || key === 'lesserqueen' || key === 'lesser_queen') return 'queenLesser';
+    if (key === 'queen') return 'queen';
+    return null;
+}
+
 export class EnemySpawner {
     constructor(manager) {
         this.manager = manager;
@@ -89,9 +102,10 @@ export class EnemySpawner {
         for (const point of spawnPoints) {
             if (!point || !Number.isFinite(point.tileX) || !Number.isFinite(point.tileY)) continue;
             const count = Math.max(1, Math.round(Number(point.count) || 1));
+            const explicitType = normalizeAuthoredSpawnEnemyType(point.enemyType ?? point.spawnType);
 
             for (let i = 0; i < count; i++) {
-                const type = this._selectTypeForAuthoredSpawn(waveNumber);
+                const type = explicitType || this._selectTypeForAuthoredSpawn(waveNumber);
                 const p = tileToWorld(point.tileX, point.tileY);
                 if (this.spawnEnemyAtWorld(type, p.x, p.y, difficulty)) spawned++;
             }
@@ -138,6 +152,7 @@ export class EnemySpawner {
     }
 
     spawnEnemyAtWorld(type, worldX, worldY, difficulty = 1) {
+        if (this.scene?.areAllEnemySpawnsSuppressed?.()) return null;
         if (this.scene && this.scene.forceWarriorOnly && type !== 'warrior') {
             type = 'warrior';
         }
@@ -340,6 +355,7 @@ export class EnemySpawner {
         if (!grid) return null;
         const roomProps = Array.isArray(this.scene?.roomProps) ? this.scene.roomProps : [];
         const blockedByProp = (x, y) => roomProps.some((p) => {
+            if (p?.blocksPath === false) return false;
             const s = p?.sprite;
             if (!s?.active) return false;
             const d = Phaser.Math.Distance.Between(x, y, s.x, s.y);
@@ -527,6 +543,7 @@ export class EnemySpawner {
         if (!pathGrid) return { x: worldX, y: worldY };
         const roomProps = Array.isArray(this.scene?.roomProps) ? this.scene.roomProps : [];
         const blockedByProp = (x, y) => roomProps.some((p) => {
+            if (p?.blocksPath === false) return false;
             const s = p?.sprite;
             if (!s?.active) return false;
             const d = Phaser.Math.Distance.Between(x, y, s.x, s.y);

@@ -218,6 +218,7 @@ export class ObjectivesPanel {
      */
     update(data, time, delta) {
         this._updateInterference(time);
+        const useWaveObjectives = this.scene.requireAuthoredAlienSpawns !== true;
         // Update cached data
         if (Array.isArray(data.objectiveLines) && data.objectiveLines.length > 0) {
             const newLines = data.objectiveLines.map(l => `[ ${l.toUpperCase()} ]`);
@@ -227,18 +228,24 @@ export class ObjectivesPanel {
                 if (this._isShowing) this._startTypewriter();
             }
         } else {
-            const sf = this.scene.stageFlow;
-            const wavesDone = data.currentWave > data.totalWaves
-                ? data.totalWaves
-                : (data.stage === 'intermission' || data.stage === 'extract' || data.stage === 'victory'
-                    ? Math.max(0, data.currentWave)
-                    : Math.max(0, data.currentWave - 1));
             const clearMark = data.stage === 'extract' || data.stage === 'victory' ? 'X' : ' ';
             const extractMark = data.stage === 'victory' ? 'X' : ' ';
-            const newLines = [
-                `[ ${clearMark} ] CLEAR WAVES ${Math.min(wavesDone, data.totalWaves)}/${data.totalWaves}`,
-                `[ ${extractMark} ] REACH EXTRACTION ZONE`,
-            ];
+            const newLines = useWaveObjectives
+                ? (() => {
+                    const wavesDone = data.currentWave > data.totalWaves
+                        ? data.totalWaves
+                        : (data.stage === 'intermission' || data.stage === 'extract' || data.stage === 'victory'
+                            ? Math.max(0, data.currentWave)
+                            : Math.max(0, data.currentWave - 1));
+                    return [
+                        `[ ${clearMark} ] CLEAR WAVES ${Math.min(wavesDone, data.totalWaves)}/${data.totalWaves}`,
+                        `[ ${extractMark} ] REACH EXTRACTION ZONE`,
+                    ];
+                })()
+                : [
+                    `[ ${clearMark} ] CLEAR HOSTILE CONTACTS`,
+                    `[ ${extractMark} ] REACH EXTRACTION ZONE`,
+                ];
             const combined = newLines.join('\n');
             if (combined !== this._objectiveLines.join('\n')) {
                 this._objectiveLines = newLines;
@@ -248,7 +255,7 @@ export class ObjectivesPanel {
 
         // Update status data
         const sf = this.scene.stageFlow;
-        this._waveText = sf ? `W${sf.getWaveLabel()}` : 'W--';
+        this._waveText = (useWaveObjectives && sf) ? `W${sf.getWaveLabel()}` : 'OBJ';
         this._killCount = Math.max(0, Number(this.scene.totalKills) || 0);
         const startTime = this.scene.sessionStartTime || time;
         this._missionTimeSec = Math.floor((time - startTime) / 1000);

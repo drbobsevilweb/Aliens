@@ -1,125 +1,150 @@
 [
   {
     "mission": "m1",
-    "outcome": "state_lost",
-    "durationS": "49.0",
-    "finalHP": 0,
-    "maxHP": 0,
-    "squadAlive": 0,
-    "squadTotal": 0,
+    "outcome": "victory",
+    "durationS": "61.9",
+    "finalHP": 100,
+    "maxHP": 100,
+    "squadAlive": 4,
+    "squadTotal": 4,
     "kills": 0,
-    "maxHostiles": 11,
-    "damageTaken": 100,
+    "maxHostiles": 0,
+    "damageTaken": 0,
     "modeHistory": [
-      "combat"
+      "combat",
+      "extract",
+      "victory"
     ],
-    "consoleErrors": [
-      "[bot-debug] findPath returned null from (11,34) to (32,34)",
-      "[bot-debug] findPath returned null from (11,34) to (32,34)",
-      "[bot-debug] findPath returned null from (10,34) to (32,34)",
-      "[bot-debug] findPath returned null from (9,34) to (32,34)",
-      "[bot-debug] findPath returned null from (8,34) to (32,34)",
-      "[bot-debug] findPath returned null from (7,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (6,34) to (32,34)",
-      "[bot-debug] findPath returned null from (7,32) to (32,34)",
-      "[bot-debug] findPath returned null from (8,32) to (31,34)",
-      "[bot-debug] findPath returned null from (9,32) to (30,34)",
-      "[bot-debug] findPath returned null from (10,32) to (30,33)",
-      "[bot-debug] findPath returned null from (10,32) to (30,33)",
-      "[bot-debug] findPath returned null from (11,31) to (30,32)",
-      "[bot-debug] findPath returned null from (12,31) to (28,35)",
-      "[bot-debug] findPath returned null from (12,31) to (28,35)",
-      "[bot-debug] findPath returned null from (13,31) to (30,31)",
-      "[bot-debug] findPath returned null from (13,31) to (72,34)",
-      "[bot-debug] findPath returned null from (13,31) to (72,34)",
-      "[bot-debug] findPath returned null from (13,31) to (72,34)",
-      "[bot-debug] findPath returned null from (13,31) to (72,34)",
-      "[bot-debug] findPath returned null from (12,31) to (72,34)",
-      "[bot-debug] findPath returned null from (12,30) to (72,34)",
-      "[bot-debug] findPath returned null from (11,30) to (71,34)",
-      "[bot-debug] findPath returned null from (10,29) to (70,34)",
-      "[bot-debug] findPath returned null from (10,29) to (69,34)",
-      "[bot-debug] findPath returned null from (9,28) to (67,34)",
-      "[bot-debug] findPath returned null from (9,28) to (70,34)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)",
-      "[bot-debug] no walkable tile found near target (12,10)"
-    ],
+    "consoleErrors": [],
     "pageErrors": [],
     "healthTimeline": [
       {
         "t": 0,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
         "pressure": 0.12,
         "wave": 1
       },
       {
-        "t": 5323,
+        "t": 5263,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
         "pressure": 0.08,
         "wave": 1
       },
       {
-        "t": 10033,
+        "t": 10409,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
         "pressure": 0.06,
         "wave": 1
       },
       {
-        "t": 15565,
+        "t": 15493,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
         "pressure": 0.05,
         "wave": 1
       },
       {
-        "t": 20682,
+        "t": 20601,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
         "pressure": 0.05,
         "wave": 1
       },
       {
-        "t": 25712,
+        "t": 25709,
         "hp": 100,
         "squad": 4,
-        "hostiles": 11,
+        "hostiles": 0,
         "kills": 0,
-        "mode": "combat",
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 30778,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 35834,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 40961,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 46073,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 51136,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 56227,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
+        "pressure": 0.05,
+        "wave": 1
+      },
+      {
+        "t": 61345,
+        "hp": 100,
+        "squad": 4,
+        "hostiles": 0,
+        "kills": 0,
+        "mode": "extract",
         "pressure": 0.05,
         "wave": 1
       }
@@ -131,816 +156,11 @@
     "navDiags": [],
     "issueTracker": {
       "mission": "m1",
-      "issues": [
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (11,34) to (32,34)",
-          "tick": 1775064784949,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (11,34) to (32,34)",
-          "tick": 1775064785386,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (10,34) to (32,34)",
-          "tick": 1775064785798,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (9,34) to (32,34)",
-          "tick": 1775064786224,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (8,34) to (32,34)",
-          "tick": 1775064786664,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (7,34) to (32,34)",
-          "tick": 1775064787112,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064787552,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064787976,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064788412,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064788830,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064789250,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064789692,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064790124,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064790553,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064790974,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064791397,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064791804,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064792232,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (432,2208)",
-          "tick": 1775064792691,
-          "data": {
-            "x": 432,
-            "y": 2208,
-            "count": 1,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-1.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-          "tick": 1775064793116,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (432,2208)",
-          "tick": 1775064793542,
-          "data": {
-            "x": 432,
-            "y": 2208,
-            "count": 2,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-2.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (432,2208)",
-          "tick": 1775064794399,
-          "data": {
-            "x": 432,
-            "y": 2208,
-            "count": 3,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-3.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (7,32) to (32,34)",
-          "tick": 1775064795249,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (8,32) to (31,34)",
-          "tick": 1775064795664,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (9,32) to (30,34)",
-          "tick": 1775064796109,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (10,32) to (30,33)",
-          "tick": 1775064796544,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (10,32) to (30,33)",
-          "tick": 1775064796955,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (11,31) to (30,32)",
-          "tick": 1775064797382,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (28,35)",
-          "tick": 1775064797797,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (28,35)",
-          "tick": 1775064798216,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (30,31)",
-          "tick": 1775064798649,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-          "tick": 1775064799071,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-          "tick": 1775064799934,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-          "tick": 1775064800365,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-          "tick": 1775064800786,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (72,34)",
-          "tick": 1775064801636,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (12,30) to (72,34)",
-          "tick": 1775064802058,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (11,30) to (71,34)",
-          "tick": 1775064802481,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (10,29) to (70,34)",
-          "tick": 1775064802918,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (10,29) to (69,34)",
-          "tick": 1775064803337,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (9,28) to (67,34)",
-          "tick": 1775064803776,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] findPath returned null from (9,28) to (70,34)",
-          "tick": 1775064804190,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064804603,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064805852,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064807118,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (620,1834)",
-          "tick": 1775064808364,
-          "data": {
-            "x": 620,
-            "y": 1834,
-            "count": 1,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-1.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064808783,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (620,1834)",
-          "tick": 1775064809220,
-          "data": {
-            "x": 620,
-            "y": 1834,
-            "count": 2,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-2.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "pathfinding",
-          "msg": "Stuck at (620,1834)",
-          "tick": 1775064810035,
-          "data": {
-            "x": 620,
-            "y": 1834,
-            "count": 3,
-            "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-3.png"
-          }
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064810904,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064812157,
-          "data": {}
-        },
-        {
-          "severity": "medium",
-          "category": "error",
-          "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-          "tick": 1775064813435,
-          "data": {}
-        },
-        {
-          "severity": "critical",
-          "category": "error",
-          "msg": "20 consecutive eval failures",
-          "tick": 1775064832879,
-          "data": {}
-        }
-      ],
+      "issues": [],
       "bySeverity": {
-        "critical": [
-          {
-            "severity": "critical",
-            "category": "error",
-            "msg": "20 consecutive eval failures",
-            "tick": 1775064832879,
-            "data": {}
-          }
-        ],
+        "critical": [],
         "high": [],
-        "medium": [
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (11,34) to (32,34)",
-            "tick": 1775064784949,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (11,34) to (32,34)",
-            "tick": 1775064785386,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (10,34) to (32,34)",
-            "tick": 1775064785798,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (9,34) to (32,34)",
-            "tick": 1775064786224,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (8,34) to (32,34)",
-            "tick": 1775064786664,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (7,34) to (32,34)",
-            "tick": 1775064787112,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064787552,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064787976,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064788412,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064788830,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064789250,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064789692,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064790124,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064790553,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064790974,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064791397,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064791804,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064792232,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (432,2208)",
-            "tick": 1775064792691,
-            "data": {
-              "x": 432,
-              "y": 2208,
-              "count": 1,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-1.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (6,34) to (32,34)",
-            "tick": 1775064793116,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (432,2208)",
-            "tick": 1775064793542,
-            "data": {
-              "x": 432,
-              "y": 2208,
-              "count": 2,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-2.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (432,2208)",
-            "tick": 1775064794399,
-            "data": {
-              "x": 432,
-              "y": 2208,
-              "count": 3,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-3.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (7,32) to (32,34)",
-            "tick": 1775064795249,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (8,32) to (31,34)",
-            "tick": 1775064795664,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (9,32) to (30,34)",
-            "tick": 1775064796109,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (10,32) to (30,33)",
-            "tick": 1775064796544,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (10,32) to (30,33)",
-            "tick": 1775064796955,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (11,31) to (30,32)",
-            "tick": 1775064797382,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (28,35)",
-            "tick": 1775064797797,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (28,35)",
-            "tick": 1775064798216,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (30,31)",
-            "tick": 1775064798649,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-            "tick": 1775064799071,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-            "tick": 1775064799934,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-            "tick": 1775064800365,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (13,31) to (72,34)",
-            "tick": 1775064800786,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (12,31) to (72,34)",
-            "tick": 1775064801636,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (12,30) to (72,34)",
-            "tick": 1775064802058,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (11,30) to (71,34)",
-            "tick": 1775064802481,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (10,29) to (70,34)",
-            "tick": 1775064802918,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (10,29) to (69,34)",
-            "tick": 1775064803337,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (9,28) to (67,34)",
-            "tick": 1775064803776,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] findPath returned null from (9,28) to (70,34)",
-            "tick": 1775064804190,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064804603,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064805852,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064807118,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (620,1834)",
-            "tick": 1775064808364,
-            "data": {
-              "x": 620,
-              "y": 1834,
-              "count": 1,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-1.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064808783,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (620,1834)",
-            "tick": 1775064809220,
-            "data": {
-              "x": 620,
-              "y": 1834,
-              "count": 2,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-2.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "pathfinding",
-            "msg": "Stuck at (620,1834)",
-            "tick": 1775064810035,
-            "data": {
-              "x": 620,
-              "y": 1834,
-              "count": 3,
-              "screenshot": "/home/drevilbob/Aliens/output/bot-m1-stuck-3.png"
-            }
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064810904,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064812157,
-            "data": {}
-          },
-          {
-            "severity": "medium",
-            "category": "error",
-            "msg": "Console error: [bot-debug] no walkable tile found near target (12,10)",
-            "tick": 1775064813435,
-            "data": {}
-          }
-        ],
+        "medium": [],
         "low": []
       },
       "checks": {
@@ -952,96 +172,56 @@
           ]
         },
         "tracker": {
-          "pass": 108,
+          "pass": 72,
           "fail": 0,
           "notes": [
             "Tracker activation command accepted",
-            "Tracker reported 11 contact(s)",
-            "Tracker reported 10 contact(s)",
+            "Tracker reported 1 contact(s)",
             "Tracker cooldown observed (29s)",
-            "Tracker reported 10 contact(s)",
             "Tracker cooldown observed (29s)",
-            "Tracker reported 10 contact(s)",
             "Tracker cooldown observed (29s)",
-            "Tracker reported 10 contact(s)",
             "Tracker cooldown observed (28s)",
-            "Tracker reported 6 contact(s)",
             "Tracker cooldown observed (28s)",
-            "Tracker reported 5 contact(s)",
             "Tracker cooldown observed (27s)",
-            "Tracker reported 4 contact(s)",
             "Tracker cooldown observed (27s)",
-            "Tracker reported 4 contact(s)",
             "Tracker cooldown observed (26s)",
-            "Tracker reported 4 contact(s)",
             "Tracker cooldown observed (26s)",
-            "Tracker reported 4 contact(s)",
             "Tracker cooldown observed (26s)",
-            "Tracker reported 4 contact(s)",
             "Tracker cooldown observed (25s)",
             "Tracker active (10s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (9s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (9s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (8s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (8s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (8s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (7s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (7s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (6s remaining)",
-            "Tracker reported 4 contact(s)",
+            "Tracker active (6s remaining)",
             "Tracker active (5s remaining)",
-            "Tracker reported 4 contact(s)",
+            "Tracker active (5s remaining)",
+            "Tracker active (5s remaining)",
             "Tracker active (4s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (4s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (3s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (3s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (2s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (2s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (2s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (1s remaining)",
-            "Tracker reported 4 contact(s)",
             "Tracker active (1s remaining)",
-            "Tracker reported 3 contact(s)",
             "Tracker active (0s remaining)",
-            "Tracker reported 2 contact(s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (15s)",
-            "Tracker reported 2 contact(s)",
+            "Tracker cooldown observed (15s)",
             "Tracker cooldown observed (14s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (14s)",
-            "Tracker reported 2 contact(s)",
-            "Tracker cooldown observed (14s)",
-            "Tracker reported 3 contact(s)",
             "Tracker cooldown observed (13s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (13s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (12s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (12s)",
-            "Tracker reported 2 contact(s)",
+            "Tracker cooldown observed (12s)",
             "Tracker cooldown observed (11s)",
-            "Tracker reported 2 contact(s)",
             "Tracker cooldown observed (11s)",
-            "Tracker reported 2 contact(s)",
-            "Tracker cooldown observed (11s)",
-            "Tracker reported 1 contact(s)",
             "Tracker cooldown observed (10s)",
             "Tracker cooldown observed (10s)",
             "Tracker cooldown observed (9s)",
@@ -1053,16 +233,29 @@
             "Tracker cooldown observed (7s)",
             "Tracker cooldown observed (6s)",
             "Tracker cooldown observed (6s)",
+            "Tracker cooldown observed (6s)",
+            "Tracker cooldown observed (5s)",
             "Tracker cooldown observed (5s)",
             "Tracker cooldown observed (4s)",
             "Tracker cooldown observed (4s)",
             "Tracker cooldown observed (3s)",
             "Tracker cooldown observed (3s)",
+            "Tracker cooldown observed (3s)",
             "Tracker cooldown observed (2s)",
             "Tracker cooldown observed (2s)",
             "Tracker cooldown observed (1s)",
             "Tracker cooldown observed (1s)",
-            "Tracker cooldown observed (1s)"
+            "Tracker cooldown observed (1s)",
+            "Tracker cooldown observed (0s)"
+          ]
+        },
+        "mode": {
+          "pass": 3,
+          "fail": 0,
+          "notes": [
+            "combat→extract",
+            "extract→victory",
+            "Victory"
           ]
         },
         "spawn": {
@@ -1073,10 +266,10 @@
           ]
         },
         "completion": {
-          "pass": 0,
-          "fail": 1,
+          "pass": 1,
+          "fail": 0,
           "notes": [
-            "Outcome: state_lost"
+            "Outcome: victory"
           ]
         }
       }

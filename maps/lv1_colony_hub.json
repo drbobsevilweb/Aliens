@@ -7785,6 +7785,120 @@
               "value": 2
             }
           ]
+        },
+        {
+          "id": 1775997484010,
+          "name": "alien_spawn",
+          "type": "spawn",
+          "x": 2816,
+          "y": 2176,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "markerValue",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "marker_type",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "count",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "enemyType",
+              "type": "string",
+              "value": "warrior"
+            },
+            {
+              "name": "spawnTimeSec",
+              "type": "float",
+              "value": 2.5
+            }
+          ]
+        },
+        {
+          "id": 1775997682015,
+          "name": "alien_spawn",
+          "type": "spawn",
+          "x": 2240,
+          "y": 960,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "markerValue",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "marker_type",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "count",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "enemyType",
+              "type": "string",
+              "value": "warrior"
+            },
+            {
+              "name": "spawnTimeSec",
+              "type": "float",
+              "value": 2.5
+            }
+          ]
+        },
+        {
+          "id": 1775997685039,
+          "name": "alien_spawn",
+          "type": "spawn",
+          "x": 768,
+          "y": 2432,
+          "width": 64,
+          "height": 64,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            {
+              "name": "markerValue",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "marker_type",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "count",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "enemyType",
+              "type": "string",
+              "value": "warrior"
+            },
+            {
+              "name": "spawnTimeSec",
+              "type": "float",
+              "value": 2.5
+            }
+          ]
         }
       ],
       "x": 0,
@@ -7919,5 +8033,20 @@
       "type": "string",
       "value": "tile_wall_corridor_import"
     }
-  ]
+  ],
+  "atmosphere": {
+    "ambientDarkness": 0.82,
+    "torchRange": 560,
+    "softRadius": 220,
+    "coreAlpha": 0.9,
+    "featherLayers": 14,
+    "featherSpread": 1.2,
+    "featherDecay": 0.68,
+    "glowStrength": 1.15,
+    "dustDensity": 0.5,
+    "ventHum": true,
+    "pipeGroans": true,
+    "distantThumps": true,
+    "alienChittering": true
+  }
 }

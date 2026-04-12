@@ -94,6 +94,16 @@ function makeBaseScene() {
         },
         marineAmmo: new Map(),
         parseCommanderLaneDirective: () => ({ mode: 'none' }),
+        getCommanderTacticalProfile() {
+            return {
+                mode: 'none',
+                laneReactionMul: 1,
+                offLaneReactionMul: 1,
+                laneHitMul: 1,
+                offLaneHitMul: 1,
+                suppressWindowMul: 1,
+            };
+        },
         getFollowerCombatProfile(roleKey) {
             return roleKey === 'heavy' ? heavyProfile : defaultProfile;
         },
@@ -126,6 +136,8 @@ function makeBaseScene() {
             },
         },
         weaponManager: {
+            pulseMaxAmmo: 99,
+            pulseUnlockAt: 24,
             getRuntimeWeaponDef() {
                 return { key: 'pulseRifle', fireRate: 110, damage: 13 };
             },
@@ -235,10 +247,163 @@ function testRoleProfilesAffectCadenceAndHeat() {
     }
 }
 
+function testCloseUndetectedThreatsTriggerReactiveScan() {
+    const restore = installPhaserMock();
+    try {
+        const scene = makeBaseScene();
+        const system = new FollowerCombatSystem(scene);
+        const follower = makeFollower('heavy', 0, 0);
+        const closeThreat = {
+            active: true,
+            isDying: false,
+            enemyType: 'warrior',
+            x: -CONFIG.TILE_SIZE * 3,
+            y: 0,
+        };
+        scene.enemyManager.getDetectedEnemies = () => [];
+        scene.enemyManager.getAliveEnemies = () => [closeThreat];
+        scene.marineAmmo.set('heavy', {
+            currentMag: 5,
+            displayedAmmo: 99,
+            magsLeft: 3,
+            magSize: 99,
+            isReloading: false,
+            isOverheated: false,
+            pulseHeat: 0,
+        });
+
+        system.update(1000, 16, [follower]);
+
+        const state = system.getFollowerCombatState('heavy');
+        assert.equal(state.targetRef, closeThreat);
+        assert.equal(scene.bulletPool.shots.length, 1);
+    } finally {
+        restore();
+    }
+}
+
+function testFollowerOverheatUnlocksAtLeaderEquivalentHeat() {
+    const restore = installPhaserMock();
+    try {
+        const scene = makeBaseScene();
+        const system = new FollowerCombatSystem(scene);
+        const heavy = makeFollower('heavy', 0, 0);
+        scene.marineAmmo.set('heavy', {
+            currentMag: 12,
+            displayedAmmo: 12,
+            magsLeft: 3,
+            magSize: 99,
+            isReloading: false,
+            isOverheated: true,
+            pulseHeat: 80,
+            overheatCooldownUntil: 0,
+        });
+
+        system.update(1000, 200, [heavy]);
+
+        assert.equal(scene.marineAmmo.get('heavy').isOverheated, false);
+        assert.ok(scene.marineAmmo.get('heavy').pulseHeat < 80);
+    } finally {
+        restore();
+    }
+}
+
+function testSupportSuppressWindowUsesRuntimeSetting() {
+    const restore = installPhaserMock();
+    try {
+        const scene = makeBaseScene();
+        scene.runtimeSettings.marines.supportSuppressWindowMs = 900;
+        const system = new FollowerCombatSystem(scene);
+        const follower = makeFollower('heavy', 0, 0);
+        const target = { active: true, isDying: false, enemyType: 'warrior', x: CONFIG.TILE_SIZE, y: 0 };
+        const state = system.getFollowerCombatState('heavy');
+        state.targetRef = target;
+        state.nextThinkAt = 2000;
+        scene.enemyManager.getDetectedEnemies = () => [];
+        scene.enemyManager.getAliveEnemies = () => [target];
+        scene.enemyManager.hasLineOfSight = () => false;
+        scene.marineAmmo.set('heavy', {
+            currentMag: 5,
+            displayedAmmo: 99,
+            magsLeft: 3,
+            magSize: 99,
+            isReloading: false,
+            isOverheated: false,
+            pulseHeat: 0,
+        });
+
+        system.update(1000, 16, [follower]);
+
+        assert.equal(state.suppressionUntil, 1900);
+        assert.equal(state.targetRef, null);
+    } finally {
+        restore();
+    }
+}
+
+function testDirectiveLaneComplianceSpeedsReaction() {
+    const restore = installPhaserMock();
+    try {
+        const scene = makeBaseScene();
+        scene.currentCommanderDirective = 'HOLD FORMATION E';
+        scene.parseCommanderLaneDirective = () => ({ mode: 'hold', primary: 'E', secondary: null });
+        scene.getRoleAssignedLane = (roleKey, directive) => roleKey === 'heavy' ? directive.primary : null;
+        scene.getCommanderTacticalProfile = () => ({
+            mode: 'hold',
+            laneReactionMul: 0.8,
+            offLaneReactionMul: 1.1,
+            laneHitMul: 1.06,
+            offLaneHitMul: 0.96,
+            suppressWindowMul: 1.18,
+        });
+        scene.getDirectionBucket = () => 'E';
+        scene.getFollowerCombatProfile = () => ({
+            reactionMs: 100,
+            damageMul: 1,
+            fireRateMul: 1,
+            heatPerShot: 9,
+            coolRate: 25,
+            jamSensitivity: 0.95,
+            burstMin: 1,
+            burstMax: 1,
+            burstPauseMinMs: 0,
+            burstPauseMaxMs: 0,
+            suppressChance: 0,
+        });
+
+        const system = new FollowerCombatSystem(scene);
+        const follower = makeFollower('heavy', 0, 0);
+        const target = { active: true, isDying: false, enemyType: 'drone', x: CONFIG.TILE_SIZE, y: 0 };
+        scene.enemyManager.getDetectedEnemies = () => [target];
+        scene.enemyManager.getAliveEnemies = () => [target];
+        scene.marineAmmo.set('heavy', {
+            currentMag: 5,
+            displayedAmmo: 99,
+            magsLeft: 3,
+            magSize: 99,
+            isReloading: false,
+            isOverheated: false,
+            pulseHeat: 0,
+        });
+
+        system.update(1000, 16, [follower]);
+
+        const state = system.getFollowerCombatState('heavy');
+        assert.equal(state.readyAt, 1080);
+        assert.equal(scene.bulletPool.shots.length, 0);
+    } finally {
+        restore();
+    }
+}
+
 function main() {
     testBusyFollowersClearReservations();
     testEvadeUsesRealDistanceNotScoredThreat();
     testRoleProfilesAffectCadenceAndHeat();
+    testCloseUndetectedThreatsTriggerReactiveScan();
+    testFollowerOverheatUnlocksAtLeaderEquivalentHeat();
+    testSupportSuppressWindowUsesRuntimeSetting();
+    testDirectiveLaneComplianceSpeedsReaction();
     console.log('followerAI.spec: ok');
 }
 

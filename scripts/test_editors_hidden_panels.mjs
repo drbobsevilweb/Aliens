@@ -133,6 +133,18 @@ try {
             await page.waitForTimeout(120);
             await page.waitForSelector(panelSelector, { state: 'visible', timeout: 6000 });
             pass(`Settings tab ${tabId} loads`);
+            if (tabId === 'game') {
+                await checkVisible(page, '#f_lighting_coreAlpha_range', 'Settings core alpha range control visible');
+                await checkVisible(page, '#f_lighting_coreAlpha_number', 'Settings core alpha number control visible');
+                await page.locator('#f_lighting_coreAlpha_number').fill('0.61');
+                await page.waitForTimeout(80);
+                const syncedValue = await page.locator('#f_lighting_coreAlpha_range').inputValue();
+                if (syncedValue === '0.61') {
+                    pass('Settings core alpha controls stay synchronized');
+                } else {
+                    fail('Settings core alpha controls stay synchronized', `expected 0.61, got ${syncedValue}`);
+                }
+            }
         } catch (error) {
             fail(`Settings tab ${tabId} loads`, error.message);
         }
